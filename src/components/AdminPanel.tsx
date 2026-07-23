@@ -53,6 +53,7 @@ export const AdminPanel: React.FC = () => {
   const [viewingPendingUser, setViewingPendingUser] = useState<User | null>(null);
 
   // Ad Form State
+  const [selectedBusinessId, setSelectedBusinessId] = useState('');
   const [adTitle, setAdTitle] = useState('');
   const [adImageUrl, setAdImageUrl] = useState('');
   const [adSponsorName, setAdSponsorName] = useState('');
@@ -63,6 +64,7 @@ export const AdminPanel: React.FC = () => {
   const [adLinkUrl, setAdLinkUrl] = useState('');
 
   // Comprehensive Settings State
+  const [themePrimaryColor, setThemePrimaryColor] = useState(systemSettings.themePrimaryColor || 'amber');
   const [appName, setAppName] = useState(systemSettings.appName);
   const [tagline, setTagline] = useState(systemSettings.tagline);
   const [ticker, setTicker] = useState(systemSettings.announcementTicker);
@@ -84,9 +86,22 @@ export const AdminPanel: React.FC = () => {
   const pendingUsers = users.filter((u) => u.status === 'Pending Approval');
   const approvedUsers = users.filter((u) => u.status === 'Approved');
 
+  const handleSelectBusinessForAd = (bizId: string) => {
+    setSelectedBusinessId(bizId);
+    const found = businesses.find((b) => b.id === bizId);
+    if (found) {
+      setAdSponsorName(found.businessName);
+      setAdContactMobile(found.mobile || systemSettings.contactPhone);
+      setAdDescription(found.description);
+      if (found.logoUrl) setAdImageUrl(found.logoUrl);
+      if (found.website) setAdLinkUrl(found.website);
+    }
+  };
+
   const handleSaveSettings = (e: React.FormEvent) => {
     e.preventDefault();
     updateSystemSettings({
+      themePrimaryColor,
       appName,
       tagline,
       announcementTicker: ticker,
@@ -103,12 +118,15 @@ export const AdminPanel: React.FC = () => {
       templeHeading,
       directoryHeading,
     });
-    showToast('Settings Saved', 'Dynamic website text updated across the entire platform.', 'success');
+    showToast('Settings Saved', 'Theme color palette & website wordings updated across the platform.', 'success');
   };
 
   const handleCreateAd = (e: React.FormEvent) => {
     e.preventDefault();
     if (!adTitle || !adImageUrl) return;
+
+    const linkedBiz = businesses.find((b) => b.id === selectedBusinessId);
+
     addAd({
       title: adTitle,
       imageUrl: adImageUrl,
@@ -119,7 +137,10 @@ export const AdminPanel: React.FC = () => {
       offerDiscount: adOfferDiscount,
       contactMobile: adContactMobile || systemSettings.contactPhone,
       expiryDate: adExpiryDate || '2026-12-31',
+      businessId: selectedBusinessId || undefined,
+      ownerUserId: linkedBiz?.ownerId || undefined,
     });
+    setSelectedBusinessId('');
     setAdTitle('');
     setAdImageUrl('');
     setAdSponsorName('');
@@ -128,7 +149,7 @@ export const AdminPanel: React.FC = () => {
     setAdContactMobile('');
     setAdExpiryDate('');
     setAdLinkUrl('');
-    showToast('Advertisement Published', 'Business promotion is now live on the public home page.', 'success');
+    showToast('Advertisement Published', 'Business promotion connected and published on home page.', 'success');
   };
 
   return (
@@ -458,6 +479,25 @@ export const AdminPanel: React.FC = () => {
             <p className="font-bold text-slate-900 dark:text-white text-sm">Create New Detailed Business Ad Banner</p>
             
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="col-span-1 sm:col-span-2">
+                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center justify-between">
+                  <span>Connect Registered Business (Auto-populates Ad Details & Triggers Renewal Reminder)</span>
+                  <span className="text-[10px] text-amber-600 font-semibold">Optional Business Link</span>
+                </label>
+                <select
+                  value={selectedBusinessId}
+                  onChange={(e) => handleSelectBusinessForAd(e.target.value)}
+                  className="w-full p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-amber-300 dark:border-amber-700 font-medium text-xs text-slate-800 dark:text-slate-200"
+                >
+                  <option value="">-- Select Registered Business Listing --</option>
+                  {businesses.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.businessName} ({b.city}, {b.category}) - Owner: {b.ownerName || 'Verified'}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               <div>
                 <label className="block font-bold text-slate-600 dark:text-slate-300 mb-1">Ad Headline / Title *</label>
                 <input
@@ -589,6 +629,39 @@ export const AdminPanel: React.FC = () => {
             Dynamic Portal Branding & Website Wordings Control
           </h3>
 
+          <div className="p-4 bg-amber-50 dark:bg-amber-950/30 rounded-2xl border border-amber-300 dark:border-amber-800 space-y-3">
+            <p className="font-bold text-amber-900 dark:text-amber-300 text-xs flex items-center gap-1.5 uppercase tracking-wider">
+              <Sparkles className="w-4 h-4 text-amber-500" />
+              Website Color Scheme & Primary Brand Accent
+            </p>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2">
+              {[
+                { id: 'amber', label: 'Saffron Amber (Classic)', bg: 'bg-amber-500' },
+                { id: 'emerald', label: 'Sacred Jain Green', bg: 'bg-emerald-600' },
+                { id: 'ruby', label: 'Royal Ruby Red', bg: 'bg-rose-600' },
+                { id: 'sapphire', label: 'Divine Sapphire Blue', bg: 'bg-blue-600' },
+                { id: 'saffron', label: 'Sandalwood Gold', bg: 'bg-yellow-500' },
+                { id: 'purple', label: 'Ahimsa Purple', bg: 'bg-purple-600' },
+              ].map((c) => (
+                <button
+                  type="button"
+                  key={c.id}
+                  onClick={() => setThemePrimaryColor(c.id)}
+                  className={`p-2.5 rounded-xl border text-[11px] font-bold flex flex-col items-center gap-1.5 transition-all ${
+                    themePrimaryColor === c.id
+                      ? 'border-amber-600 dark:border-amber-400 bg-white dark:bg-slate-900 shadow-md ring-2 ring-amber-500'
+                      : 'border-slate-200 dark:border-slate-800 bg-white/60 dark:bg-slate-900/60 opacity-80 hover:opacity-100'
+                  }`}
+                >
+                  <div className={`w-5 h-5 rounded-full ${c.bg} shadow-sm`} />
+                  <span className="text-center text-[10px] text-slate-800 dark:text-slate-200 leading-tight">
+                    {c.label}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
@@ -694,6 +767,30 @@ export const AdminPanel: React.FC = () => {
                 type="text"
                 value={address}
                 onChange={(e) => setAddress(e.target.value)}
+                className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700"
+              />
+            </div>
+
+            <div className="col-span-1 sm:col-span-2">
+              <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                Homepage About / Welcome Title
+              </label>
+              <input
+                type="text"
+                value={aboutTitle}
+                onChange={(e) => setAboutTitle(e.target.value)}
+                className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700"
+              />
+            </div>
+
+            <div className="col-span-1 sm:col-span-2">
+              <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                Homepage About / Welcome Description
+              </label>
+              <textarea
+                rows={2}
+                value={aboutDescription}
+                onChange={(e) => setAboutDescription(e.target.value)}
                 className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700"
               />
             </div>

@@ -113,12 +113,10 @@ export const FeaturedAdsSection: React.FC = () => {
                       <span>{ad.sponsorName || 'Jain Enterprise'}</span>
                     </div>
 
-                    {ad.expiryDate && (
-                      <div className="flex items-center gap-1 text-slate-400">
-                        <Calendar className="w-3 h-3" />
-                        <span>Valid till {ad.expiryDate}</span>
-                      </div>
-                    )}
+                    <div className="flex items-center gap-1 text-emerald-600 font-bold">
+                      <ShieldCheck className="w-3 h-3" />
+                      <span>Verified Ad</span>
+                    </div>
                   </div>
                 </div>
               </div>

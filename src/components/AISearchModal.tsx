@@ -24,11 +24,37 @@ export const AISearchModal: React.FC = () => {
 
   if (!isAISearchOpen) return null;
 
-  const sampleQuestions = [
-    'What is the history & significance of Palitana Shatrunjaya Tirth?',
-    'Explain Paryushan Parva and Samvatsari Pratikraman rules.',
-    'How do I verify my Jain Business on Jain Connect Global?',
-    'What are the core 5 Mahavratas taught by Lord Mahavira?',
+  const sampleCategories = [
+    {
+      category: 'Tirths & Pilgrimages',
+      questions: [
+        'History & significance of Palitana Shatrunjaya Tirth',
+        'Shikharji Parasnath Hill yatra guidelines',
+        'Girnar Tirth Neminath Bhagwan history',
+      ],
+    },
+    {
+      category: 'Jain Philosophy & Scriptures',
+      questions: [
+        'Core 5 Mahavratas taught by Lord Mahavira',
+        'Navkar Mantra meaning and spiritual benefit',
+        'Samvatsari Pratikraman and Michhami Dukkadam',
+      ],
+    },
+    {
+      category: 'Panchang & Food Rules',
+      questions: [
+        'Navkarshi, Porshi and Chouvihar timings rule',
+        'Jain Dietary guidelines & Kandmool prohibition',
+      ],
+    },
+    {
+      category: 'Directory & Matrimonial',
+      questions: [
+        'How Jain Gotra matching works in Matrimonial',
+        'How to register a Jain Business on Directory',
+      ],
+    },
   ];
 
   const handleSend = async (customPrompt?: string) => {
@@ -93,20 +119,27 @@ export const AISearchModal: React.FC = () => {
         </div>
 
         {/* Suggested Quick Questions */}
-        <div className="p-3 bg-amber-50/80 dark:bg-amber-950/30 border-b border-amber-200 dark:border-amber-900/40 text-xs">
-          <p className="text-[10px] font-bold text-amber-800 dark:text-amber-400 uppercase tracking-wider mb-2 flex items-center gap-1">
+        <div className="p-3 bg-amber-50/80 dark:bg-amber-950/30 border-b border-amber-200 dark:border-amber-900/40 text-xs space-y-2 max-h-36 overflow-y-auto">
+          <p className="text-[10px] font-bold text-amber-800 dark:text-amber-400 uppercase tracking-wider flex items-center gap-1">
             <BookOpen className="w-3 h-3" />
-            Suggested Quick Questions:
+            Explore Jain Knowledge Topics & AI Assistant Prompts:
           </p>
-          <div className="flex flex-wrap gap-1.5">
-            {sampleQuestions.map((q, idx) => (
-              <button
-                key={idx}
-                onClick={() => handleSend(q)}
-                className="px-2.5 py-1 bg-white dark:bg-slate-800 hover:bg-amber-100 dark:hover:bg-amber-900/40 border border-amber-300 dark:border-amber-800 rounded-full text-[11px] text-slate-700 dark:text-slate-200 transition-all text-left"
-              >
-                {q}
-              </button>
+          <div className="space-y-1.5">
+            {sampleCategories.map((cat, idx) => (
+              <div key={idx} className="flex flex-wrap items-center gap-1.5">
+                <span className="text-[10px] font-bold text-amber-900 dark:text-amber-300 bg-amber-200/60 dark:bg-amber-900/60 px-2 py-0.5 rounded-md">
+                  {cat.category}:
+                </span>
+                {cat.questions.map((q, qIdx) => (
+                  <button
+                    key={qIdx}
+                    onClick={() => handleSend(q)}
+                    className="px-2 py-0.5 bg-white dark:bg-slate-800 hover:bg-amber-100 dark:hover:bg-amber-900/40 border border-amber-300 dark:border-amber-800 rounded-full text-[10px] text-slate-700 dark:text-slate-200 transition-all text-left"
+                  >
+                    {q}
+                  </button>
+                ))}
+              </div>
             ))}
           </div>
         </div>

@@ -192,6 +192,13 @@ export interface AdBanner {
   linkUrl: string;
   position: 'Home Banner' | 'Sidebar' | 'Footer' | 'Sponsored Card';
   isActive: boolean;
+  sponsorName?: string;
+  description?: string;
+  offerDiscount?: string;
+  contactMobile?: string;
+  expiryDate?: string;
+  businessId?: string;
+  ownerUserId?: string;
 }
 
 export interface PanchangInfo {
@@ -234,7 +241,7 @@ export interface AppNotification {
   userId?: string; // if targeted or global
   title: string;
   message: string;
-  type: 'Approval' | 'Matrimonial' | 'Business' | 'Temple' | 'Broadcast' | 'General';
+  type: 'Approval' | 'Matrimonial' | 'Business' | 'Temple' | 'Broadcast' | 'General' | 'AdReminder';
   createdAt: string;
   isRead: boolean;
 }
@@ -252,4 +259,11 @@ export interface SystemSettings {
   contactPhone: string;
   whatsappSupport: string;
   address: string;
+  aboutTitle?: string;
+  aboutDescription?: string;
+  matrimonialHeading?: string;
+  businessHeading?: string;
+  templeHeading?: string;
+  directoryHeading?: string;
+  themePrimaryColor?: 'amber' | 'emerald' | 'ruby' | 'sapphire' | 'saffron' | 'purple';
 }

@@ -42,11 +42,61 @@ export const Header: React.FC = () => {
     notifications,
     logout,
     systemSettings,
+    showToast,
   } = useApp();
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+
+  const handleTabClick = (tabId: string) => {
+    // 1. Logged-out Guest User: Only Matrimonial requires login
+    if (!currentUser) {
+      if (tabId === 'matrimonial') {
+        setIsAuthModalOpen(true);
+        showToast('Login Required', 'Please sign in or register to access Matrimonial Directory.', 'info');
+        return;
+      }
+      setActiveTab(tabId as any);
+      return;
+    }
+
+    // 2. Super Admin & Admin have unrestricted access
+    if (currentUser.role === 'Super Admin' || currentUser.role === 'Admin') {
+      setActiveTab(tabId as any);
+      return;
+    }
+
+    // 3. Matrimonial registered users can see Matrimonial, Temple Directory, Panchang & Quotes
+    if (currentUser.registrationType === 'Marriage Profile') {
+      if (['business', 'directory'].includes(tabId)) {
+        showToast(
+          'Portal Restricted',
+          'Matrimonial members have access to Matrimonial, Temple Directory, Panchang & Community Feed.',
+          'info'
+        );
+        return;
+      }
+      setActiveTab(tabId as any);
+      return;
+    }
+
+    // 4. Jain Directory, Business Directory, Temple Directory registered users can see all options except Matrimonial
+    if (['Business', 'Temple', 'Individual', 'NGO', 'Trust'].includes(currentUser.registrationType)) {
+      if (tabId === 'matrimonial') {
+        showToast(
+          'Portal Restricted',
+          'Matrimonial Directory is exclusive to registered Marriage Profiles. Register a Marriage profile to access.',
+          'info'
+        );
+        return;
+      }
+      setActiveTab(tabId as any);
+      return;
+    }
+
+    setActiveTab(tabId as any);
+  };
 
   const languages = ['English', 'Hindi', 'Gujarati', 'Marwari', 'Kannada', 'Tamil', 'Telugu'] as const;
 
@@ -346,7 +396,7 @@ export const Header: React.FC = () => {
                 return (
                   <button
                     key={item.id}
-                    onClick={() => setActiveTab(item.id as any)}
+                    onClick={() => handleTabClick(item.id)}
                     className={`flex items-center gap-1.5 px-3 py-2.5 text-xs font-semibold transition-all border-b-2 whitespace-nowrap ${
                       isActive
                         ? 'border-amber-400 text-amber-300 bg-amber-900/30 font-bold'
@@ -417,7 +467,7 @@ export const Header: React.FC = () => {
                   <button
                     key={item.id}
                     onClick={() => {
-                      setActiveTab(item.id as any);
+                      handleTabClick(item.id);
                       setIsMobileMenuOpen(false);
                     }}
                     className={`flex items-center gap-2 p-2.5 rounded-lg text-xs font-semibold ${

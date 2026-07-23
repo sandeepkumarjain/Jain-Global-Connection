@@ -43,8 +43,14 @@ const MainContent: React.FC = () => {
     themeMode,
     currentUser,
     setIsAuthModalOpen,
-    setIsRegModalOpen
+    setIsRegModalOpen,
+    systemSettings
   } = useApp();
+
+  // Auto scroll to top when any tab or navigation option is clicked
+  React.useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [activeTab]);
 
   return (
     <div
@@ -82,11 +88,11 @@ const MainContent: React.FC = () => {
                   </div>
 
                   <h2 className="text-2xl sm:text-4xl font-extrabold font-serif text-white max-w-3xl leading-tight">
-                    One Unified Platform for Every Jain, Every Business, Every Temple, Every Family Worldwide.
+                    {systemSettings.aboutTitle || 'Welcome to Jain Connect Global'}
                   </h2>
 
                   <p className="text-xs sm:text-sm text-slate-300 max-w-2xl leading-relaxed">
-                    Designed by <strong>SKJ Tech World</strong>, Jain Connect Global connects Swetambar, Digambar, Sthanakvasi, and Terapanthi Jains across 120+ countries. To protect family privacy and contact numbers, profile listings are reserved for authenticated members.
+                    {systemSettings.aboutDescription || 'Designed by SKJ Tech World, Jain Connect Global connects Swetambar, Digambar, Sthanakvasi, and Terapanthi Jains across 120+ countries.'} To protect family privacy and contact numbers, profile listings are reserved for authenticated members.
                   </p>
 
                   <div className="pt-3 flex flex-wrap items-center gap-3">
@@ -138,7 +144,7 @@ const MainContent: React.FC = () => {
 
                       <div className="space-y-1.5">
                         <h4 className="text-lg font-bold font-serif text-slate-900 dark:text-white group-hover:text-red-500 transition-colors">
-                          1. Jain Matrimonial Bureau
+                          {systemSettings.matrimonialHeading || '1. Jain Matrimonial Bureau'}
                         </h4>
                         <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
                           Discover over 5,000+ verified Jain Grooms and Brides. Filter profiles by Jain Sect (Swetambar, Digambar, Terapanthi), Gotra, Qualification, Profession, and Strict Jain Diet preference.
@@ -168,7 +174,7 @@ const MainContent: React.FC = () => {
 
                       <div className="space-y-1.5">
                         <h4 className="text-lg font-bold font-serif text-slate-900 dark:text-white group-hover:text-amber-500 transition-colors">
-                          2. Jain Business & Commercial Directory
+                          {systemSettings.businessHeading || '2. Jain Business & Commercial Directory'}
                         </h4>
                         <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
                           Promote and connect with verified Jain-owned businesses worldwide. Featuring Jewellers, CAs, IT firms, Real Estate developers, Manufacturers, and Legal Advisors with GST verification.
@@ -374,7 +380,7 @@ const MainContent: React.FC = () => {
 
         {/* PROTECTED TABS: REQUIRE LOGIN WHEN UNAUTHENTICATED */}
 
-        {/* Tab 2: Matrimonial */}
+        {/* Tab 2: Matrimonial (Restricted to logged-in users) */}
         {activeTab === 'matrimonial' && (
           currentUser ? (
             <MatrimonialSection />
@@ -387,73 +393,23 @@ const MainContent: React.FC = () => {
           )
         )}
 
-        {/* Tab 3: Business Directory */}
-        {activeTab === 'business' && (
-          currentUser ? (
-            <BusinessSection />
-          ) : (
-            <LoginRequiredView
-              title="Jain Business Directory Access Restricted"
-              description="Direct owner WhatsApp contact numbers and GST verified listings are reserved for registered Jain Connect Global members."
-              sectionIcon="business"
-            />
-          )
-        )}
+        {/* Tab 3: Business Directory (Public Access) */}
+        {activeTab === 'business' && <BusinessSection />}
 
-        {/* Tab 4: Jain Directory */}
-        {activeTab === 'directory' && (
-          currentUser ? (
-            <DirectorySection />
-          ) : (
-            <LoginRequiredView
-              title="Jain Community Member Directory Restricted"
-              description="Whole family census records, digital QR community cards, and member contact search are restricted to authenticated members."
-              sectionIcon="directory"
-            />
-          )
-        )}
+        {/* Tab 4: Jain Directory (Public Access) */}
+        {activeTab === 'directory' && <DirectorySection />}
 
-        {/* Tab 5: Temple Directory */}
-        {activeTab === 'temple' && (
-          currentUser ? (
-            <TempleSection />
-          ) : (
-            <LoginRequiredView
-              title="Jain Temple & Tirth Directory Access Restricted"
-              description="Dharamshala room contact numbers and trust management details require verified Jain member sign in."
-              sectionIcon="temple"
-            />
-          )
-        )}
+        {/* Tab 5: Temple Directory (Public Access) */}
+        {activeTab === 'temple' && <TempleSection />}
 
-        {/* Tab 6: Panchang (Public) */}
+        {/* Tab 6: Panchang & Quotes (Public Access) */}
         {activeTab === 'panchang' && <PanchangWidget />}
 
-        {/* Tab 7: Feed */}
-        {activeTab === 'feed' && (
-          currentUser ? (
-            <CommunityFeed />
-          ) : (
-            <LoginRequiredView
-              title="Community Social Feed Restricted"
-              description="Reading and posting community updates, news, and spiritual quotes requires signing in."
-              sectionIcon="feed"
-            />
-          )
-        )}
+        {/* Tab 7: Community Feed (Public Access) */}
+        {activeTab === 'feed' && <CommunityFeed />}
 
-        {/* Tab 8: Emergency Services */}
-        {activeTab === 'emergency' && (
-          currentUser ? (
-            <EmergencyDirectory />
-          ) : (
-            <LoginRequiredView
-              title="Services & Blood Donors Network Restricted"
-              description="Access to blood donors contact list and emergency Jain mandals requires signing in."
-              sectionIcon="emergency"
-            />
-          )
-        )}
+        {/* Tab 8: Emergency Services (Public Access) */}
+        {activeTab === 'emergency' && <EmergencyDirectory />}
 
         {/* Tab 9: Admin Control Panel */}
         {activeTab === 'admin' && (

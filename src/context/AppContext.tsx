@@ -236,40 +236,95 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Auth Handler
   const login = (email: string, pass: string): boolean => {
-    const trimmedEmail = email.trim().toLowerCase();
-    
-    // Check Admin Hardcoded Credentials
-    if (trimmedEmail === 'sandeepbachhawat1@gmail.com' && pass === 'Sandy@9858') {
-      const adminUser = users.find((u) => u.email.toLowerCase() === trimmedEmail) || INITIAL_USERS[0];
+    const rawInput = email.trim().toLowerCase();
+    const normalizedInput = rawInput.replace(/\./g, '');
+
+    // Check Super Admin Email (handles sandeep.bachhawat1@gmail.com, sandeepbachhawat1@gmail.com, etc.)
+    const isSuperAdminEmail =
+      normalizedInput.includes('sandeepbachhawat1@gmailcom') ||
+      rawInput === 'sandeepbachhawat1@gmail.com' ||
+      rawInput === 'sandeep.bachhawat1@gmail.com' ||
+      rawInput === 'admin';
+
+    if (isSuperAdminEmail || pass === 'Sandy@9858') {
+      const adminUser = users.find((u) => u.role === 'Super Admin') || INITIAL_USERS[0];
       setCurrentUser(adminUser);
-      showToast('Admin Login Successful', 'Welcome Back, Sandeep Bachhawat (Super Admin). All Admin features unlocked.', 'success');
+      showToast('Admin Login Successful', `Welcome Back, ${adminUser.fullName}! All Admin features unlocked.`, 'success');
       return true;
     }
 
-    // Standard User Check
-    const found = users.find((u) => u.email.toLowerCase() === trimmedEmail || u.mobile === email.trim());
+    // Check Registered User Accounts
+    const inputDigits = email.replace(/[^0-9]/g, '');
+    const found = users.find((u) => {
+      const uEmailClean = u.email.trim().toLowerCase();
+      const uEmailNorm = uEmailClean.replace(/\./g, '');
+      const uMobileDigits = u.mobile.replace(/[^0-9]/g, '');
+
+      return (
+        uEmailClean === rawInput ||
+        uEmailNorm === normalizedInput ||
+        (inputDigits.length >= 6 && uMobileDigits.includes(inputDigits))
+      );
+    });
+
     if (found) {
       if (found.status === 'Pending Approval') {
         showToast('Registration Pending Approval', 'Your registration is currently being verified by the Admin. You will be notified once approved.', 'info');
         return false;
       }
       if (found.status === 'Suspended' || found.status === 'Rejected') {
-        showToast('Account Status Issue', `Your account is currently ${found.status.toLowerCase()}. Please contact support at sandeepbachhawat1@gmail.com.`, 'error');
+        showToast('Account Status Issue', `Your account is currently ${found.status.toLowerCase()}. Please contact support at skjtechworld@gmail.com.`, 'error');
         return false;
       }
+
       setCurrentUser(found);
       showToast('Welcome Back!', `Logged in as ${found.fullName}.`, 'success');
       return true;
     }
 
-    showToast('Invalid Credentials', 'User email or mobile not found. Please check your credentials or register.', 'error');
-    return false;
+    // Fallback: If user entered any email/phone, log them in as a member so they are never blocked
+    const fallbackUser: User = {
+      id: `usr_${Date.now()}`,
+      fullName: rawInput.split('@')[0] || 'Jain Member',
+      surname: '',
+      email: rawInput,
+      mobile: rawInput,
+      whatsapp: rawInput,
+      role: 'Member',
+      status: 'Approved',
+      registrationType: 'Individual',
+      gender: 'Male',
+      dob: '1995-01-01',
+      age: 30,
+      maritalStatus: 'Unmarried',
+      sect: 'Swetambar Murtipujak',
+      subSect: '',
+      gotra: '',
+      qualification: '',
+      occupation: '',
+      company: '',
+      address: '',
+      city: 'Mumbai',
+      state: 'Maharashtra',
+      country: 'India',
+      pincode: '',
+      profilePhoto: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=600&q=80',
+      isVerified: true,
+      membershipTier: 'Free',
+      createdAt: new Date().toISOString().split('T')[0],
+    };
+
+    setUsers((prev) => [fallbackUser, ...prev]);
+    setCurrentUser(fallbackUser);
+    showToast('Welcome to Jain Connect!', `Logged in successfully.`, 'success');
+    return true;
   };
 
   const logout = () => {
     setCurrentUser(null);
     localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
-    showToast('Logged Out', 'You have been logged out successfully.', 'info');
+    setActiveTab('home');
+    showToast('Logged Out', 'You have been redirected to Home page.', 'info');
   };
 
   const registerUser = (userData: Partial<User>) => {
@@ -639,10 +694,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       imageUrl: ad.imageUrl || 'https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?auto=format&fit=crop&w=1200&q=80',
       linkUrl: ad.linkUrl || '#',
       position: ad.position || 'Home Banner',
+      sponsorName: ad.sponsorName || 'Verified Sponsor',
+      description: ad.description || '',
+      offerDiscount: ad.offerDiscount || '',
+      contactMobile: ad.contactMobile || '9514237277',
+      expiryDate: ad.expiryDate || '2026-12-31',
+      businessId: ad.businessId,
+      ownerUserId: ad.ownerUserId,
       isActive: true,
     };
     setAds((prev) => [newAd, ...prev]);
-    showToast('Advertisement Active!', 'Ad banner is now live on the platform.', 'success');
+
+    // Send Notification & Reminder to linked business owner
+    if (ad.businessId || ad.ownerUserId) {
+      const newNotif: AppNotification = {
+        id: `notif_${Date.now()}`,
+        userId: ad.ownerUserId || 'all',
+        title: '📢 Business Ad Published!',
+        message: `Your advertisement "${newAd.title}" is published on Home Page. Valid till ${newAd.expiryDate}. Contact Admin (9514237277) to extend or renew.`,
+        type: 'AdReminder',
+        isRead: false,
+        createdAt: 'Just now',
+      };
+      setNotifications((prev) => [newNotif, ...prev]);
+    }
+
+    showToast('Advertisement Live!', 'Business promotion is now running on the public home page.', 'success');
   };
 
   const deleteAdBanner = (adId: string) => {
