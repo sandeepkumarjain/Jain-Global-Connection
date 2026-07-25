@@ -1,0 +1,36 @@
+{
+  "entities": {
+    "users": {
+      "title": "User Profile",
+      "description": "User profiles in Jain Connect Global",
+      "properties": {
+        "fullName": { "type": "string" },
+        "surname": { "type": "string" },
+        "email": { "type": "string" },
+        "mobile": { "type": "string" },
+        "role": { "type": "string" }
+      }
+    },
+    "businessListings": {
+      "title": "Business Listing",
+      "description": "Registered Jain Business Listings",
+      "properties": {
+        "businessName": { "type": "string" },
+        "category": { "type": "string" },
+        "mobile": { "type": "string" }
+      }
+    }
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "users/{userId}",
+        "entity": "users"
+      },
+      {
+        "path": "businessListings/{businessId}",
+        "entity": "businessListings"
+      }
+    ]
+  }
+}

@@ -17,12 +17,13 @@ import {
   CheckCircle,
   X,
   Share2,
-  Download
+  Download,
+  Mail
 } from 'lucide-react';
 import { BusinessListing } from '../types';
 
 export const BusinessSection: React.FC = () => {
-  const { businesses, openRegistrationModal, showToast } = useApp();
+  const { businesses, openRegistrationModal, showToast, openGmailModal } = useApp();
 
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [searchTerm, setSearchTerm] = useState('');
@@ -193,7 +194,7 @@ export const BusinessSection: React.FC = () => {
             </div>
 
             {/* Actions */}
-            <div className="bg-slate-50 dark:bg-slate-800/60 p-3 border-t border-slate-200 dark:border-slate-800 grid grid-cols-3 gap-2 text-xs font-bold">
+            <div className="bg-slate-50 dark:bg-slate-800/60 p-3 border-t border-slate-200 dark:border-slate-800 grid grid-cols-4 gap-1.5 text-xs font-bold">
               <button
                 onClick={() => {
                   setSelectedBusiness(b);
@@ -203,7 +204,7 @@ export const BusinessSection: React.FC = () => {
                 title="Digital Visiting Card"
               >
                 <QrCode className="w-3.5 h-3.5 text-amber-500" />
-                <span>Card</span>
+                <span className="hidden sm:inline">Card</span>
               </button>
 
               <button
@@ -211,7 +212,16 @@ export const BusinessSection: React.FC = () => {
                 className="py-2.5 min-h-[44px] bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg flex items-center justify-center gap-1 shadow-sm"
               >
                 <MessageSquare className="w-3.5 h-3.5" />
-                <span>WhatsApp</span>
+                <span className="hidden sm:inline">WhatsApp</span>
+              </button>
+
+              <button
+                onClick={() => openGmailModal(b.email, `Inquiry regarding ${b.businessName}`, `Respected ${b.contactPerson || 'Vendor'},\n\nI found your business listing on Jain Connect Global.`)}
+                className="py-2.5 min-h-[44px] bg-sky-600 hover:bg-sky-700 text-white rounded-lg flex items-center justify-center gap-1 shadow-sm"
+                title="Send Gmail"
+              >
+                <Mail className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Gmail</span>
               </button>
 
               <a
@@ -219,7 +229,7 @@ export const BusinessSection: React.FC = () => {
                 className="py-2.5 min-h-[44px] bg-amber-600 hover:bg-amber-700 text-white rounded-lg flex items-center justify-center gap-1 shadow-sm"
               >
                 <Phone className="w-3.5 h-3.5" />
-                <span>Call Vendor</span>
+                <span className="hidden sm:inline">Call</span>
               </a>
             </div>
           </div>

@@ -77,6 +77,10 @@ interface AppContextType {
   setIsUserProfileModalOpen: (open: boolean) => void;
   isBhajanModalOpen: boolean;
   setIsBhajanModalOpen: (open: boolean) => void;
+  isGmailCenterOpen: boolean;
+  setIsGmailCenterOpen: (open: boolean) => void;
+  gmailModalData: { recipient?: string; subject?: string; body?: string };
+  openGmailModal: (recipient?: string, subject?: string, body?: string) => void;
   toastMessage: { title: string; desc: string; type?: 'success' | 'error' | 'info' } | null;
   showToast: (title: string, desc: string, type?: 'success' | 'error' | 'info') => void;
   isPlayingNavkar: boolean;
@@ -263,6 +267,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [isMembershipModalOpen, setIsMembershipModalOpen] = useState(false);
   const [isUserProfileModalOpen, setIsUserProfileModalOpen] = useState(false);
   const [isBhajanModalOpen, setIsBhajanModalOpen] = useState(false);
+  const [isGmailCenterOpen, setIsGmailCenterOpen] = useState(false);
+  const [gmailModalData, setGmailModalData] = useState<{ recipient?: string; subject?: string; body?: string }>({});
+
+  const openGmailModal = (recipient?: string, subject?: string, body?: string) => {
+    setGmailModalData({ recipient, subject, body });
+    setIsGmailCenterOpen(true);
+  };
+
   const [toastMessage, setToastMessage] = useState<{ title: string; desc: string; type?: 'success' | 'error' | 'info' } | null>(null);
   const [isPlayingNavkar, setIsPlayingNavkar] = useState(false);
 
@@ -1057,6 +1069,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setIsUserProfileModalOpen,
         isBhajanModalOpen,
         setIsBhajanModalOpen,
+        isGmailCenterOpen,
+        setIsGmailCenterOpen,
+        gmailModalData,
+        openGmailModal,
         toastMessage,
         showToast,
         isPlayingNavkar,

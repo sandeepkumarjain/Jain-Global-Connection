@@ -31,7 +31,8 @@ import {
   Check,
   ChevronDown,
   Home,
-  Compass
+  Compass,
+  Mail
 } from 'lucide-react';
 
 export const Header: React.FC = () => {
@@ -54,6 +55,7 @@ export const Header: React.FC = () => {
     setIsMembershipModalOpen,
     setIsUserProfileModalOpen,
     setIsBhajanModalOpen,
+    openGmailModal,
     notifications,
     logout,
     systemSettings,
@@ -368,6 +370,15 @@ export const Header: React.FC = () => {
             >
               <Crown className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
               <span>Membership</span>
+            </button>
+
+            {/* Gmail Integration Center Button */}
+            <button
+              onClick={() => openGmailModal()}
+              className="p-1.5 sm:p-2 rounded-full text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors relative"
+              title="Gmail Community Center"
+            >
+              <Mail className="w-4.5 h-4.5 sm:w-5 sm:h-5 text-amber-600 dark:text-amber-400" />
             </button>
 
             {/* Notification Dropdown */}

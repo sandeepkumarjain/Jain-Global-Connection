@@ -17,6 +17,7 @@ import { AISearchModal } from './components/AISearchModal';
 import { MembershipModal } from './components/MembershipModal';
 import { UserProfileModal } from './components/UserProfileModal';
 import { BhajanLibraryModal } from './components/BhajanLibraryModal';
+import { GmailCenterModal } from './components/GmailCenterModal';
 import { AudioPlayer } from './components/AudioPlayer';
 import { LoginRequiredView } from './components/LoginRequiredView';
 import { DailyJainWisdom } from './components/DailyJainWisdom';
@@ -47,6 +48,9 @@ const MainContent: React.FC = () => {
     currentUser,
     setIsAuthModalOpen,
     setIsRegModalOpen,
+    isGmailCenterOpen,
+    setIsGmailCenterOpen,
+    gmailModalData,
     systemSettings
   } = useApp();
 
@@ -435,6 +439,13 @@ const MainContent: React.FC = () => {
       <MembershipModal />
       <UserProfileModal />
       <BhajanLibraryModal />
+      <GmailCenterModal
+        isOpen={isGmailCenterOpen}
+        onClose={() => setIsGmailCenterOpen(false)}
+        defaultRecipient={gmailModalData.recipient}
+        defaultSubject={gmailModalData.subject}
+        defaultBody={gmailModalData.body}
+      />
       <AudioPlayer />
 
       {/* Toast Notification Banner */}
