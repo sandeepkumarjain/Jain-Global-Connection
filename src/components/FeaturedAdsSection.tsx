@@ -1,29 +1,49 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import {
   Megaphone,
-  ExternalLink,
   Phone,
   MessageCircle,
   Tag,
-  Calendar,
   Sparkles,
   Building2,
   ShieldCheck,
   ChevronRight,
+  ChevronLeft,
   UserPlus
 } from 'lucide-react';
 
 export const FeaturedAdsSection: React.FC = () => {
   const { ads, setIsRegModalOpen, systemSettings } = useApp();
-  const [selectedCategory, setSelectedCategory] = useState<string>('All');
+  const [currentPage, setCurrentPage] = useState(0);
 
   const activeAds = ads.filter((ad) => ad.isActive !== false);
+  const pageSize = 3;
+  const totalPages = Math.ceil(activeAds.length / pageSize);
+
+  // Auto slide if there are multiple pages (more than 3 ads)
+  useEffect(() => {
+    if (totalPages <= 1) return;
+    const timer = setInterval(() => {
+      setCurrentPage((prev) => (prev + 1) % totalPages);
+    }, 8000);
+    return () => clearInterval(timer);
+  }, [totalPages]);
 
   if (activeAds.length === 0) return null;
 
+  const displayedAds = activeAds.slice(currentPage * pageSize, (currentPage + 1) * pageSize);
+
+  const handlePrevPage = () => {
+    setCurrentPage((prev) => (prev - 1 + totalPages) % totalPages);
+  };
+
+  const handleNextPage = () => {
+    setCurrentPage((prev) => (prev + 1) % totalPages);
+  };
+
   return (
-    <section className="bg-gradient-to-b from-amber-50/50 via-white to-slate-50 dark:from-slate-900/80 dark:via-slate-900 dark:to-slate-950 p-6 sm:p-8 rounded-3xl border border-amber-300/60 dark:border-amber-800/60 shadow-xl space-y-6 my-8">
+    <section className="bg-gradient-to-b from-amber-50/50 via-white to-slate-50 dark:from-slate-900/80 dark:via-slate-900 dark:to-slate-950 p-6 sm:p-8 rounded-3xl border border-amber-300/60 dark:border-amber-800/60 shadow-xl space-y-6 my-6">
       
       {/* Section Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-amber-200 dark:border-amber-900/50">
@@ -41,18 +61,43 @@ export const FeaturedAdsSection: React.FC = () => {
           </p>
         </div>
 
-        <button
-          onClick={() => setIsRegModalOpen(true)}
-          className="px-5 py-2.5 bg-gradient-to-r from-amber-500 to-amber-700 hover:from-amber-600 hover:to-amber-800 text-amber-950 font-black text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5 shrink-0"
-        >
-          <UserPlus className="w-4 h-4" />
-          <span>Promote Your Business</span>
-        </button>
+        <div className="flex flex-wrap items-center gap-3 shrink-0">
+          {/* Slide Navigation Controls if > 3 ads */}
+          {totalPages > 1 && (
+            <div className="flex items-center gap-2 bg-white dark:bg-slate-900 p-1.5 rounded-2xl border border-amber-200 dark:border-amber-800 shadow-sm">
+              <span className="text-[11px] font-bold text-amber-800 dark:text-amber-300 px-2">
+                Page {currentPage + 1} of {totalPages} ({activeAds.length} Ads)
+              </span>
+              <button
+                onClick={handlePrevPage}
+                className="p-2 rounded-xl bg-amber-100 hover:bg-amber-200 dark:bg-amber-950/80 dark:hover:bg-amber-900 text-amber-900 dark:text-amber-200 transition-all active:scale-95 min-h-[38px] min-w-[38px] flex items-center justify-center"
+                title="Previous Ads"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <button
+                onClick={handleNextPage}
+                className="p-2 rounded-xl bg-amber-100 hover:bg-amber-200 dark:bg-amber-950/80 dark:hover:bg-amber-900 text-amber-900 dark:text-amber-200 transition-all active:scale-95 min-h-[38px] min-w-[38px] flex items-center justify-center"
+                title="Next Ads"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+
+          <button
+            onClick={() => setIsRegModalOpen(true)}
+            className="px-5 py-2.5 bg-gradient-to-r from-amber-500 to-amber-700 hover:from-amber-600 hover:to-amber-800 text-amber-950 font-black text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5 shrink-0"
+          >
+            <UserPlus className="w-4 h-4" />
+            <span>Promote Your Business</span>
+          </button>
+        </div>
       </div>
 
-      {/* Ads Grid Display */}
+      {/* Ads Grid Display (3 ads per page) */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {activeAds.map((ad) => {
+        {displayedAds.map((ad) => {
           const formattedPhone = ad.contactMobile || systemSettings.contactPhone || '9514237277';
           const cleanPhone = formattedPhone.replace(/[^0-9]/g, '');
 
@@ -69,7 +114,6 @@ export const FeaturedAdsSection: React.FC = () => {
                     alt={ad.title}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                     onError={(e) => {
-                      // Fallback image if custom image URL fails
                       (e.target as HTMLImageElement).src =
                         'https://images.unsplash.com/photo-1519389950473-47ba0277781c?auto=format&fit=crop&w=800&q=80';
                     }}
@@ -145,6 +189,24 @@ export const FeaturedAdsSection: React.FC = () => {
           );
         })}
       </div>
+
+      {/* Pagination Dots at Bottom if multiple pages */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-2 pt-2">
+          {Array.from({ length: totalPages }).map((_, idx) => (
+            <button
+              key={idx}
+              onClick={() => setCurrentPage(idx)}
+              className={`h-2.5 rounded-full transition-all ${
+                currentPage === idx
+                  ? 'w-8 bg-amber-500'
+                  : 'w-2.5 bg-slate-300 dark:bg-slate-700 hover:bg-amber-400'
+              }`}
+              title={`Go to page ${idx + 1}`}
+            />
+          ))}
+        </div>
+      )}
     </section>
   );
 };

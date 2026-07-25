@@ -12,6 +12,7 @@ import {
   BloodDonor,
   JobItem,
   AppNotification,
+  BhajanSong,
   SystemSettings
 } from '../types';
 import {
@@ -27,10 +28,14 @@ import {
   INITIAL_PANCHANG,
   INITIAL_BLOOD_DONORS,
   INITIAL_JOBS,
-  INITIAL_NOTIFICATIONS
+  INITIAL_NOTIFICATIONS,
+  INITIAL_BHAJANS
 } from '../data/initialData';
+import { playNavkarMantraAudio, stopNavkarMantraAudio } from '../utils/navkarAudio';
+import { applyLanguageChange, LanguageCode } from '../utils/translations';
+import { triggerConfetti, triggerCelebrationConfetti } from '../utils/confetti';
 
-type LanguageOption = 'English' | 'Hindi' | 'Gujarati' | 'Marwari' | 'Kannada' | 'Tamil' | 'Telugu';
+type LanguageOption = LanguageCode;
 type TabOption = 'home' | 'matrimonial' | 'business' | 'directory' | 'temple' | 'panchang' | 'feed' | 'emergency' | 'admin';
 
 interface AppContextType {
@@ -52,7 +57,8 @@ interface AppContextType {
   setActiveTab: (tab: TabOption) => void;
   language: LanguageOption;
   setLanguage: (lang: LanguageOption) => void;
-  themeMode: 'light' | 'dark';
+  themeMode: 'light' | 'dark' | 'auspicious';
+  setThemeMode: (mode: 'light' | 'dark' | 'auspicious') => void;
   toggleTheme: () => void;
   searchQuery: string;
   setSearchQuery: (q: string) => void;
@@ -60,17 +66,38 @@ interface AppContextType {
   setIsAuthModalOpen: (open: boolean) => void;
   isRegModalOpen: boolean;
   setIsRegModalOpen: (open: boolean) => void;
+  regModalTab: 'matrimonial' | 'business' | 'temple' | 'family';
+  setRegModalTab: (tab: 'matrimonial' | 'business' | 'temple' | 'family') => void;
+  openRegistrationModal: (tab?: 'matrimonial' | 'business' | 'temple' | 'family') => void;
   isAISearchOpen: boolean;
   setIsAISearchOpen: (open: boolean) => void;
   isMembershipModalOpen: boolean;
   setIsMembershipModalOpen: (open: boolean) => void;
+  isUserProfileModalOpen: boolean;
+  setIsUserProfileModalOpen: (open: boolean) => void;
+  isBhajanModalOpen: boolean;
+  setIsBhajanModalOpen: (open: boolean) => void;
   toastMessage: { title: string; desc: string; type?: 'success' | 'error' | 'info' } | null;
   showToast: (title: string, desc: string, type?: 'success' | 'error' | 'info') => void;
+  isPlayingNavkar: boolean;
+  toggleNavkarAudio: () => void;
   
   // Auth & Admin Actions
   login: (email: string, pass: string) => boolean;
   logout: () => void;
   registerUser: (userData: Partial<User>) => void;
+  updateUserProfile: (
+    updatedFields: Partial<User>,
+    donorSettings?: {
+      isBloodDonor: boolean;
+      bloodGroup: string;
+      city: string;
+      state: string;
+      mobile: string;
+      available: boolean;
+      lastDonated?: string;
+    }
+  ) => void;
   approveUser: (userId: string) => void;
   rejectUser: (userId: string) => void;
   suspendUser: (userId: string) => void;
@@ -93,6 +120,18 @@ interface AppContextType {
   deleteAdBanner: (adId: string) => void;
   addNewsItem: (item: Partial<NewsItem>) => void;
   updateSystemSettings: (settings: Partial<SystemSettings>) => void;
+
+  // Bhajan & Song Management
+  bhajans: BhajanSong[];
+  addBhajan: (bhajan: Omit<BhajanSong, 'id' | 'createdAt'>) => void;
+  updateBhajan: (id: string, updated: Partial<BhajanSong>) => void;
+  deleteBhajan: (id: string) => void;
+  toggleBhajanActive: (id: string) => void;
+  currentSong: BhajanSong | null;
+  isPlayingSong: boolean;
+  playSong: (song: BhajanSong) => void;
+  pauseSong: () => void;
+  togglePlaySong: (song?: BhajanSong) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -110,6 +149,8 @@ const STORAGE_KEYS = {
   NOTIFS: 'jcg_notifs_v1',
   CURRENT_USER: 'jcg_current_user_v1',
   THEME: 'jcg_theme_v1',
+  BLOOD_DONORS: 'jcg_blood_donors_v1',
+  BHAJANS: 'jcg_bhajans_v1',
 };
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -162,7 +203,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   });
 
   const [panchang] = useState<PanchangInfo>(INITIAL_PANCHANG);
-  const [bloodDonors, setBloodDonors] = useState<BloodDonor[]>(INITIAL_BLOOD_DONORS);
+  const [bloodDonors, setBloodDonors] = useState<BloodDonor[]>(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.BLOOD_DONORS);
+    return saved ? JSON.parse(saved) : INITIAL_BLOOD_DONORS;
+  });
   const [jobs, setJobs] = useState<JobItem[]>(INITIAL_JOBS);
   const [notifications, setNotifications] = useState<AppNotification[]>(INITIAL_NOTIFICATIONS);
 
@@ -171,19 +215,70 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return saved ? JSON.parse(saved) : INITIAL_SYSTEM_SETTINGS;
   });
 
+  const [bhajans, setBhajans] = useState<BhajanSong[]>(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.BHAJANS);
+    return saved ? JSON.parse(saved) : INITIAL_BHAJANS;
+  });
+
+  const [currentSong, setCurrentSong] = useState<BhajanSong | null>(null);
+  const [isPlayingSong, setIsPlayingSong] = useState(false);
+  const audioRef = React.useRef<HTMLAudioElement | null>(null);
+
   const [activeTab, setActiveTab] = useState<TabOption>('home');
-  const [language, setLanguage] = useState<LanguageOption>('English');
-  const [themeMode, setThemeMode] = useState<'light' | 'dark'>(() => {
+  const [language, setLanguageState] = useState<LanguageOption>(() => {
+    const saved = localStorage.getItem('jain_connect_lang');
+    return (saved as LanguageOption) || 'English';
+  });
+
+  const setLanguage = (lang: LanguageOption) => {
+    setLanguageState(lang);
+    localStorage.setItem('jain_connect_lang', lang);
+    applyLanguageChange(lang);
+  };
+
+  useEffect(() => {
+    const savedLang = localStorage.getItem('jain_connect_lang') as LanguageOption | null;
+    if (savedLang && savedLang !== 'English') {
+      applyLanguageChange(savedLang);
+    }
+  }, []);
+
+  const [themeMode, setThemeMode] = useState<'light' | 'dark' | 'auspicious'>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.THEME);
-    return (saved as 'light' | 'dark') || 'light';
+    return (saved as 'light' | 'dark' | 'auspicious') || 'light';
   });
 
   const [searchQuery, setSearchQuery] = useState('');
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isRegModalOpen, setIsRegModalOpen] = useState(false);
+  const [regModalTab, setRegModalTab] = useState<'matrimonial' | 'business' | 'temple' | 'family'>('business');
+
+  const openRegistrationModal = (tab?: 'matrimonial' | 'business' | 'temple' | 'family') => {
+    if (tab) {
+      setRegModalTab(tab);
+    }
+    setIsRegModalOpen(true);
+  };
   const [isAISearchOpen, setIsAISearchOpen] = useState(false);
   const [isMembershipModalOpen, setIsMembershipModalOpen] = useState(false);
+  const [isUserProfileModalOpen, setIsUserProfileModalOpen] = useState(false);
+  const [isBhajanModalOpen, setIsBhajanModalOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<{ title: string; desc: string; type?: 'success' | 'error' | 'info' } | null>(null);
+  const [isPlayingNavkar, setIsPlayingNavkar] = useState(false);
+
+  const toggleNavkarAudio = () => {
+    if (isPlayingNavkar) {
+      stopNavkarMantraAudio();
+      setIsPlayingNavkar(false);
+      showToast('Navkar Audio Paused', 'Audio chanting stopped.', 'info');
+    } else {
+      setIsPlayingNavkar(true);
+      showToast('Playing Navkar Mantra Chanting', 'Namo Arihantanam... Namo Siddhanam...', 'info');
+      playNavkarMantraAudio(() => {
+        setIsPlayingNavkar(false);
+      });
+    }
+  };
 
   // Sync to localStorage
   useEffect(() => {
@@ -193,6 +288,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(currentUser));
   }, [currentUser]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.BLOOD_DONORS, JSON.stringify(bloodDonors));
+  }, [bloodDonors]);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.MATRIMONIALS, JSON.stringify(matrimonials));
@@ -215,16 +314,100 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [systemSettings]);
 
   useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.BHAJANS, JSON.stringify(bhajans));
+  }, [bhajans]);
+
+  const playSong = (song: BhajanSong) => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+    }
+    const newAudio = new Audio(song.audioUrl);
+    audioRef.current = newAudio;
+    setCurrentSong(song);
+    setIsPlayingSong(true);
+
+    newAudio
+      .play()
+      .then(() => {
+        showToast('Playing Devotional Song', `Now Playing: ${song.title} ${song.singer ? `(${song.singer})` : ''}`, 'success');
+      })
+      .catch((err) => {
+        console.error('Audio playback error:', err);
+        showToast('Playback Notice', `Unable to play audio URL for "${song.title}". Please verify stream link in Admin Panel.`, 'info');
+        setIsPlayingSong(false);
+      });
+
+    newAudio.onended = () => {
+      setIsPlayingSong(false);
+    };
+  };
+
+  const pauseSong = () => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+    }
+    setIsPlayingSong(false);
+    showToast('Playback Paused', 'Audio chanting paused.', 'info');
+  };
+
+  const togglePlaySong = (song?: BhajanSong) => {
+    const target = song || currentSong || bhajans.find((b) => b.isActive) || bhajans[0];
+    if (!target) return;
+
+    if (isPlayingSong && currentSong?.id === target.id) {
+      pauseSong();
+    } else {
+      playSong(target);
+    }
+  };
+
+  const addBhajan = (bhajanData: Omit<BhajanSong, 'id' | 'createdAt'>) => {
+    const newBhajan: BhajanSong = {
+      ...bhajanData,
+      id: `bhajan_${Date.now()}`,
+      createdAt: new Date().toISOString().split('T')[0],
+    };
+    setBhajans((prev) => [newBhajan, ...prev]);
+    triggerConfetti();
+    showToast('Bhajan Added', `Successfully added "${newBhajan.title}" to devotional library.`, 'success');
+  };
+
+  const updateBhajan = (id: string, updated: Partial<BhajanSong>) => {
+    setBhajans((prev) => prev.map((b) => (b.id === id ? { ...b, ...updated } : b)));
+    showToast('Bhajan Updated', 'Song details updated successfully.', 'success');
+  };
+
+  const deleteBhajan = (id: string) => {
+    setBhajans((prev) => prev.filter((b) => b.id !== id));
+    if (currentSong?.id === id) {
+      pauseSong();
+      setCurrentSong(null);
+    }
+    showToast('Bhajan Deleted', 'Song removed from devotional list.', 'info');
+  };
+
+  const toggleBhajanActive = (id: string) => {
+    setBhajans((prev) =>
+      prev.map((b) => (b.id === id ? { ...b, isActive: !b.isActive } : b))
+    );
+  };
+
+  useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.THEME, themeMode);
+    document.documentElement.classList.remove('dark', 'auspicious');
     if (themeMode === 'dark') {
       document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
+    } else if (themeMode === 'auspicious') {
+      document.documentElement.classList.add('auspicious');
     }
   }, [themeMode]);
 
   const toggleTheme = () => {
-    setThemeMode((prev) => (prev === 'light' ? 'dark' : 'light'));
+    setThemeMode((prev) => {
+      if (prev === 'light') return 'dark';
+      if (prev === 'dark') return 'auspicious';
+      return 'light';
+    });
   };
 
   const showToast = (title: string, desc: string, type: 'success' | 'error' | 'info' = 'success') => {
@@ -376,11 +559,80 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
     setNotifications((prev) => [newNotif, ...prev]);
 
+    triggerCelebrationConfetti();
     showToast(
       'Registration Submitted!',
       'Your application is submitted and pending Admin approval. Credentials will be sent upon verification by Sandeep Bachhawat.',
       'success'
     );
+  };
+
+  const updateUserProfile = (
+    updatedFields: Partial<User>,
+    donorSettings?: {
+      isBloodDonor: boolean;
+      bloodGroup: string;
+      city: string;
+      state: string;
+      mobile: string;
+      available: boolean;
+      lastDonated?: string;
+    }
+  ) => {
+    if (!currentUser) return;
+
+    const updatedUser: User = {
+      ...currentUser,
+      ...updatedFields,
+      ...(donorSettings ? {
+        isBloodDonor: donorSettings.isBloodDonor,
+        bloodGroup: donorSettings.bloodGroup,
+        donorCity: donorSettings.city,
+        donorState: donorSettings.state,
+        donorMobile: donorSettings.mobile,
+        donorAvailable: donorSettings.available,
+        lastDonatedDate: donorSettings.lastDonated,
+      } : {}),
+    };
+
+    setCurrentUser(updatedUser);
+    setUsers((prev) => prev.map((u) => (u.id === updatedUser.id ? updatedUser : u)));
+
+    // Sync user with emergency Blood Donor directory
+    if (donorSettings) {
+      if (donorSettings.isBloodDonor) {
+        setBloodDonors((prev) => {
+          const existingIdx = prev.findIndex((d) => d.userId === updatedUser.id || d.name === updatedUser.fullName);
+          const donorRecord: BloodDonor = {
+            id: existingIdx >= 0 ? prev[existingIdx].id : `bd_${Date.now()}`,
+            userId: updatedUser.id,
+            name: updatedUser.fullName,
+            bloodGroup: donorSettings.bloodGroup || 'O+',
+            city: donorSettings.city || updatedUser.city || 'Mumbai',
+            state: donorSettings.state || updatedUser.state || 'Maharashtra',
+            mobile: donorSettings.mobile || updatedUser.mobile,
+            available: donorSettings.available,
+            lastDonated: donorSettings.lastDonated || 'Available',
+          };
+          if (existingIdx >= 0) {
+            const copy = [...prev];
+            copy[existingIdx] = donorRecord;
+            return copy;
+          }
+          return [donorRecord, ...prev];
+        });
+      } else {
+        // Mark donor unavailable if disabled
+        setBloodDonors((prev) => prev.map((d) => {
+          if (d.userId === updatedUser.id || d.name === updatedUser.fullName) {
+            return { ...d, available: false };
+          }
+          return d;
+        }));
+      }
+    }
+
+    showToast('Profile & Donor Settings Saved!', 'Your account profile and blood donor preferences have been updated.', 'success');
   };
 
   const approveUser = (userId: string) => {
@@ -451,6 +703,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     setMembers((prev) => [newMember, ...prev]);
+    triggerConfetti();
     showToast('Family Directory Registration Complete!', 'Whole family details recorded in Jain Directory.', 'success');
   };
 
@@ -484,6 +737,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     setBusinesses((prev) => [newBiz, ...prev]);
+    triggerConfetti();
     showToast('Business Listing Submitted!', 'Your business listing has been added successfully.', 'success');
   };
 
@@ -491,6 +745,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setBusinesses((prev) =>
       prev.map((b) => (b.id === bizId ? { ...b, status: 'Approved', isVerified: true } : b))
     );
+    triggerCelebrationConfetti();
     showToast('Business Verified!', 'Business status set to Approved.', 'success');
   };
 
@@ -524,6 +779,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     setTemples((prev) => [newTemple, ...prev]);
+    triggerConfetti();
     showToast('Temple Listing Added!', 'New temple added to Jain Temple Directory.', 'success');
   };
 
@@ -561,6 +817,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     setMatrimonials((prev) => [newMat, ...prev]);
+    triggerConfetti();
     showToast('Matrimonial Profile Created!', 'Your biodata is live on Jain Matrimonial Directory.', 'success');
   };
 
@@ -581,6 +838,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     setPosts((prev) => [newPost, ...prev]);
+    triggerConfetti();
     showToast('Post Published', 'Shared with the global Jain community feed.', 'success');
   };
 
@@ -639,6 +897,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return m;
       })
     );
+    triggerConfetti();
     showToast('Interest Request Sent!', 'The candidate and family have been notified.', 'success');
   };
 
@@ -654,6 +913,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return m;
       })
     );
+    triggerCelebrationConfetti();
     showToast('Interest Accepted!', 'You can now view full contact details and chat directly.', 'success');
   };
 
@@ -668,6 +928,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       available: true,
     };
     setBloodDonors((prev) => [newDonor, ...prev]);
+    triggerConfetti();
     showToast('Donor Registered!', 'Thank you for registering in the Jain Emergency Blood Network.', 'success');
   };
 
@@ -684,6 +945,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       postedDate: new Date().toISOString().split('T')[0],
     };
     setJobs((prev) => [newJob, ...prev]);
+    triggerConfetti();
     showToast('Job Opportunity Posted!', 'Listed on Jain Education & Career Portal.', 'success');
   };
 
@@ -719,6 +981,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setNotifications((prev) => [newNotif, ...prev]);
     }
 
+    triggerConfetti();
     showToast('Advertisement Live!', 'Business promotion is now running on the public home page.', 'success');
   };
 
@@ -740,6 +1003,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       isPinned: item.isPinned || false,
     };
     setNews((prev) => [newNews, ...prev]);
+    triggerConfetti();
     showToast('News Announcement Published!', 'Broadcasted to all users.', 'success');
   };
 
@@ -774,6 +1038,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         language,
         setLanguage,
         themeMode,
+        setThemeMode,
         toggleTheme,
         searchQuery,
         setSearchQuery,
@@ -781,15 +1046,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setIsAuthModalOpen,
         isRegModalOpen,
         setIsRegModalOpen,
+        regModalTab,
+        setRegModalTab,
+        openRegistrationModal,
         isAISearchOpen,
         setIsAISearchOpen,
         isMembershipModalOpen,
         setIsMembershipModalOpen,
+        isUserProfileModalOpen,
+        setIsUserProfileModalOpen,
+        isBhajanModalOpen,
+        setIsBhajanModalOpen,
         toastMessage,
         showToast,
+        isPlayingNavkar,
+        toggleNavkarAudio,
         login,
         logout,
         registerUser,
+        updateUserProfile,
         approveUser,
         rejectUser,
         suspendUser,
@@ -810,6 +1085,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         deleteAdBanner,
         addNewsItem,
         updateSystemSettings,
+        bhajans,
+        addBhajan,
+        updateBhajan,
+        deleteBhajan,
+        toggleBhajanActive,
+        currentSong,
+        isPlayingSong,
+        playSong,
+        pauseSong,
+        togglePlaySong,
       }}
     >
       {children}

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { User, AdBanner } from '../types';
+import { User, AdBanner, BhajanSong } from '../types';
 import {
   ShieldCheck,
   UserCheck,
@@ -25,7 +25,11 @@ import {
   Tag,
   Calendar,
   Globe,
-  Trash2
+  Trash2,
+  Music,
+  Play,
+  Pause,
+  Radio
 } from 'lucide-react';
 
 export const AdminPanel: React.FC = () => {
@@ -35,6 +39,14 @@ export const AdminPanel: React.FC = () => {
     businesses,
     temples,
     ads,
+    bhajans,
+    addBhajan,
+    updateBhajan,
+    deleteBhajan,
+    toggleBhajanActive,
+    isPlayingSong,
+    currentSong,
+    togglePlaySong,
     approveUser,
     rejectUser,
     suspendUser,
@@ -47,10 +59,18 @@ export const AdminPanel: React.FC = () => {
     showToast
   } = useApp();
 
-  const [activeAdminTab, setActiveAdminTab] = useState<'pending' | 'members' | 'ads' | 'settings'>('pending');
+  const [activeAdminTab, setActiveAdminTab] = useState<'pending' | 'members' | 'ads' | 'bhajans' | 'settings'>('pending');
 
   // Pending User Modal State
   const [viewingPendingUser, setViewingPendingUser] = useState<User | null>(null);
+
+  // Bhajan / Song Form State
+  const [songTitle, setSongTitle] = useState('');
+  const [songHindiTitle, setSongHindiTitle] = useState('');
+  const [songCategory, setSongCategory] = useState<'Navkar Mantra' | 'Stavan' | 'Bhajan' | 'Aarti' | 'Bhaktamar' | 'Stuti'>('Stavan');
+  const [songSinger, setSongSinger] = useState('');
+  const [songAudioUrl, setSongAudioUrl] = useState('');
+  const [songLyrics, setSongLyrics] = useState('');
 
   // Ad Form State
   const [selectedBusinessId, setSelectedBusinessId] = useState('');
@@ -152,6 +172,31 @@ export const AdminPanel: React.FC = () => {
     showToast('Advertisement Published', 'Business promotion connected and published on home page.', 'success');
   };
 
+  const handleCreateBhajan = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!songTitle.trim() || !songAudioUrl.trim()) {
+      showToast('Missing Details', 'Please enter a song title and audio URL.', 'error');
+      return;
+    }
+
+    addBhajan({
+      title: songTitle.trim(),
+      hindiTitle: songHindiTitle.trim() || undefined,
+      category: songCategory,
+      singer: songSinger.trim() || undefined,
+      audioUrl: songAudioUrl.trim(),
+      lyrics: songLyrics.trim() || undefined,
+      isActive: true,
+      addedBy: currentUser?.fullName || 'Super Admin',
+    });
+
+    setSongTitle('');
+    setSongHindiTitle('');
+    setSongSinger('');
+    setSongAudioUrl('');
+    setSongLyrics('');
+  };
+
   return (
     <div className="space-y-6">
       
@@ -216,6 +261,18 @@ export const AdminPanel: React.FC = () => {
         >
           <Megaphone className="w-4 h-4" />
           <span>Business Promotions & Ads</span>
+        </button>
+
+        <button
+          onClick={() => setActiveAdminTab('bhajans')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${
+            activeAdminTab === 'bhajans'
+              ? 'bg-amber-600 text-white shadow-md'
+              : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+          }`}
+        >
+          <Music className="w-4 h-4" />
+          <span>Devotional Songs & Bhajans ({bhajans.length})</span>
         </button>
 
         <button
@@ -617,6 +674,260 @@ export const AdminPanel: React.FC = () => {
                 </div>
               ))}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Tab: Devotional Songs & Bhajans Management */}
+      {activeAdminTab === 'bhajans' && (
+        <div className="space-y-6">
+          {/* Add New Song / Bhajan Form */}
+          <form onSubmit={handleCreateBhajan} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-lg space-y-5 text-xs">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <h3 className="text-sm font-bold uppercase text-slate-900 dark:text-white flex items-center gap-2">
+                <Music className="w-4 h-4 text-amber-500" />
+                Add New Devotional Song / Bhajan / Stavan
+              </h3>
+              <span className="text-xs font-bold text-amber-600 bg-amber-50 dark:bg-amber-950 px-2.5 py-1 rounded-full border border-amber-300">
+                {bhajans.length} Songs in Library
+              </span>
+            </div>
+
+            {/* Quick Audio URL Presets */}
+            <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700">
+              <p className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1">
+                <Radio className="w-3.5 h-3.5 text-amber-500" />
+                Quick MP3 Presets (Click to autofill sample audio stream links):
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  {
+                    name: 'Navkar Mantra Chanting',
+                    category: 'Navkar Mantra',
+                    url: 'https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=meditation-spiritual-112191.mp3',
+                    singer: 'Traditional Jain Chanting',
+                    hindi: 'णमोकार मंत्र दिव्य जाप'
+                  },
+                  {
+                    name: 'Maitri Bhav Stavan',
+                    category: 'Stavan',
+                    url: 'https://cdn.pixabay.com/download/audio/2022/03/15/audio_c8c8a82d02.mp3?filename=relaxing-flute-spiritual-10148.mp3',
+                    singer: 'Sadhana Sargam',
+                    hindi: 'मैत्री भाव नु पवित्र झरणु'
+                  },
+                  {
+                    name: 'Bhaktamar Stotra',
+                    category: 'Bhaktamar',
+                    url: 'https://cdn.pixabay.com/download/audio/2022/01/18/audio_d0a13f69d2.mp3?filename=indian-ambient-meditation-15220.mp3',
+                    singer: 'Panditji Recitation',
+                    hindi: 'भक्तामर स्तोत्र पाठ'
+                  },
+                  {
+                    name: 'Mahavir Swami Aarti',
+                    category: 'Aarti',
+                    url: 'https://cdn.pixabay.com/download/audio/2022/10/25/audio_34d1ed36d9.mp3?filename=spiritual-meditation-temple-124018.mp3',
+                    singer: 'Jain Mahila Mandal',
+                    hindi: 'भगवान महावीर आरती'
+                  }
+                ].map((preset, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => {
+                      setSongTitle(preset.name);
+                      setSongHindiTitle(preset.hindi);
+                      setSongCategory(preset.category as any);
+                      setSongSinger(preset.singer);
+                      setSongAudioUrl(preset.url);
+                    }}
+                    className="px-2.5 py-1 bg-amber-100 dark:bg-amber-900/40 text-amber-900 dark:text-amber-200 hover:bg-amber-200 text-[11px] font-semibold rounded-lg transition-colors border border-amber-300 dark:border-amber-700/50"
+                  >
+                    + {preset.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Song / Bhajan Name *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g., Maitri Bhav Nu Pavitra Zharnu"
+                  value={songTitle}
+                  onChange={(e) => setSongTitle(e.target.value)}
+                  className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 font-medium"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Native Title (Hindi / Gujarati)
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g., मैत्री भाव नु पवित्र झरणु"
+                  value={songHindiTitle}
+                  onChange={(e) => setSongHindiTitle(e.target.value)}
+                  className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 font-medium font-serif"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Category *
+                </label>
+                <select
+                  value={songCategory}
+                  onChange={(e) => setSongCategory(e.target.value as any)}
+                  className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 font-medium"
+                >
+                  <option value="Navkar Mantra">Navkar Mantra</option>
+                  <option value="Stavan">Stavan</option>
+                  <option value="Bhajan">Bhajan</option>
+                  <option value="Aarti">Aarti</option>
+                  <option value="Bhaktamar">Bhaktamar</option>
+                  <option value="Stuti">Stuti</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Singer / Artist Name
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g., Anuradha Paudwal, Lata Mangeshkar"
+                  value={songSinger}
+                  onChange={(e) => setSongSinger(e.target.value)}
+                  className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 font-medium"
+                />
+              </div>
+
+              <div className="col-span-1 sm:col-span-2">
+                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Audio File URL (MP3 / Audio Stream) *
+                </label>
+                <input
+                  type="url"
+                  required
+                  placeholder="https://example.com/audio/my-bhajan.mp3"
+                  value={songAudioUrl}
+                  onChange={(e) => setSongAudioUrl(e.target.value)}
+                  className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 font-medium font-mono text-[11px]"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                Lyrics / Sacred Verses (Optional)
+              </label>
+              <textarea
+                rows={2}
+                placeholder="Enter song lyrics or stavan verses..."
+                value={songLyrics}
+                onChange={(e) => setSongLyrics(e.target.value)}
+                className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 font-medium text-xs"
+              />
+            </div>
+
+            <button
+              type="submit"
+              className="px-6 py-2.5 bg-gradient-to-r from-amber-500 to-amber-700 text-amber-950 font-extrabold text-xs rounded-xl shadow-lg hover:from-amber-600 hover:to-amber-800 flex items-center gap-2"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Publish Song to Bhajan Library</span>
+            </button>
+          </form>
+
+          {/* Published Songs & Bhajans Table */}
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-lg space-y-4">
+            <h3 className="text-sm font-bold uppercase text-slate-900 dark:text-white flex items-center gap-2 pb-3 border-b border-slate-100 dark:border-slate-800">
+              <Music className="w-4 h-4 text-amber-500" />
+              Published Devotional Song Playlist ({bhajans.length})
+            </h3>
+
+            {bhajans.length === 0 ? (
+              <p className="text-xs text-slate-500 text-center py-6">No songs added yet. Add your first song above!</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs text-slate-700 dark:text-slate-300">
+                  <thead className="bg-slate-100 dark:bg-slate-800 text-[11px] font-bold uppercase text-slate-500">
+                    <tr>
+                      <th className="p-3">Play</th>
+                      <th className="p-3">Song Name</th>
+                      <th className="p-3">Category</th>
+                      <th className="p-3">Singer</th>
+                      <th className="p-3">Status</th>
+                      <th className="p-3 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                    {bhajans.map((song) => {
+                      const isThisPlaying = isPlayingSong && currentSong?.id === song.id;
+                      return (
+                        <tr key={song.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                          <td className="p-3">
+                            <button
+                              onClick={() => togglePlaySong(song)}
+                              className={`p-2 rounded-full transition-all ${
+                                isThisPlaying
+                                  ? 'bg-amber-500 text-slate-950 animate-pulse'
+                                  : 'bg-slate-200 dark:bg-slate-800 text-slate-800 dark:text-slate-200 hover:bg-amber-500 hover:text-slate-950'
+                              }`}
+                              title={isThisPlaying ? 'Pause Audio' : 'Play Song'}
+                            >
+                              {isThisPlaying ? <Pause className="w-3.5 h-3.5 fill-current" /> : <Play className="w-3.5 h-3.5 fill-current ml-0.5" />}
+                            </button>
+                          </td>
+                          <td className="p-3">
+                            <div>
+                              <p className="font-bold text-slate-900 dark:text-white">{song.title}</p>
+                              {song.hindiTitle && (
+                                <p className="text-[11px] text-amber-600 dark:text-amber-400 font-serif">{song.hindiTitle}</p>
+                              )}
+                            </div>
+                          </td>
+                          <td className="p-3">
+                            <span className="px-2.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 text-[10px] font-bold border border-amber-300 dark:border-amber-800">
+                              {song.category}
+                            </span>
+                          </td>
+                          <td className="p-3 font-medium text-slate-600 dark:text-slate-400">
+                            {song.singer || 'Traditional'}
+                          </td>
+                          <td className="p-3">
+                            <button
+                              onClick={() => toggleBhajanActive(song.id)}
+                              className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${
+                                song.isActive
+                                  ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+                                  : 'bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
+                              }`}
+                            >
+                              {song.isActive ? 'Active' : 'Disabled'}
+                            </button>
+                          </td>
+                          <td className="p-3 text-right">
+                            <button
+                              onClick={() => deleteBhajan(song.id)}
+                              className="p-1.5 rounded-lg bg-rose-50 text-rose-600 dark:bg-rose-950/50 dark:text-rose-400 hover:bg-rose-100 transition-colors"
+                              title="Delete Bhajan"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
       )}

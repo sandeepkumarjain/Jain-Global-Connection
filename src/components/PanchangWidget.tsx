@@ -1,5 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
+import { playNavkarMantraAudio, stopNavkarMantraAudio } from '../utils/navkarAudio';
+import { JainEventsCalendar } from './JainEventsCalendar';
+import { FeaturedAdsSection } from './FeaturedAdsSection';
 import {
   Calendar,
   Sun,
@@ -14,7 +17,8 @@ import {
   BookOpen,
   MapPin,
   Navigation,
-  Compass
+  Compass,
+  RefreshCw
 } from 'lucide-react';
 
 interface CityTiming {
@@ -25,6 +29,44 @@ interface CityTiming {
   navkarshi: string;
   chouvihar: string;
 }
+
+const JAIN_AGAM_QUOTES = [
+  {
+    text: '"Live and let live. Ahimsa Paramo Dharma — Non-violence is the supreme virtue and duty of every soul."',
+    source: 'Bhagwan Mahavira (Acharanga Sutra)',
+    translation: 'Ahimsa (Non-violence) in thought, word, and deed.'
+  },
+  {
+    text: '"Khamemi Savva Jive, Savve Jiva Khamantu Me. Mitti Me Savva Bhutesu, Veram Majjham Na Kenai."',
+    source: 'Samvatsari Kshamavani Sutra',
+    translation: 'I forgive all living beings, may all living beings forgive me. I have friendship with all beings, and enmity toward none.'
+  },
+  {
+    text: '"Samyak Darshana Jnana Charitrani Moksha Margah."',
+    source: 'Acharya Umasvati (Tattvartha Sutra 1.1)',
+    translation: 'Right Faith, Right Knowledge, and Right Conduct together form the path to liberation.'
+  },
+  {
+    text: '"Anathho Parathho Vaa, Appaa Nahanu Parassa Vaa."',
+    source: 'Bhagwan Mahavira (Uttaradhyayana Sutra 20.21)',
+    translation: 'You are your own master. Look inward for true liberation; the soul is its own refuge.'
+  },
+  {
+    text: '"Possa Thimima Paratthattham, Jasa Bhutana Dayai."',
+    source: 'Bhagwan Mahavira (Dasaveyaliya Sutra 6.9)',
+    translation: 'True spiritual knowledge produces compassion and loving-kindness for all living creatures.'
+  },
+  {
+    text: '"Parasparopagraho Jivanam."',
+    source: 'Acharya Umasvati (Tattvartha Sutra 5.21)',
+    translation: 'All life is bound together by mutual support and interdependence.'
+  },
+  {
+    text: '"Anekantavada teaches us that truth has many facets; respect for all viewpoints is the highest intellectual non-violence."',
+    source: 'Acharya Haribhadra Suri (Agam Commentary)',
+    translation: 'Non-absolutism & respect for diverse perspectives.'
+  }
+];
 
 const CITY_TIMINGS: Record<string, CityTiming> = {
   Bikaner: {
@@ -115,20 +157,42 @@ export const PanchangWidget: React.FC = () => {
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const [copiedQuote, setCopiedQuote] = useState(false);
   const [isDetectingLoc, setIsDetectingLoc] = useState(false);
+  const [currentQuoteIndex, setCurrentQuoteIndex] = useState(0);
 
   const activeTiming = CITY_TIMINGS[selectedCityKey] || CITY_TIMINGS['Bikaner'];
+  const activeQuote = JAIN_AGAM_QUOTES[currentQuoteIndex];
+
+  // Ensure sound is stopped when component unmounts
+  useEffect(() => {
+    return () => {
+      stopNavkarMantraAudio();
+    };
+  }, []);
+
+  const handleChangeQuote = () => {
+    const nextIdx = (currentQuoteIndex + 1) % JAIN_AGAM_QUOTES.length;
+    setCurrentQuoteIndex(nextIdx);
+    showToast('Daily Quote Changed', JAIN_AGAM_QUOTES[nextIdx].source, 'success');
+  };
 
   const handleCopyQuote = () => {
-    navigator.clipboard.writeText(`${panchang.dailyQuote.text} - ${panchang.dailyQuote.source}`);
+    navigator.clipboard.writeText(`${activeQuote.text} - ${activeQuote.source}`);
     setCopiedQuote(true);
     showToast('Quote Copied!', 'Jain daily quote copied to clipboard.', 'success');
     setTimeout(() => setCopiedQuote(false), 3000);
   };
 
   const toggleNavkarMantra = () => {
-    setIsPlayingAudio(!isPlayingAudio);
-    if (!isPlayingAudio) {
+    if (isPlayingAudio) {
+      stopNavkarMantraAudio();
+      setIsPlayingAudio(false);
+      showToast('Navkar Audio Paused', 'Audio chanting stopped.', 'info');
+    } else {
+      setIsPlayingAudio(true);
       showToast('Playing Navkar Mantra Chanting', 'Namo Arihantanam... Namo Siddhanam...', 'info');
+      playNavkarMantraAudio(() => {
+        setIsPlayingAudio(false);
+      });
     }
   };
 
@@ -293,53 +357,61 @@ export const PanchangWidget: React.FC = () => {
       </div>
 
       {/* Daily Quote Box */}
-      <div className="bg-gradient-to-r from-amber-500/10 via-amber-600/10 to-amber-700/10 border border-amber-400/40 rounded-xl p-4 relative">
-        <div className="flex items-start justify-between gap-4">
-          <div className="space-y-1">
-            <p className="text-xs font-bold text-amber-800 dark:text-amber-300 uppercase tracking-wider flex items-center gap-1">
-              <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-              Daily Jain Agam Quote
+      <div className="bg-gradient-to-r from-amber-500/10 via-amber-600/10 to-amber-700/10 border border-amber-400/40 rounded-2xl p-5 relative shadow-md">
+        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+          <div className="space-y-1.5 flex-1">
+            <div className="flex items-center gap-2">
+              <p className="text-xs font-bold text-amber-800 dark:text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
+                <Sparkles className="w-4 h-4 text-amber-500 animate-spin-slow" />
+                DAILY JAIN AGAM QUOTE
+              </p>
+              <span className="text-[10px] px-2 py-0.5 bg-amber-200/80 dark:bg-amber-900/60 text-amber-900 dark:text-amber-200 font-bold rounded-full">
+                Quote #{currentQuoteIndex + 1} of {JAIN_AGAM_QUOTES.length}
+              </span>
+            </div>
+
+            <p className="text-sm sm:text-base font-serif italic text-slate-800 dark:text-slate-100 font-medium leading-relaxed">
+              {activeQuote.text}
             </p>
-            <p className="text-sm font-serif italic text-slate-800 dark:text-slate-200 font-medium">
-              {panchang.dailyQuote.text}
-            </p>
-            <p className="text-[11px] text-amber-700 dark:text-amber-400 font-semibold">
-              — {panchang.dailyQuote.source}
+
+            {activeQuote.translation && (
+              <p className="text-xs text-slate-600 dark:text-slate-300 font-sans italic bg-amber-100/50 dark:bg-amber-950/40 p-2 rounded-lg border border-amber-200/50">
+                <strong className="text-amber-900 dark:text-amber-300 font-bold font-serif">Meaning:</strong> {activeQuote.translation}
+              </p>
+            )}
+
+            <p className="text-xs text-amber-800 dark:text-amber-400 font-bold font-serif pt-1">
+              — {activeQuote.source}
             </p>
           </div>
 
-          <button
-            onClick={handleCopyQuote}
-            className="p-2 rounded-lg bg-white dark:bg-slate-800 border border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300 hover:bg-amber-100 transition-colors shrink-0"
-            title="Copy Quote"
-          >
-            {copiedQuote ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={handleChangeQuote}
+              className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-white font-bold text-xs flex items-center gap-1.5 shadow-md transition-all active:scale-95"
+              title="Click to change and read next Agam quote"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              <span>Change Quote</span>
+            </button>
+
+            <button
+              onClick={handleCopyQuote}
+              className="p-2.5 rounded-xl bg-white dark:bg-slate-800 border border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-200 hover:bg-amber-100 dark:hover:bg-amber-950 transition-colors shadow-sm"
+              title="Copy Quote"
+            >
+              {copiedQuote ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Upcoming Jain Parva / Festivals */}
-      <div>
-        <h3 className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider mb-3 flex items-center gap-1.5">
-          <BookOpen className="w-3.5 h-3.5 text-amber-500" />
-          Upcoming Sacred Jain Parva Calendar
-        </h3>
-        <div className="space-y-2">
-          {panchang.upcomingFestivals.map((f, idx) => (
-            <div
-              key={idx}
-              className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs"
-            >
-              <div>
-                <p className="font-bold text-slate-900 dark:text-white">{f.name}</p>
-                <p className="text-slate-500 dark:text-slate-400 text-[11px]">{f.description}</p>
-              </div>
-              <span className="px-2.5 py-1 bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 font-mono font-bold rounded-lg shrink-0">
-                {f.date}
-              </span>
-            </div>
-          ))}
-        </div>
+      {/* Featured Business Advertisements & Promotions (Placed directly below Daily Jain Agam) */}
+      <FeaturedAdsSection />
+
+      {/* Interactive Jain Events Calendar with Event Filters & Tithi Fasting Guidance */}
+      <div className="pt-4 border-t border-amber-200/50 dark:border-slate-800">
+        <JainEventsCalendar />
       </div>
     </div>
   );

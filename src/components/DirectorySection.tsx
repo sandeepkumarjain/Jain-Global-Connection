@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
+import { QRCodeSVG } from 'qrcode.react';
+import { VerifiedBadge } from './VerifiedBadge';
 import {
   Users,
   Search,
@@ -16,7 +18,7 @@ import {
 import { CommunityMemberProfile } from '../types';
 
 export const DirectorySection: React.FC = () => {
-  const { members, setIsRegModalOpen, showToast } = useApp();
+  const { members, openRegistrationModal, showToast } = useApp();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedMember, setSelectedMember] = useState<CommunityMemberProfile | null>(null);
   const [showIDModal, setShowIDModal] = useState(false);
@@ -55,8 +57,8 @@ export const DirectorySection: React.FC = () => {
 
           <div className="pt-2">
             <button
-              onClick={() => setIsRegModalOpen(true)}
-              className="px-5 py-2.5 bg-gradient-to-r from-amber-500 to-amber-700 text-amber-950 font-bold text-xs rounded-xl shadow-lg hover:from-amber-600 hover:to-amber-800 transition-all flex items-center gap-2"
+              onClick={() => openRegistrationModal('family')}
+              className="px-5 py-3 min-h-[44px] bg-gradient-to-r from-amber-500 to-amber-700 text-amber-950 font-bold text-xs rounded-xl shadow-lg hover:from-amber-600 hover:to-amber-800 transition-all flex items-center justify-center gap-2"
             >
               <Plus className="w-4 h-4" />
               <span>Register Family Profile</span>
@@ -94,12 +96,12 @@ export const DirectorySection: React.FC = () => {
               />
 
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-1.5">
+                <div className="flex flex-wrap items-center gap-1.5">
                   <h3 className="text-base font-bold font-serif text-slate-900 dark:text-white truncate">
                     {m.name} {m.surname}
                   </h3>
                   {m.isVerified && (
-                    <UserCheck className="w-4 h-4 text-emerald-500 shrink-0" title="Admin Verified" />
+                    <VerifiedBadge type="member" showText={true} />
                   )}
                 </div>
 
@@ -147,17 +149,17 @@ export const DirectorySection: React.FC = () => {
                   setSelectedMember(m);
                   setShowIDModal(true);
                 }}
-                className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 font-bold rounded-lg flex items-center gap-1 hover:bg-amber-100"
+                className="px-3.5 py-2.5 min-h-[44px] bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 font-bold rounded-lg flex items-center justify-center gap-1.5 hover:bg-amber-100"
               >
-                <QrCode className="w-3.5 h-3.5 text-amber-500" />
+                <QrCode className="w-4 h-4 text-amber-500" />
                 <span>Digital ID Card</span>
               </button>
 
               <a
                 href={`tel:${m.mobile}`}
-                className="px-4 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-lg flex items-center gap-1 shadow-sm"
+                className="px-4 py-2.5 min-h-[44px] bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-lg flex items-center justify-center gap-1.5 shadow-sm"
               >
-                <Phone className="w-3.5 h-3.5" />
+                <Phone className="w-4 h-4" />
                 <span>Contact Member</span>
               </a>
             </div>
@@ -172,7 +174,7 @@ export const DirectorySection: React.FC = () => {
             
             <button
               onClick={() => setShowIDModal(false)}
-              className="absolute top-4 right-4 text-slate-400 hover:text-white"
+              className="absolute top-4 right-4 text-slate-400 hover:text-white p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg"
             >
               <X className="w-5 h-5" />
             </button>
@@ -191,13 +193,22 @@ export const DirectorySection: React.FC = () => {
               />
 
               <div>
-                <h4 className="text-lg font-bold font-serif">{selectedMember.name} {selectedMember.surname}</h4>
+                <div className="flex items-center justify-center gap-1.5">
+                  <h4 className="text-lg font-bold font-serif">{selectedMember.name} {selectedMember.surname}</h4>
+                  {selectedMember.isVerified && <VerifiedBadge type="member" showText={true} size="sm" />}
+                </div>
                 <p className="text-xs text-amber-300">{selectedMember.profession}</p>
                 <p className="text-[10px] text-slate-400 mt-0.5">{selectedMember.city}, {selectedMember.country}</p>
               </div>
 
-              <div className="bg-white p-2 rounded-xl w-28 h-28 mx-auto flex items-center justify-center">
-                <QrCode className="w-full h-full text-slate-950" />
+              <div className="bg-white p-2 rounded-xl w-32 h-32 mx-auto flex items-center justify-center shadow-md">
+                <QRCodeSVG
+                  value={`MEMBER:${selectedMember.name} ${selectedMember.surname}|ID:JCG-MEM-${selectedMember.id.slice(-6).toUpperCase()}|CITY:${selectedMember.city}|VERIFIED:TRUE`}
+                  size={112}
+                  bgColor="#FFFFFF"
+                  fgColor="#0F172A"
+                  level="M"
+                />
               </div>
 
               <p className="text-[9px] text-amber-300 font-mono">

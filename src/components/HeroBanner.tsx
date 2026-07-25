@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 
 export const HeroBanner: React.FC = () => {
-  const { ads, setActiveTab, setIsRegModalOpen, setIsAISearchOpen, systemSettings } = useApp();
+  const { ads, setActiveTab, openRegistrationModal, setIsAISearchOpen, systemSettings } = useApp();
   const [currentSlide, setCurrentSlide] = useState(0);
 
   const heroSlides = [
@@ -84,7 +84,7 @@ export const HeroBanner: React.FC = () => {
             {/* Action Buttons */}
             <div className="flex flex-wrap items-center gap-3 pt-2">
               <button
-                onClick={() => setIsRegModalOpen(true)}
+                onClick={() => openRegistrationModal('family')}
                 className="px-6 py-3 bg-gradient-to-r from-amber-500 via-amber-600 to-amber-700 hover:from-amber-600 hover:to-amber-800 text-amber-950 font-black text-sm rounded-xl shadow-xl hover:shadow-amber-500/20 transition-all flex items-center gap-2"
               >
                 <UserPlus className="w-4 h-4" />
@@ -128,7 +128,7 @@ export const HeroBanner: React.FC = () => {
             <div className="grid grid-cols-2 gap-2.5">
               <button
                 onClick={() => setActiveTab('matrimonial')}
-                className="p-3 bg-slate-950/60 hover:bg-amber-950/40 border border-slate-800 hover:border-amber-500/50 rounded-xl text-left transition-all group"
+                className="p-3 bg-slate-950/60 hover:bg-amber-950/40 border border-slate-800 hover:border-amber-500/50 hover:scale-[1.03] hover:-translate-y-0.5 min-h-[44px] rounded-xl text-left transition-all duration-300 group"
               >
                 <Heart className="w-5 h-5 text-red-400 mb-1.5 group-hover:scale-110 transition-transform" />
                 <p className="text-xs font-bold text-white">Matrimonial</p>
@@ -137,7 +137,7 @@ export const HeroBanner: React.FC = () => {
 
               <button
                 onClick={() => setActiveTab('business')}
-                className="p-3 bg-slate-950/60 hover:bg-amber-950/40 border border-slate-800 hover:border-amber-500/50 rounded-xl text-left transition-all group"
+                className="p-3 bg-slate-950/60 hover:bg-amber-950/40 border border-slate-800 hover:border-amber-500/50 hover:scale-[1.03] hover:-translate-y-0.5 min-h-[44px] rounded-xl text-left transition-all duration-300 group"
               >
                 <Building2 className="w-5 h-5 text-amber-400 mb-1.5 group-hover:scale-110 transition-transform" />
                 <p className="text-xs font-bold text-white">Business</p>
@@ -146,7 +146,7 @@ export const HeroBanner: React.FC = () => {
 
               <button
                 onClick={() => setActiveTab('temple')}
-                className="p-3 bg-slate-950/60 hover:bg-amber-950/40 border border-slate-800 hover:border-amber-500/50 rounded-xl text-left transition-all group"
+                className="p-3 bg-slate-950/60 hover:bg-amber-950/40 border border-slate-800 hover:border-amber-500/50 hover:scale-[1.03] hover:-translate-y-0.5 min-h-[44px] rounded-xl text-left transition-all duration-300 group"
               >
                 <MapPin className="w-5 h-5 text-emerald-400 mb-1.5 group-hover:scale-110 transition-transform" />
                 <p className="text-xs font-bold text-white">Temples & Tirths</p>
@@ -155,7 +155,7 @@ export const HeroBanner: React.FC = () => {
 
               <button
                 onClick={() => setActiveTab('panchang')}
-                className="p-3 bg-slate-950/60 hover:bg-amber-950/40 border border-slate-800 hover:border-amber-500/50 rounded-xl text-left transition-all group"
+                className="p-3 bg-slate-950/60 hover:bg-amber-950/40 border border-slate-800 hover:border-amber-500/50 hover:scale-[1.03] hover:-translate-y-0.5 min-h-[44px] rounded-xl text-left transition-all duration-300 group"
               >
                 <Calendar className="w-5 h-5 text-blue-400 mb-1.5 group-hover:scale-110 transition-transform" />
                 <p className="text-xs font-bold text-white">Jain Panchang</p>

@@ -15,14 +15,21 @@ import {
   ShieldCheck,
   X,
   Sparkles,
-  DollarSign
+  DollarSign,
+  Map as MapIcon,
+  Grid,
+  Filter,
+  Columns
 } from 'lucide-react';
 import { TempleListing } from '../types';
+import { TempleMapView } from './TempleMapView';
 
 export const TempleSection: React.FC = () => {
-  const { temples, setIsRegModalOpen, showToast } = useApp();
+  const { temples, openRegistrationModal, showToast } = useApp();
 
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedSect, setSelectedSect] = useState<string>('All');
+  const [viewMode, setViewMode] = useState<'map' | 'cards' | 'both'>('map');
   const [selectedTemple, setSelectedTemple] = useState<TempleListing | null>(null);
   const [showLiveDarshan, setShowLiveDarshan] = useState(false);
   const [showDonationModal, setShowDonationModal] = useState(false);
@@ -33,8 +40,12 @@ export const TempleSection: React.FC = () => {
       searchTerm &&
       !t.templeName.toLowerCase().includes(searchTerm.toLowerCase()) &&
       !t.city.toLowerCase().includes(searchTerm.toLowerCase()) &&
-      !t.mainDeity.toLowerCase().includes(searchTerm.toLowerCase())
+      !t.mainDeity.toLowerCase().includes(searchTerm.toLowerCase()) &&
+      !t.state.toLowerCase().includes(searchTerm.toLowerCase())
     ) {
+      return false;
+    }
+    if (selectedSect !== 'All' && !t.sect.toLowerCase().includes(selectedSect.toLowerCase())) {
       return false;
     }
     return true;
@@ -66,8 +77,8 @@ export const TempleSection: React.FC = () => {
 
           <div className="pt-2">
             <button
-              onClick={() => setIsRegModalOpen(true)}
-              className="px-5 py-2.5 bg-gradient-to-r from-amber-500 to-amber-700 text-amber-950 font-bold text-xs rounded-xl shadow-lg hover:from-amber-600 hover:to-amber-800 transition-all flex items-center gap-2"
+              onClick={() => openRegistrationModal('temple')}
+              className="px-5 py-3 min-h-[44px] bg-gradient-to-r from-amber-500 to-amber-700 text-amber-950 font-bold text-xs rounded-xl shadow-lg hover:from-amber-600 hover:to-amber-800 transition-all flex items-center justify-center gap-2"
             >
               <Plus className="w-4 h-4" />
               <span>Register Your Local Temple</span>
@@ -76,27 +87,128 @@ export const TempleSection: React.FC = () => {
         </div>
       </div>
 
-      {/* Search Input */}
-      <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
-        <div className="relative">
-          <input
-            type="text"
-            placeholder="Search Temple Name, Main Deity, City, or Tirth..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 text-xs rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-500"
-          />
-          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+      {/* Search Input, Sect Filters & View Mode Selector */}
+      <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-3">
+        <div className="flex flex-col md:flex-row items-center justify-between gap-3">
+          {/* Search Field */}
+          <div className="relative w-full md:w-1/2">
+            <input
+              type="text"
+              placeholder="Search Temple Name, Main Deity, City, State, or Tirth..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-3 min-h-[44px] text-xs rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-500"
+            />
+            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3.5" />
+          </div>
+
+          {/* Sect Filter Pills */}
+          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar w-full md:w-auto">
+            <span className="text-[10px] font-bold uppercase text-slate-400 shrink-0 flex items-center gap-1">
+              <Filter className="w-3 h-3" /> Sect:
+            </span>
+            {['All', 'Swetambar', 'Digambar'].map((sect) => (
+              <button
+                key={sect}
+                onClick={() => setSelectedSect(sect)}
+                className={`px-3.5 py-2.5 min-h-[44px] text-xs font-bold rounded-xl border transition-all shrink-0 flex items-center justify-center ${
+                  selectedSect === sect
+                    ? 'bg-amber-600 text-white border-amber-600 shadow-sm'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'
+                }`}
+              >
+                {sect}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* View Mode Switcher */}
+        <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800">
+          <p className="text-xs font-bold text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
+            <MapPin className="w-4 h-4 text-amber-500" />
+            <span>Showing {filtered.length} Sacred Tirths & Temples</span>
+          </p>
+
+          <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700">
+            <button
+              onClick={() => setViewMode('map')}
+              className={`px-3.5 py-2 min-h-[44px] rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${
+                viewMode === 'map'
+                  ? 'bg-amber-500 text-slate-950 shadow-sm'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              <MapIcon className="w-3.5 h-3.5" />
+              <span>Map & Nearby</span>
+            </button>
+
+            <button
+              onClick={() => setViewMode('cards')}
+              className={`px-3.5 py-2 min-h-[44px] rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${
+                viewMode === 'cards'
+                  ? 'bg-amber-500 text-slate-950 shadow-sm'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              <Grid className="w-3.5 h-3.5" />
+              <span>Directory Cards</span>
+            </button>
+
+            <button
+              onClick={() => setViewMode('both')}
+              className={`px-3.5 py-2 min-h-[44px] rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${
+                viewMode === 'both'
+                  ? 'bg-amber-500 text-slate-950 shadow-sm'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              <Columns className="w-3.5 h-3.5" />
+              <span>Split View</span>
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Temple Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {filtered.map((t) => (
-          <div
-            key={t.id}
-            className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-lg hover:border-amber-500/50 transition-all flex flex-col justify-between"
-          >
+      {/* Map View */}
+      {(viewMode === 'map' || viewMode === 'both') && (
+        <div className="space-y-3">
+          <TempleMapView
+            temples={filtered}
+            selectedTemple={selectedTemple}
+            onSelectTemple={(t) => setSelectedTemple(t)}
+            onOpenLiveDarshan={(t) => {
+              setSelectedTemple(t);
+              setShowLiveDarshan(true);
+            }}
+            onOpenDonation={(t) => {
+              setSelectedTemple(t);
+              setShowDonationModal(true);
+            }}
+          />
+        </div>
+      )}
+
+      {/* Temple Cards Grid */}
+      {(viewMode === 'cards' || viewMode === 'both') && (
+        <div className="space-y-3">
+          {viewMode === 'both' && (
+            <h3 className="text-base font-bold font-serif text-slate-900 dark:text-white flex items-center gap-2 pt-2">
+              <Grid className="w-4 h-4 text-amber-500" />
+              <span>Temple Details & Dharamshala Listings</span>
+            </h3>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {filtered.map((t) => (
+              <div
+                key={t.id}
+                className={`bg-white dark:bg-slate-900 border rounded-2xl overflow-hidden shadow-lg hover:border-amber-500/50 transition-all flex flex-col justify-between ${
+                  selectedTemple?.id === t.id
+                    ? 'border-amber-500 ring-2 ring-amber-500/50'
+                    : 'border-slate-200 dark:border-slate-800'
+                }`}
+              >
             <div>
               {/* Image Banner */}
               <div className="relative h-48 overflow-hidden bg-slate-950">
@@ -170,7 +282,7 @@ export const TempleSection: React.FC = () => {
                   setSelectedTemple(t);
                   setShowLiveDarshan(true);
                 }}
-                className="py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg flex items-center justify-center gap-1 shadow-sm"
+                className="py-2.5 min-h-[44px] bg-red-600 hover:bg-red-700 text-white rounded-lg flex items-center justify-center gap-1 shadow-sm"
               >
                 <Video className="w-3.5 h-3.5" />
                 <span>Live Darshan</span>
@@ -181,7 +293,7 @@ export const TempleSection: React.FC = () => {
                   setSelectedTemple(t);
                   setShowDonationModal(true);
                 }}
-                className="py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg flex items-center justify-center gap-1 shadow-sm"
+                className="py-2.5 min-h-[44px] bg-amber-600 hover:bg-amber-700 text-white rounded-lg flex items-center justify-center gap-1 shadow-sm"
               >
                 <Heart className="w-3.5 h-3.5 fill-white" />
                 <span>Donate</span>
@@ -191,7 +303,7 @@ export const TempleSection: React.FC = () => {
                 href={`https://maps.google.com/?q=${encodeURIComponent(t.templeName + ' ' + t.city)}`}
                 target="_blank"
                 rel="noreferrer"
-                className="py-1.5 bg-slate-900 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-white rounded-lg flex items-center justify-center gap-1 hover:bg-slate-800"
+                className="py-2.5 min-h-[44px] bg-slate-900 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-white rounded-lg flex items-center justify-center gap-1 hover:bg-slate-800"
               >
                 <Compass className="w-3.5 h-3.5 text-amber-400" />
                 <span>Directions</span>
@@ -200,6 +312,8 @@ export const TempleSection: React.FC = () => {
           </div>
         ))}
       </div>
+    </div>
+  )}
 
       {/* Live Darshan Modal */}
       {showLiveDarshan && selectedTemple && (
@@ -210,7 +324,7 @@ export const TempleSection: React.FC = () => {
                 <Video className="w-5 h-5 text-red-500 animate-pulse" />
                 Live Darshan Feed: {selectedTemple.templeName}
               </h3>
-              <button onClick={() => setShowLiveDarshan(false)} className="text-slate-400 hover:text-white">
+              <button onClick={() => setShowLiveDarshan(false)} className="text-slate-400 hover:text-white p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -249,7 +363,7 @@ export const TempleSection: React.FC = () => {
               <h3 className="text-base font-bold font-serif text-amber-600 dark:text-amber-400">
                 Temple Donation / Dev Dravya
               </h3>
-              <button onClick={() => setShowDonationModal(false)} className="text-slate-400">
+              <button onClick={() => setShowDonationModal(false)} className="text-slate-400 p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -265,9 +379,9 @@ export const TempleSection: React.FC = () => {
                   <button
                     key={amt}
                     onClick={() => setDonationAmount(amt)}
-                    className={`py-2 rounded-lg border transition-all ${
+                    className={`py-2.5 min-h-[44px] rounded-xl border transition-all flex items-center justify-center ${
                       donationAmount === amt
-                        ? 'bg-amber-600 text-white border-amber-600'
+                        ? 'bg-amber-600 text-white border-amber-600 shadow'
                         : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-300 dark:border-slate-700'
                     }`}
                   >

@@ -3,7 +3,6 @@ import { AppProvider, useApp } from './context/AppContext';
 import { Header } from './components/Header';
 import { Footer } from './components/Footer';
 import { HeroBanner } from './components/HeroBanner';
-import { FeaturedAdsSection } from './components/FeaturedAdsSection';
 import { PanchangWidget } from './components/PanchangWidget';
 import { MatrimonialSection } from './components/MatrimonialSection';
 import { BusinessSection } from './components/BusinessSection';
@@ -16,7 +15,11 @@ import { AuthModal } from './components/AuthModal';
 import { RegisterModal } from './components/RegisterModal';
 import { AISearchModal } from './components/AISearchModal';
 import { MembershipModal } from './components/MembershipModal';
+import { UserProfileModal } from './components/UserProfileModal';
+import { BhajanLibraryModal } from './components/BhajanLibraryModal';
+import { AudioPlayer } from './components/AudioPlayer';
 import { LoginRequiredView } from './components/LoginRequiredView';
+import { DailyJainWisdom } from './components/DailyJainWisdom';
 import {
   CheckCircle2,
   AlertCircle,
@@ -54,7 +57,7 @@ const MainContent: React.FC = () => {
 
   return (
     <div
-      className={`min-h-screen flex flex-col font-sans transition-colors duration-300 ${
+      className={`min-h-screen flex flex-col font-sans transition-colors duration-300 overflow-x-hidden ${
         themeMode === 'dark' ? 'dark bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'
       }`}
     >
@@ -62,7 +65,7 @@ const MainContent: React.FC = () => {
       <Header />
 
       {/* Main Body */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 space-y-8">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 pt-6 pb-20 md:pb-6 space-y-8">
         
         {/* TAB 1: HOME VIEW */}
         {activeTab === 'home' && (
@@ -70,11 +73,11 @@ const MainContent: React.FC = () => {
             {/* Hero Banner Carousel */}
             <HeroBanner />
 
-            {/* Daily Jain Panchang & Tithi Summary */}
+            {/* Daily Jain Panchang & Tithi Summary with Agam & Promotions */}
             <PanchangWidget />
 
-            {/* Featured Business Advertisements & Promotions (Public View) */}
-            <FeaturedAdsSection />
+            {/* Daily Jain Wisdom Scriptures & Quotes Carousel */}
+            <DailyJainWisdom />
 
             {/* GUEST VISITORS HOME VIEW (LOGGED OUT) */}
             {!currentUser ? (
@@ -131,9 +134,9 @@ const MainContent: React.FC = () => {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     
                     {/* Portal 1: Matrimonial */}
-                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-lg space-y-4 hover:border-red-500/50 transition-all group">
+                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-lg space-y-4 hover:border-red-500/50 hover:scale-[1.02] hover:-translate-y-1 hover:shadow-2xl transition-all duration-300 group">
                       <div className="flex items-center justify-between">
-                        <div className="p-3 bg-red-500/10 rounded-2xl border border-red-500/20 text-red-500">
+                        <div className="p-3 bg-red-500/10 rounded-2xl border border-red-500/20 text-red-500 group-hover:scale-110 transition-transform duration-300">
                           <Heart className="w-7 h-7 fill-red-500" />
                         </div>
                         <span className="text-[10px] font-bold px-2.5 py-1 bg-red-100 dark:bg-red-950/80 text-red-700 dark:text-red-300 rounded-full flex items-center gap-1">
@@ -153,7 +156,7 @@ const MainContent: React.FC = () => {
 
                       <button
                         onClick={() => setIsAuthModalOpen(true)}
-                        className="w-full py-2.5 bg-red-50 dark:bg-red-950/40 hover:bg-red-100 dark:hover:bg-red-900/50 text-red-700 dark:text-red-300 font-bold text-xs rounded-xl border border-red-200 dark:border-red-900/50 transition-all flex items-center justify-center gap-1.5"
+                        className="w-full py-2.5 bg-red-50 dark:bg-red-950/40 hover:bg-red-100 dark:hover:bg-red-900/50 text-red-700 dark:text-red-300 font-bold text-xs rounded-xl border border-red-200 dark:border-red-900/50 transition-all flex items-center justify-center gap-1.5 min-h-[44px]"
                       >
                         <LogIn className="w-3.5 h-3.5" />
                         <span>Sign In to Search Matrimonial Profiles</span>
@@ -161,9 +164,9 @@ const MainContent: React.FC = () => {
                     </div>
 
                     {/* Portal 2: Business Directory */}
-                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-lg space-y-4 hover:border-amber-500/50 transition-all group">
+                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-lg space-y-4 hover:border-amber-500/50 hover:scale-[1.02] hover:-translate-y-1 hover:shadow-2xl transition-all duration-300 group">
                       <div className="flex items-center justify-between">
-                        <div className="p-3 bg-amber-500/10 rounded-2xl border border-amber-500/20 text-amber-500">
+                        <div className="p-3 bg-amber-500/10 rounded-2xl border border-amber-500/20 text-amber-500 group-hover:scale-110 transition-transform duration-300">
                           <Building2 className="w-7 h-7" />
                         </div>
                         <span className="text-[10px] font-bold px-2.5 py-1 bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-300 rounded-full flex items-center gap-1">
@@ -183,7 +186,7 @@ const MainContent: React.FC = () => {
 
                       <button
                         onClick={() => setIsAuthModalOpen(true)}
-                        className="w-full py-2.5 bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-900/50 text-amber-800 dark:text-amber-300 font-bold text-xs rounded-xl border border-amber-200 dark:border-amber-900/50 transition-all flex items-center justify-center gap-1.5"
+                        className="w-full py-2.5 bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-900/50 text-amber-800 dark:text-amber-300 font-bold text-xs rounded-xl border border-amber-200 dark:border-amber-900/50 transition-all flex items-center justify-center gap-1.5 min-h-[44px]"
                       >
                         <LogIn className="w-3.5 h-3.5" />
                         <span>Sign In to Access Business Directory</span>
@@ -191,9 +194,9 @@ const MainContent: React.FC = () => {
                     </div>
 
                     {/* Portal 3: Temple Directory */}
-                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-lg space-y-4 hover:border-emerald-500/50 transition-all group">
+                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-lg space-y-4 hover:border-emerald-500/50 hover:scale-[1.02] hover:-translate-y-1 hover:shadow-2xl transition-all duration-300 group">
                       <div className="flex items-center justify-between">
-                        <div className="p-3 bg-emerald-500/10 rounded-2xl border border-emerald-500/20 text-emerald-500">
+                        <div className="p-3 bg-emerald-500/10 rounded-2xl border border-emerald-500/20 text-emerald-500 group-hover:scale-110 transition-transform duration-300">
                           <MapPin className="w-7 h-7" />
                         </div>
                         <span className="text-[10px] font-bold px-2.5 py-1 bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 rounded-full flex items-center gap-1">
@@ -213,7 +216,7 @@ const MainContent: React.FC = () => {
 
                       <button
                         onClick={() => setIsAuthModalOpen(true)}
-                        className="w-full py-2.5 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 text-emerald-800 dark:text-emerald-300 font-bold text-xs rounded-xl border border-emerald-200 dark:border-emerald-900/50 transition-all flex items-center justify-center gap-1.5"
+                        className="w-full py-2.5 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 text-emerald-800 dark:text-emerald-300 font-bold text-xs rounded-xl border border-emerald-200 dark:border-emerald-900/50 transition-all flex items-center justify-center gap-1.5 min-h-[44px]"
                       >
                         <LogIn className="w-3.5 h-3.5" />
                         <span>Sign In to Browse Holy Temples</span>
@@ -221,9 +224,9 @@ const MainContent: React.FC = () => {
                     </div>
 
                     {/* Portal 4: Jain Directory Census */}
-                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-lg space-y-4 hover:border-blue-500/50 transition-all group">
+                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-lg space-y-4 hover:border-blue-500/50 hover:scale-[1.02] hover:-translate-y-1 hover:shadow-2xl transition-all duration-300 group">
                       <div className="flex items-center justify-between">
-                        <div className="p-3 bg-blue-500/10 rounded-2xl border border-blue-500/20 text-blue-500">
+                        <div className="p-3 bg-blue-500/10 rounded-2xl border border-blue-500/20 text-blue-500 group-hover:scale-110 transition-transform duration-300">
                           <Users className="w-7 h-7" />
                         </div>
                         <span className="text-[10px] font-bold px-2.5 py-1 bg-blue-100 dark:bg-blue-950/80 text-blue-700 dark:text-blue-300 rounded-full flex items-center gap-1">
@@ -243,7 +246,7 @@ const MainContent: React.FC = () => {
 
                       <button
                         onClick={() => setIsAuthModalOpen(true)}
-                        className="w-full py-2.5 bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-blue-800 dark:text-blue-300 font-bold text-xs rounded-xl border border-blue-200 dark:border-blue-900/50 transition-all flex items-center justify-center gap-1.5"
+                        className="w-full py-2.5 bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-blue-800 dark:text-blue-300 font-bold text-xs rounded-xl border border-blue-200 dark:border-blue-900/50 transition-all flex items-center justify-center gap-1.5 min-h-[44px]"
                       >
                         <LogIn className="w-3.5 h-3.5" />
                         <span>Sign In to Access Jain Directory</span>
@@ -430,6 +433,9 @@ const MainContent: React.FC = () => {
       <RegisterModal />
       <AISearchModal />
       <MembershipModal />
+      <UserProfileModal />
+      <BhajanLibraryModal />
+      <AudioPlayer />
 
       {/* Toast Notification Banner */}
       {toast && (

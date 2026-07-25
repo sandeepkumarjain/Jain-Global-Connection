@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import {
   X,
@@ -19,6 +19,7 @@ export const RegisterModal: React.FC = () => {
   const {
     isRegModalOpen,
     setIsRegModalOpen,
+    regModalTab,
     addMatrimonial,
     addBusiness,
     addTemple,
@@ -27,7 +28,13 @@ export const RegisterModal: React.FC = () => {
     showToast
   } = useApp();
 
-  const [panelType, setPanelType] = useState<'matrimonial' | 'business' | 'temple' | 'family'>('matrimonial');
+  const [panelType, setPanelType] = useState<'matrimonial' | 'business' | 'temple' | 'family'>(regModalTab || 'business');
+
+  useEffect(() => {
+    if (isRegModalOpen && regModalTab) {
+      setPanelType(regModalTab);
+    }
+  }, [isRegModalOpen, regModalTab]);
 
   // Common Contact Info
   const [headFullName, setHeadFullName] = useState('');

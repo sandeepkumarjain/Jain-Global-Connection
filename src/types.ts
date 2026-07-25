@@ -37,6 +37,12 @@ export interface User {
   membershipTier: 'Free' | 'Premium' | 'Elite';
   createdAt: string;
   bloodGroup?: string;
+  isBloodDonor?: boolean;
+  donorAvailable?: boolean;
+  lastDonatedDate?: string;
+  donorMobile?: string;
+  donorCity?: string;
+  donorState?: string;
   qrCodeUrl?: string;
 }
 
@@ -116,6 +122,8 @@ export interface TempleListing {
   city: string;
   state: string;
   country: string;
+  lat?: number;
+  lng?: number;
   distanceKm?: number;
   hasParking: boolean;
   hasAccommodation: boolean;
@@ -215,6 +223,7 @@ export interface PanchangInfo {
 
 export interface BloodDonor {
   id: string;
+  userId?: string;
   name: string;
   bloodGroup: string;
   city: string;
@@ -244,6 +253,21 @@ export interface AppNotification {
   type: 'Approval' | 'Matrimonial' | 'Business' | 'Temple' | 'Broadcast' | 'General' | 'AdReminder';
   createdAt: string;
   isRead: boolean;
+}
+
+export interface BhajanSong {
+  id: string;
+  title: string;
+  hindiTitle?: string;
+  category: 'Navkar Mantra' | 'Stavan' | 'Bhajan' | 'Aarti' | 'Bhaktamar' | 'Stuti';
+  singer?: string;
+  sect?: 'Swetambar' | 'Digambar' | 'All' | string;
+  occasion?: 'Paryushan' | 'Mahavir Jayanti' | 'Morning Bhakti' | 'Diksha' | 'Diwali' | 'General' | string;
+  audioUrl: string;
+  lyrics?: string;
+  isActive: boolean;
+  addedBy?: string;
+  createdAt?: string;
 }
 
 export interface SystemSettings {

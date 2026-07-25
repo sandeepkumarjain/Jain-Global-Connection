@@ -1,1 +1,60 @@
 @import "tailwindcss";
+
+/* Custom Auspicious Gold Theme Styles */
+html.auspicious {
+  background-color: #fffbeb !important;
+  color: #451a03 !important;
+}
+
+html.auspicious body {
+  background-color: #fffbeb !important;
+  color: #451a03 !important;
+}
+
+/* Auspicious theme cards & containers background overrides */
+html.auspicious .bg-white {
+  background-color: #fefce8 !important;
+}
+
+html.auspicious .bg-slate-50,
+html.auspicious .bg-slate-100 {
+  background-color: #fef9c3/70 !important;
+}
+
+html.auspicious .bg-slate-900,
+html.auspicious .bg-slate-950 {
+  background-color: #451a03 !important;
+  color: #fef3c7 !important;
+}
+
+html.auspicious .border-slate-200,
+html.auspicious .border-slate-100,
+html.auspicious .border-slate-300 {
+  border-color: #fde68a !important;
+}
+
+html.auspicious .border-slate-700,
+html.auspicious .border-slate-800 {
+  border-color: #b45309 !important;
+}
+
+html.auspicious .text-slate-900,
+html.auspicious .text-slate-800 {
+  color: #78350f !important;
+}
+
+html.auspicious .text-slate-600,
+html.auspicious .text-slate-700 {
+  color: #92400e !important;
+}
+
+html.auspicious .text-slate-500,
+html.auspicious .text-slate-400 {
+  color: #b45309 !important;
+}
+
+/* Golden glowing highlights */
+html.auspicious .shadow-lg,
+html.auspicious .shadow-xl {
+  box-shadow: 0 10px 25px -5px rgba(217, 119, 6, 0.15), 0 8px 10px -6px rgba(217, 119, 6, 0.1) !important;
+}

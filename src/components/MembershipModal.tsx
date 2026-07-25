@@ -1,5 +1,6 @@
 import React from 'react';
 import { useApp } from '../context/AppContext';
+import { triggerCelebrationConfetti } from '../utils/confetti';
 import {
   Crown,
   X,
@@ -15,6 +16,7 @@ export const MembershipModal: React.FC = () => {
   if (!isMembershipModalOpen) return null;
 
   const handleSelectPlan = (planName: string) => {
+    triggerCelebrationConfetti();
     showToast('Membership Upgraded', `Thank you for subscribing to ${planName}. Gold Verified Badge active!`, 'success');
     setIsMembershipModalOpen(false);
   };
