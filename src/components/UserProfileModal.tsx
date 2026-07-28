@@ -13,7 +13,8 @@ import {
   CheckCircle2,
   AlertCircle,
   Save,
-  Briefcase
+  Briefcase,
+  QrCode
 } from 'lucide-react';
 
 export const UserProfileModal: React.FC = () => {
@@ -21,6 +22,7 @@ export const UserProfileModal: React.FC = () => {
     currentUser,
     isUserProfileModalOpen,
     setIsUserProfileModalOpen,
+    setIsDigitalIdModalOpen,
     updateUserProfile,
     bloodDonors,
   } = useApp();
@@ -138,12 +140,26 @@ export const UserProfileModal: React.FC = () => {
             </div>
           </div>
 
-          <button
-            onClick={() => setIsUserProfileModalOpen(false)}
-            className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                setIsUserProfileModalOpen(false);
+                setIsDigitalIdModalOpen(true);
+              }}
+              className="px-3 py-1.5 rounded-xl bg-white/20 hover:bg-white/30 text-white text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm border border-white/30"
+              title="Open QR Code Digital ID Card"
+            >
+              <QrCode className="w-4 h-4 text-amber-200" />
+              <span className="hidden sm:inline">QR Digital ID</span>
+            </button>
+
+            <button
+              onClick={() => setIsUserProfileModalOpen(false)}
+              className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {/* Modal Form */}

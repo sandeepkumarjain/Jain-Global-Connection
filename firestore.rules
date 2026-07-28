@@ -1,8 +1,123 @@
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    // Global Catch-all Default Deny
     match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Common Security Helpers
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Connection Health Test
+    match /test/{docId} {
+      allow read, write: if true;
+    }
+
+    // Users Collection
+    match /users/{userId} {
+      allow read, write: if true;
+    }
+
+    // Matrimonials
+    match /matrimonials/{matrimonialId} {
+      allow read, write: if true;
+    }
+
+    // Matrimonial Profiles
+    match /matrimonial_profiles/{profileId} {
+      allow read, write: if true;
+    }
+
+    // Members Directory
+    match /members/{memberId} {
+      allow read, write: if true;
+    }
+
+    // Businesses Directory
+    match /businesses/{businessId} {
+      allow read, write: if true;
+    }
+
+    // Temples
+    match /temples/{templeId} {
+      allow read, write: if true;
+    }
+
+    // Posts & Feed
+    match /posts/{postId} {
+      allow read, write: if true;
+    }
+
+    // Feed Posts
+    match /feed_posts/{postId} {
+      allow read, write: if true;
+    }
+
+    // News
+    match /news/{newsId} {
+      allow read, write: if true;
+    }
+
+    // Ads
+    match /ads/{adId} {
+      allow read, write: if true;
+    }
+
+    // Panchang
+    match /panchang/{docId} {
+      allow read, write: if true;
+    }
+
+    // Custom Pages
+    match /pages/{pageId} {
+      allow read, write: if true;
+    }
+
+    // Settings
+    match /settings/{settingId} {
+      allow read, write: if true;
+    }
+
+    // System Settings
+    match /system_settings/{settingId} {
+      allow read, write: if true;
+    }
+
+    // Bhajans
+    match /bhajans/{bhajanId} {
+      allow read, write: if true;
+    }
+
+    // Blood Donors
+    match /blood_donors/{donorId} {
+      allow read, write: if true;
+    }
+
+    // Jobs
+    match /jobs/{jobId} {
       allow read, write: if true;
     }
   }
 }
+

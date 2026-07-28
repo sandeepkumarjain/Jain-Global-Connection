@@ -1,10 +1,10 @@
-export type LanguageCode = 'English' | 'Hindi' | 'Gujarati' | 'Marwari' | 'Kannada' | 'Tamil' | 'Telugu';
+export type LanguageCode = 'English' | 'Hindi' | 'Gujarati' | 'Marathi' | 'Kannada' | 'Tamil' | 'Telugu';
 
 export const LANGUAGE_MAP: Record<LanguageCode, { langCode: string; native: string; label: string }> = {
   English: { langCode: 'en', native: 'English', label: 'English' },
   Hindi: { langCode: 'hi', native: 'हिन्दी', label: 'Hindi' },
   Gujarati: { langCode: 'gu', native: 'ગુજરાતી', label: 'Gujarati' },
-  Marwari: { langCode: 'hi', native: 'मारवाड़ी', label: 'Marwari' },
+  Marathi: { langCode: 'mr', native: 'मराठी', label: 'Marathi' },
   Kannada: { langCode: 'kn', native: 'ಕನ್ನಡ', label: 'Kannada' },
   Tamil: { langCode: 'ta', native: 'தமிழ்', label: 'Tamil' },
   Telugu: { langCode: 'te', native: 'తెలుగు', label: 'Telugu' },
@@ -47,17 +47,17 @@ export const NAV_TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
     bhajans: 'ભજન અને સ્તવન',
     admin: 'એડમિન પેનલ',
   },
-  Marwari: {
-    home: 'मुख्य पोत्या',
-    matrimonial: 'ब्याव सगाई',
-    business: 'व्यापार पोथी',
-    directory: 'जैन समाज पोथी',
-    temple: 'देहरासर मंदिर',
-    panchang: 'पंचांग अर विचार',
-    feed: 'समाज खबरा',
-    emergency: 'सेवा अर संकट',
-    bhajans: 'भजन अर स्तवन',
-    admin: 'एडमिन',
+  Marathi: {
+    home: 'मुख्य पृष्ठ',
+    matrimonial: 'मॅट्रिमोनिअल',
+    business: 'व्यवसाय डिरेक्टरी',
+    directory: 'जैन डिरेक्टरी',
+    temple: 'मंदिर डिरेक्टरी',
+    panchang: 'पंचांग आणि विचार',
+    feed: 'समुदाय फीड',
+    emergency: 'सेवा आणि आणीबाणी',
+    bhajans: 'भजन आणि स्तवन',
+    admin: 'ॲडमिन पॅनेल',
   },
   Kannada: {
     home: 'ಮುಖ್ಯ ಪುಟ',

@@ -1,4 +1,5 @@
 import React from 'react';
+import { Helmet, HelmetProvider } from 'react-helmet-async';
 import { AppProvider, useApp } from './context/AppContext';
 import { Header } from './components/Header';
 import { Footer } from './components/Footer';
@@ -16,6 +17,7 @@ import { RegisterModal } from './components/RegisterModal';
 import { AISearchModal } from './components/AISearchModal';
 import { MembershipModal } from './components/MembershipModal';
 import { UserProfileModal } from './components/UserProfileModal';
+import { MemberDigitalIdModal } from './components/MemberDigitalIdModal';
 import { BhajanLibraryModal } from './components/BhajanLibraryModal';
 import { GmailCenterModal } from './components/GmailCenterModal';
 import { AudioPlayer } from './components/AudioPlayer';
@@ -36,8 +38,60 @@ import {
   Compass,
   Lock,
   Globe,
-  Award
+  Award,
+  ArrowUp
 } from 'lucide-react';
+
+const getTabMetaData = (tab: string) => {
+  switch (tab) {
+    case 'matrimonial':
+      return {
+        title: 'Jain Matrimonial | Jain Connect Global',
+        description: 'Find verified Jain matrimonial profiles across Digambar, Shwetambar, Sthanakvasi, and Terapanthi sects.'
+      };
+    case 'business':
+      return {
+        title: 'Jain Business Directory | Jain Connect Global',
+        description: 'Discover and connect with trusted Jain entrepreneurs, businesses, and digital visiting cards globally.'
+      };
+    case 'directory':
+      return {
+        title: 'Global Member Directory | Jain Connect Global',
+        description: 'Search verified Jain members, community leaders, and local sanghs worldwide.'
+      };
+    case 'temple':
+      return {
+        title: 'Jain Temples & Teerth Directory | Jain Connect Global',
+        description: 'Explore holy Jain temples, teerthkshetras, dharmashalas, and trusts with photos and maps.'
+      };
+    case 'panchang':
+      return {
+        title: 'Jain Panchang & Daily Tithi | Jain Connect Global',
+        description: 'Access live Jain Panchang, Navkarshi, Chouvihar timings, Kalyanaks, and festive dates.'
+      };
+    case 'feed':
+      return {
+        title: 'Community Feed & News | Jain Connect Global',
+        description: 'Read community posts, announcements, upcoming events, and spiritual articles from the global Jain sangh.'
+      };
+    case 'emergency':
+      return {
+        title: 'Emergency Help & Blood Donors | Jain Connect Global',
+        description: '24/7 Jain emergency contacts, blood donor network, medical aid, and sangh support.'
+      };
+    case 'admin':
+      return {
+        title: 'Admin Control Panel | Jain Connect Global',
+        description: 'Manage Jain Connect Global members, business approvals, and platform settings.'
+      };
+    case 'home':
+    default:
+      return {
+        title: 'Jain Connect Global | Empowering Global Jain Sangh',
+        description: 'Connect with the global Jain community, explore Jain Panchang, daily tithi, quotes, and community news.'
+      };
+  }
+};
 
 const MainContent: React.FC = () => {
   const {
@@ -54,22 +108,48 @@ const MainContent: React.FC = () => {
     systemSettings
   } = useApp();
 
+  const tabMeta = getTabMetaData(activeTab);
+
+  const [showBackToTop, setShowBackToTop] = React.useState(false);
+
   // Auto scroll to top when any tab or navigation option is clicked
   React.useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [activeTab]);
 
+  // Track page scrolling to show/hide "Back to Top" button
+  React.useEffect(() => {
+    const handleScroll = () => {
+      if (window.scrollY > 250) {
+        setShowBackToTop(true);
+      } else {
+        setShowBackToTop(false);
+      }
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   return (
     <div
-      className={`min-h-screen flex flex-col font-sans transition-colors duration-300 overflow-x-hidden ${
+      className={`min-h-screen flex flex-col font-sans transition-colors duration-300 w-full max-w-full overflow-x-hidden ${
         themeMode === 'dark' ? 'dark bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'
       }`}
     >
+      <Helmet>
+        <title>{tabMeta.title}</title>
+        <meta name="description" content={tabMeta.description} />
+      </Helmet>
+
       {/* Top Header */}
       <Header />
 
       {/* Main Body */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 pt-6 pb-20 md:pb-6 space-y-8">
+      <main className="flex-1 max-w-7xl w-full max-w-full mx-auto px-2.5 sm:px-6 pt-4 sm:pt-6 pb-12 space-y-6 sm:space-y-8 overflow-x-hidden">
         
         {/* TAB 1: HOME VIEW */}
         {activeTab === 'home' && (
@@ -438,6 +518,7 @@ const MainContent: React.FC = () => {
       <AISearchModal />
       <MembershipModal />
       <UserProfileModal />
+      <MemberDigitalIdModal />
       <BhajanLibraryModal />
       <GmailCenterModal
         isOpen={isGmailCenterOpen}
@@ -475,6 +556,20 @@ const MainContent: React.FC = () => {
         </div>
       )}
 
+      {/* Unique Compact Floating Back to Top Button */}
+      {showBackToTop && (
+        <button
+          onClick={scrollToTop}
+          className="fixed bottom-5 right-4 sm:bottom-6 sm:right-6 z-50 w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-slate-950/85 hover:bg-amber-500 text-amber-400 hover:text-slate-950 border border-amber-500/50 hover:border-amber-300 shadow-xl shadow-amber-950/50 backdrop-blur-md flex items-center justify-center transition-all duration-300 group hover:scale-110 active:scale-90"
+          title="Back to Top"
+          aria-label="Back to top"
+        >
+          {/* Subtle glowing ring aura */}
+          <span className="absolute inset-0 rounded-full bg-amber-500/20 group-hover:bg-amber-400/30 blur-sm transition-all -z-10" />
+          <ArrowUp className="w-5 h-5 group-hover:-translate-y-1 transition-transform stroke-[2.5]" />
+        </button>
+      )}
+
       {/* Footer */}
       <Footer />
     </div>
@@ -483,9 +578,11 @@ const MainContent: React.FC = () => {
 
 export function App() {
   return (
-    <AppProvider>
-      <MainContent />
-    </AppProvider>
+    <HelmetProvider>
+      <AppProvider>
+        <MainContent />
+      </AppProvider>
+    </HelmetProvider>
   );
 }
 

@@ -8,6 +8,7 @@ export type JainSect = 'Swetambar Murtipujak' | 'Swetambar Sthanakvasi' | 'Sweta
 
 export interface User {
   id: string;
+  applicationId?: string;
   fullName: string;
   surname: string;
   email: string;
@@ -44,10 +45,13 @@ export interface User {
   donorCity?: string;
   donorState?: string;
   qrCodeUrl?: string;
+  themePreference?: 'light' | 'dark' | 'auspicious';
+  password?: string;
 }
 
 export interface MatrimonialProfile {
   id: string;
+  applicationId?: string;
   userId: string;
   fullName: string;
   gender: 'Bride' | 'Groom';
@@ -76,10 +80,86 @@ export interface MatrimonialProfile {
   contactMobile: string;
   interestsReceived: string[]; // User IDs who expressed interest
   interestsAccepted: string[]; // User IDs accepted
+
+  // Extended Full Base Application Fields
+  createdFor?: string;
+  tob?: string;
+  pob?: string;
+  weight?: string;
+  complexion?: string;
+  bodyType?: string;
+  physicalStatus?: string;
+  motherTongue?: string;
+  fourGotras?: {
+    selfGotra?: string;
+    motherGotra?: string;
+    fatherMotherGotra?: string;
+    motherMotherGotra?: string;
+  };
+  nativePlace?: string;
+  religiousPractices?: {
+    dailyPuja?: boolean;
+    choviyar?: boolean;
+    navkarshi?: boolean;
+    swadhyay?: boolean;
+  };
+  horoscopeDetails?: {
+    manglikStatus?: string;
+    kundaliMatchNeeded?: string;
+    rashi?: string;
+    nakshatra?: string;
+  };
+  educationDetails?: {
+    degreeLevel?: string;
+    fieldOfStudy?: string;
+    instituteName?: string;
+  };
+  careerDetails?: {
+    employedIn?: string;
+    designation?: string;
+    companyName?: string;
+    annualIncomeRange?: string;
+    workLocation?: string;
+    willingToRelocate?: string;
+  };
+  familyBackground?: {
+    familyStatus?: string;
+    familyType?: string;
+    familyValues?: string;
+    fatherName?: string;
+    fatherOccupation?: string;
+    motherName?: string;
+    motherOccupation?: string;
+    brothersCount?: number;
+    marriedBrothersCount?: number;
+    sistersCount?: number;
+    marriedSistersCount?: number;
+    familyProperty?: string;
+  };
+  partnerExpectations?: {
+    ageMin?: number;
+    ageMax?: number;
+    heightMin?: string;
+    heightMax?: string;
+    maritalStatusPreferred?: string;
+    sectPreferred?: string;
+    educationPreferred?: string;
+    occupationPreferred?: string;
+    locationPreferred?: string;
+    dietPreferred?: string;
+    additionalNotes?: string;
+  };
+  guardianContact?: {
+    name?: string;
+    relation?: string;
+    phone?: string;
+    email?: string;
+  };
 }
 
 export interface BusinessListing {
   id: string;
+  applicationId?: string;
   ownerId: string;
   businessName: string;
   category: string; // Industrial, Wholesale, Retail, Doctor, CA, IT, Jewellery, Real Estate, etc.
@@ -110,6 +190,7 @@ export interface BusinessListing {
 
 export interface TempleListing {
   id: string;
+  applicationId?: string;
   templeName: string;
   sect: JainSect;
   mainDeity: string; // e.g., Lord Mahavira, Lord Adinath, Lord Parshvanath
@@ -150,6 +231,7 @@ export interface FamilyMember {
 
 export interface CommunityMemberProfile {
   id: string;
+  applicationId?: string;
   userId: string;
   name: string;
   surname: string;
@@ -270,6 +352,19 @@ export interface BhajanSong {
   createdAt?: string;
 }
 
+export interface CustomPage {
+  id: string;
+  slug: string;
+  title: string;
+  category: 'Religious' | 'Community' | 'Services' | 'General' | 'Event';
+  content: string;
+  bannerImage?: string;
+  isPublished: boolean;
+  showInHeader: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface SystemSettings {
   appName: string;
   tagline: string;
@@ -289,5 +384,20 @@ export interface SystemSettings {
   businessHeading?: string;
   templeHeading?: string;
   directoryHeading?: string;
+  termsAndConditions?: string;
+  privacyPolicy?: string;
   themePrimaryColor?: 'amber' | 'emerald' | 'ruby' | 'sapphire' | 'saffron' | 'purple';
+  
+  // Page Control & Subtitles
+  matrimonialSubtitle?: string;
+  businessSubtitle?: string;
+  templeSubtitle?: string;
+  directorySubtitle?: string;
+  panchangTitle?: string;
+  panchangSubtitle?: string;
+  feedTitle?: string;
+  feedSubtitle?: string;
+  servicesTitle?: string;
+  servicesSubtitle?: string;
 }
+

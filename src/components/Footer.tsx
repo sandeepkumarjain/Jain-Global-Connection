@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
+import { PolicyModal } from './PolicyModal';
 import {
   ShieldCheck,
   Heart,
@@ -8,11 +9,14 @@ import {
   Users,
   Phone,
   Mail,
-  Lock
+  Lock,
+  FileText,
+  ArrowUp
 } from 'lucide-react';
 
 export const Footer: React.FC = () => {
   const { systemSettings, setActiveTab, setIsAuthModalOpen } = useApp();
+  const [policyType, setPolicyType] = useState<'terms' | 'privacy' | null>(null);
 
   return (
     <footer className="bg-slate-950 text-slate-300 border-t border-amber-900/40 font-sans pt-12 pb-6 transition-colors">
@@ -88,10 +92,10 @@ export const Footer: React.FC = () => {
             </ul>
           </div>
 
-          {/* Column 3: Features & Admin */}
+          {/* Column 3: Features & Legal */}
           <div>
             <h4 className="text-xs font-bold text-amber-400 uppercase tracking-wider mb-4 border-l-2 border-amber-500 pl-2">
-              Portals & Services
+              Portals & Governance
             </h4>
             <ul className="space-y-2 text-xs text-slate-400">
               <li>
@@ -112,13 +116,23 @@ export const Footer: React.FC = () => {
               </li>
               <li>
                 <button
-                  onClick={() => setActiveTab('emergency')}
-                  className="hover:text-amber-400 transition-colors"
+                  onClick={() => setPolicyType('terms')}
+                  className="hover:text-amber-400 text-slate-300 font-semibold transition-colors flex items-center gap-1.5"
                 >
-                  Jain Jobs & Education Portal
+                  <FileText className="w-3.5 h-3.5 text-amber-500" />
+                  <span>Terms & Conditions</span>
                 </button>
               </li>
               <li>
+                <button
+                  onClick={() => setPolicyType('privacy')}
+                  className="hover:text-amber-400 text-slate-300 font-semibold transition-colors flex items-center gap-1.5"
+                >
+                  <Lock className="w-3.5 h-3.5 text-amber-500" />
+                  <span>Privacy Policy</span>
+                </button>
+              </li>
+              <li className="pt-1">
                 <button
                   onClick={() => setIsAuthModalOpen(true)}
                   className="text-amber-400 font-bold hover:underline flex items-center gap-1"
@@ -157,14 +171,35 @@ export const Footer: React.FC = () => {
           </div>
         </div>
 
-        {/* Bottom Bar Copyright */}
-        <div className="pt-6 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 gap-2">
+        {/* Bottom Bar Copyright & Policy Links */}
+        <div className="pt-6 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 gap-3">
           <p>© 2026 SKJ Tech World. All rights reserved.</p>
-          <p className="text-[11px] text-slate-400">
-            Designed with Royal White, Gold & Emerald Green | Enterprise Admin System
-          </p>
+          <div className="flex items-center gap-4 text-xs font-medium">
+            <button onClick={() => setPolicyType('terms')} className="hover:text-amber-400 transition">
+              Terms & Conditions
+            </button>
+            <span>•</span>
+            <button onClick={() => setPolicyType('privacy')} className="hover:text-amber-400 transition">
+              Privacy Policy
+            </button>
+            <span>•</span>
+            <button
+              onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+              className="text-amber-400 hover:text-amber-300 font-bold transition flex items-center gap-1 bg-amber-950/60 hover:bg-amber-900/80 px-2.5 py-1 rounded-full border border-amber-500/30"
+            >
+              <ArrowUp className="w-3.5 h-3.5" />
+              <span>Back to Top</span>
+            </button>
+          </div>
         </div>
       </div>
+
+      {/* Policy Modal Mount */}
+      <PolicyModal
+        isOpen={Boolean(policyType)}
+        type={policyType}
+        onClose={() => setPolicyType(null)}
+      />
     </footer>
   );
 };

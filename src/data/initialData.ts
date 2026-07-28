@@ -34,6 +34,8 @@ export const INITIAL_SYSTEM_SETTINGS: SystemSettings = {
   businessHeading: '2. Jain Business & Commercial Directory',
   templeHeading: '3. Holy Jain Temple & Tirth Directory',
   directoryHeading: '4. Jain Family & Community Directory',
+  termsAndConditions: `Terms and Conditions for Jain Connect Global (By SKJ Tech World):\n\n1. Acceptance of Terms: By registering on Jain Connect Global, you agree to comply with all community guidelines, religious respectful conduct, and mandatory admin verification policies.\n2. Verification & Safety: All registrations (Matrimonial, Business, Temple, and Directory entries) are subject to clearance by the Super Admin team (Sandeep Bachhawat). False information or misrepresentation will lead to immediate account rejection or permanent deletion.\n3. Code of Conduct: Jain Connect Global is dedicated to promoting Jain principles of Ahimsa (Non-violence), Satya (Truth), and Karuna (Compassion). Any hate speech, harassment, or inappropriate business promotions are strictly prohibited.\n4. Matrimonial Privacy: Profiles in the Matrimonial portal are intended strictly for legitimate marriage alliance inquiries among respected Jain families. Commercial misuse or scraping of candidate contact details is strictly banned.\n5. Content Moderation: Administrators reserve full right to approve, modify, suspend, or delete any listing that violates community standards or legal regulations.`,
+  privacyPolicy: `Privacy Policy for Jain Connect Global:\n\n1. Data Collection: We collect information provided during registration (Name, Email, Mobile Number, Jain Sect, Gotra, City, Occupation, Photo) to build a verified global Jain directory.\n2. Data Protection & Security: Your personal data is stored securely. Sensitivity-checked documents (such as ID proofs or contact numbers) are strictly restricted and protected.\n3. Information Sharing: Contact details in directory or business listings are displayed to verified members to facilitate community networking, trade, and matrimony connections.\n4. Account Management & Deletion: Users or Super Admins can request update, suspension, or permanent deletion of their account profile at any time by contacting support at skjtechworld@gmail.com or calling 9514237277.\n5. Local Storage & Session Management: Jain Connect Global utilizes browser local storage to preserve verified sessions, theme preferences, and system settings securely.`,
 };
 
 export const INITIAL_USERS: User[] = [
@@ -68,6 +70,7 @@ export const INITIAL_USERS: User[] = [
     createdAt: '2026-01-01',
     bloodGroup: 'O+',
     qrCodeUrl: 'JCG-ADMIN-001',
+    password: 'Sandy@9858',
   },
   {
     id: 'usr_002',
@@ -1050,3 +1053,43 @@ export const INITIAL_BHAJANS: BhajanSong[] = [
     createdAt: '2026-01-08',
   }
 ];
+
+export const INITIAL_CUSTOM_PAGES = [
+  {
+    id: 'page_001',
+    slug: 'paryushan-mahaparv-guidelines',
+    title: 'Paryushan & Das Lakshana Mahaparv Guidelines',
+    category: 'Religious' as const,
+    content: `## Sacred Paryushan & Das Lakshana Mahaparv 2026\n\nParyushan Parv is the most revered annual holy festival of Jainism. During these sacred days, Jains practice self-discipline, fasting (Attham, Upvas, Ekasana), Swadhyay, and Kshamapana.\n\n### Daily Observance Schedule:\n1. **Pratikraman**: Daily morning & evening introspection\n2. **Jinendra Puja**: Snatra Puja & Aarti in local Tirths\n3. **Amari Pravartan**: Strict observance of Ahimsa and Jiv Daya\n4. **Kshamapana (Samvatsari)**: Seeking forgiveness from all living beings - *Micchami Dukkadam*!\n\n*Organized by Jain Connect Global Religious Committee.*`,
+    bannerImage: 'https://images.unsplash.com/photo-1545232979-fbf582236e78?auto=format&fit=crop&w=1200&q=80',
+    isPublished: true,
+    showInHeader: true,
+    createdAt: '2026-01-10',
+    updatedAt: '2026-01-10',
+  },
+  {
+    id: 'page_002',
+    slug: 'jain-business-empowerment-network',
+    title: 'Global Jain Business & Trade Network',
+    category: 'Community' as const,
+    content: `## Empowering Jain Entrepreneurs & Business Owners Worldwide\n\nJain Connect Global provides verified B2B and B2C directory listings for Jain-owned industries, manufacturers, wholesalers, professionals (CAs, Doctors, Lawyers, Engineers), and service providers.\n\n### Benefits for Business Members:\n- Direct exposure to 10+ Million Jain Families worldwide\n- Featured Sponsored Advertisements and Discount Offers\n- Verified Badge with GST and Business Identity Checks\n- Trade networking meetups and investor connections`,
+    bannerImage: 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=1200&q=80',
+    isPublished: true,
+    showInHeader: true,
+    createdAt: '2026-01-12',
+    updatedAt: '2026-01-12',
+  },
+  {
+    id: 'page_003',
+    slug: 'tirth-yatra-and-dharamshala-booking',
+    title: 'Holy Tirth Yatra & Dharamshala Direct Guidance',
+    category: 'Religious' as const,
+    content: `## Discover & Visit Ancient Jain Tirths Across India & Global Centers\n\nExplore holy shrines including Sammed Shikharji, Palitana, Girnar, Pawapuri, Shravanabelagola, Ranakpur, Dilwara, Shankheshwar, and Hastinapur.\n\n### Services:\n- Direct contact numbers for Dharamshala and Bhojanashala bookings\n- Aarti timings and Snatra Puja schedules\n- Google Maps navigation and nearby vegetarian dining facilities`,
+    bannerImage: 'https://images.unsplash.com/photo-1609946782701-70dd908610eb?auto=format&fit=crop&w=1200&q=80',
+    isPublished: true,
+    showInHeader: false,
+    createdAt: '2026-01-15',
+    updatedAt: '2026-01-15',
+  }
+];
+

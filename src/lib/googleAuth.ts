@@ -8,12 +8,13 @@ import { auth } from './firebase';
 
 const provider = new GoogleAuthProvider();
 
-// Add Gmail Scopes
+// Add Gmail & Calendar Scopes
 provider.addScope('https://mail.google.com/');
 provider.addScope('https://www.googleapis.com/auth/gmail.send');
 provider.addScope('https://www.googleapis.com/auth/gmail.readonly');
 provider.addScope('https://www.googleapis.com/auth/gmail.compose');
 provider.addScope('https://www.googleapis.com/auth/gmail.modify');
+provider.addScope('https://www.googleapis.com/auth/calendar.events');
 
 let isSigningIn = false;
 let cachedAccessToken: string | null = null;

@@ -3,6 +3,8 @@ import { useApp } from '../context/AppContext';
 import { playNavkarMantraAudio, stopNavkarMantraAudio } from '../utils/navkarAudio';
 import { JainEventsCalendar } from './JainEventsCalendar';
 import { FeaturedAdsSection } from './FeaturedAdsSection';
+import { createGoogleCalendarEvent, getGoogleCalendarWebUrl } from '../lib/googleCalendar';
+import { getAccessToken, googleSignIn } from '../lib/googleAuth';
 import {
   Calendar,
   Sun,
@@ -18,7 +20,8 @@ import {
   MapPin,
   Navigation,
   Compass,
-  RefreshCw
+  RefreshCw,
+  CalendarPlus
 } from 'lucide-react';
 
 interface CityTiming {
@@ -158,9 +161,54 @@ export const PanchangWidget: React.FC = () => {
   const [copiedQuote, setCopiedQuote] = useState(false);
   const [isDetectingLoc, setIsDetectingLoc] = useState(false);
   const [currentQuoteIndex, setCurrentQuoteIndex] = useState(0);
+  const [isSyncingToday, setIsSyncingToday] = useState(false);
+  const [isTodaySynced, setIsTodaySynced] = useState(false);
 
   const activeTiming = CITY_TIMINGS[selectedCityKey] || CITY_TIMINGS['Bikaner'];
   const activeQuote = JAIN_AGAM_QUOTES[currentQuoteIndex];
+
+  const handleSyncTodayTithi = async () => {
+    let token = getAccessToken();
+    const todayStr = new Date().toISOString().split('T')[0];
+    const eventPayload = {
+      title: `📿 Jain Tithi: ${panchang.tithi}`,
+      description: `📅 Masa: ${panchang.month}\n🌅 Sunrise (${activeTiming.city}): ${activeTiming.sunrise}\n🌇 Sunset: ${activeTiming.sunset}\n⏰ Navkarshi: ${activeTiming.navkarshi}\n⏰ Chouvihar: ${activeTiming.chouvihar}\n\nSaved via Jain Connect Global Panchang Widget`,
+      startDate: todayStr,
+      location: `${activeTiming.city}, ${activeTiming.state}`,
+    };
+
+    setIsSyncingToday(true);
+
+    try {
+      if (!token) {
+        const authRes = await googleSignIn();
+        if (authRes?.accessToken) {
+          token = authRes.accessToken;
+        }
+      }
+
+      if (token) {
+        await createGoogleCalendarEvent(token, eventPayload);
+        setIsTodaySynced(true);
+        showToast(
+          'Tithi Saved to Google Calendar!',
+          `Today's Tithi (${panchang.tithi}) and pachkan timings synced to your Google Calendar.`,
+          'success'
+        );
+      } else {
+        const webUrl = getGoogleCalendarWebUrl(eventPayload);
+        window.open(webUrl, '_blank');
+        showToast('Opening Google Calendar', 'Opened calendar link for today\'s Tithi.', 'info');
+      }
+    } catch (err: any) {
+      console.warn('Calendar API sync warning, using web fallback:', err);
+      const webUrl = getGoogleCalendarWebUrl(eventPayload);
+      window.open(webUrl, '_blank');
+      showToast('Calendar Sync', 'Opened Google Calendar link for today\'s Tithi.', 'info');
+    } finally {
+      setIsSyncingToday(false);
+    }
+  };
 
   // Ensure sound is stopped when component unmounts
   useEffect(() => {
@@ -280,6 +328,21 @@ export const PanchangWidget: React.FC = () => {
           >
             {isPlayingAudio ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
             <span className="hidden sm:inline">{isPlayingAudio ? 'Navkar Audio' : 'Play Navkar'}</span>
+          </button>
+
+          {/* Sync Today's Tithi to Google Calendar Button */}
+          <button
+            onClick={handleSyncTodayTithi}
+            disabled={isSyncingToday}
+            className={`px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 border shadow-sm ${
+              isTodaySynced
+                ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border-emerald-300'
+                : 'bg-amber-600 hover:bg-amber-700 text-white border-amber-500'
+            }`}
+            title="Sync Today's Jain Tithi & Pachkan Timings to your Google Calendar"
+          >
+            <CalendarPlus className={`w-3.5 h-3.5 ${isSyncingToday ? 'animate-spin' : ''}`} />
+            <span className="hidden sm:inline">{isTodaySynced ? 'Tithi Saved' : 'Sync Tithi'}</span>
           </button>
         </div>
       </div>
