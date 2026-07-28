@@ -106,7 +106,10 @@ export const AdminPanel: React.FC = () => {
     syncAllDataToSupabase,
     isSyncingSupabase,
     lastSupabaseSyncTime,
-    isSupabaseConnected
+    isSupabaseConnected,
+    lastSupabaseSyncStatus,
+    lastSupabaseSyncMessage,
+    lastSupabaseSyncDetails
   } = useApp();
 
   type AdminTab =
@@ -2329,33 +2332,121 @@ export const AdminPanel: React.FC = () => {
             </div>
           </div>
 
-          {/* Supabase Status Banner */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 space-y-1">
-              <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider block">Database Provider</span>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-extrabold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
-                  <Database className="w-4 h-4" />
-                  Supabase PostgreSQL
+          {/* Supabase Connection & Transfer Visual Status Indicator */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            {/* 1. Connection Status Card */}
+            <div className={`p-4 rounded-xl border space-y-2 transition-all ${
+              isSupabaseConnected
+                ? 'bg-emerald-50/80 dark:bg-emerald-950/30 border-emerald-300 dark:border-emerald-800'
+                : 'bg-amber-50/80 dark:bg-amber-950/30 border-amber-300 dark:border-amber-800'
+            }`}>
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-black uppercase tracking-wider block text-slate-500 dark:text-slate-400">
+                  Connection Status
                 </span>
+                <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${
+                  isSupabaseConnected
+                    ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/80 dark:text-emerald-200'
+                    : 'bg-amber-100 text-amber-800 dark:bg-amber-900/80 dark:text-amber-200'
+                }`}>
+                  <span className={`w-2 h-2 rounded-full ${isSupabaseConnected ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
+                  {isSupabaseConnected ? 'Online & Connected' : 'Config Required'}
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Database className={`w-5 h-5 ${isSupabaseConnected ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}`} />
+                <div>
+                  <h4 className="text-xs font-black text-slate-900 dark:text-white">
+                    {isSupabaseConnected ? 'Supabase Cloud PostgreSQL' : 'Supabase Client Ready'}
+                  </h4>
+                  <p className="text-[11px] text-slate-600 dark:text-slate-400 font-medium">
+                    {isSupabaseConnected
+                      ? 'Environment variables verified & active.'
+                      : 'Provide VITE_SUPABASE_URL in settings for live API sync.'}
+                  </p>
+                </div>
               </div>
             </div>
 
-            <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 space-y-1">
-              <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider block">GitHub CI/CD Connection</span>
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                <span className="text-xs font-black text-emerald-600 dark:text-emerald-400 uppercase">
-                  Connected & Active
+            {/* 2. Last Transfer Operation Status Card */}
+            <div className={`p-4 rounded-xl border space-y-2 lg:col-span-2 transition-all ${
+              lastSupabaseSyncStatus === 'success'
+                ? 'bg-emerald-50/80 dark:bg-emerald-950/30 border-emerald-300 dark:border-emerald-800'
+                : lastSupabaseSyncStatus === 'partial'
+                ? 'bg-amber-50/80 dark:bg-amber-950/30 border-amber-300 dark:border-amber-800'
+                : lastSupabaseSyncStatus === 'failed'
+                ? 'bg-rose-50/80 dark:bg-rose-950/30 border-rose-300 dark:border-rose-800'
+                : 'bg-slate-50 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700'
+            }`}>
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-black uppercase tracking-wider block text-slate-500 dark:text-slate-400">
+                  Last Transfer Feedback
+                </span>
+                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${
+                  lastSupabaseSyncStatus === 'success'
+                    ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200'
+                    : lastSupabaseSyncStatus === 'partial'
+                    ? 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200'
+                    : lastSupabaseSyncStatus === 'failed'
+                    ? 'bg-rose-100 text-rose-800 dark:bg-rose-900 dark:text-rose-200'
+                    : 'bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-300'
+                }`}>
+                  {lastSupabaseSyncStatus === 'success' && <CheckCircle className="w-3 h-3 text-emerald-600" />}
+                  {lastSupabaseSyncStatus === 'partial' && <AlertTriangle className="w-3 h-3 text-amber-600" />}
+                  {lastSupabaseSyncStatus === 'failed' && <XCircle className="w-3 h-3 text-rose-600" />}
+                  {lastSupabaseSyncStatus === 'idle' && <Cloud className="w-3 h-3 text-slate-500" />}
+                  <span>
+                    {lastSupabaseSyncStatus === 'success' && 'Transfer Succeeded'}
+                    {lastSupabaseSyncStatus === 'partial' && 'Partial Transfer Notice'}
+                    {lastSupabaseSyncStatus === 'failed' && 'Transfer Failed'}
+                    {lastSupabaseSyncStatus === 'idle' && 'Awaiting Transfer'}
+                  </span>
                 </span>
               </div>
-            </div>
 
-            <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 space-y-1">
-              <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider block">Last Supabase Sync</span>
-              <p className="text-xs font-bold text-slate-900 dark:text-slate-100">
-                {lastSupabaseSyncTime ? `Today at ${lastSupabaseSyncTime}` : 'Ready for Supabase Push'}
-              </p>
+              <div className="flex items-start gap-3">
+                <div className="mt-0.5">
+                  {lastSupabaseSyncStatus === 'success' && <CheckCircle className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />}
+                  {lastSupabaseSyncStatus === 'partial' && <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400" />}
+                  {lastSupabaseSyncStatus === 'failed' && <XCircle className="w-5 h-5 text-rose-600 dark:text-rose-400" />}
+                  {lastSupabaseSyncStatus === 'idle' && <Database className="w-5 h-5 text-slate-400" />}
+                </div>
+
+                <div className="space-y-1 flex-1">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-xs font-black text-slate-900 dark:text-white">
+                      {lastSupabaseSyncStatus === 'success' && 'Data Transfer Completed Successfully'}
+                      {lastSupabaseSyncStatus === 'partial' && 'Data Transfer Finished with Table Warnings'}
+                      {lastSupabaseSyncStatus === 'failed' && 'Data Transfer Issue Detected'}
+                      {lastSupabaseSyncStatus === 'idle' && 'No Data Transfer Executed Yet'}
+                    </h4>
+                    {lastSupabaseSyncTime && (
+                      <span className="text-[10px] font-bold text-slate-500">
+                        Last Run: {lastSupabaseSyncTime}
+                      </span>
+                    )}
+                  </div>
+
+                  <p className="text-xs text-slate-700 dark:text-slate-300 font-medium leading-relaxed">
+                    {lastSupabaseSyncMessage || 'Click "Sync All Data to Supabase" to initiate full PostgreSQL synchronization across all 14 database collections.'}
+                  </p>
+
+                  {lastSupabaseSyncDetails && lastSupabaseSyncDetails.tableErrors.length > 0 && (
+                    <div className="mt-2 p-2 rounded bg-amber-100/80 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-800 text-[11px] text-amber-900 dark:text-amber-200 font-mono">
+                      <span className="font-bold block mb-1">Notice Details:</span>
+                      <ul className="list-disc list-inside space-y-0.5">
+                        {lastSupabaseSyncDetails.tableErrors.map((err, idx) => (
+                          <li key={idx}>{err}</li>
+                        ))}
+                      </ul>
+                      <p className="mt-1 font-sans text-[10px] text-amber-800 dark:text-amber-300">
+                        Tip: Ensure all tables are initialized by executing <code>supabase_schema.sql</code> in your Supabase SQL Editor.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
 

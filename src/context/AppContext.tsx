@@ -1,6 +1,8 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import {
   User,
+  UserRole,
+  RolePermissions,
   MatrimonialProfile,
   BusinessListing,
   TempleListing,
@@ -179,6 +181,16 @@ interface AppContextType {
   isSyncingSupabase: boolean;
   lastSupabaseSyncTime: string | null;
   isSupabaseConnected: boolean;
+  lastSupabaseSyncStatus: 'idle' | 'success' | 'partial' | 'failed';
+  lastSupabaseSyncMessage: string | null;
+  lastSupabaseSyncDetails: { totalSynced: number; tableErrors: string[] } | null;
+
+  // Role & Permissions Helper Methods
+  hasRole: (roles: UserRole | UserRole[]) => boolean;
+  userPermissions: RolePermissions;
+  isSuperAdmin: boolean;
+  isAdmin: boolean;
+  isVerifiedBusiness: boolean;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -1227,108 +1239,80 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [isSyncingSupabase, setIsSyncingSupabase] = useState(false);
   const [lastSupabaseSyncTime, setLastSupabaseSyncTime] = useState<string | null>(null);
+  const [lastSupabaseSyncStatus, setLastSupabaseSyncStatus] = useState<'idle' | 'success' | 'partial' | 'failed'>('idle');
+  const [lastSupabaseSyncMessage, setLastSupabaseSyncMessage] = useState<string | null>(null);
+  const [lastSupabaseSyncDetails, setLastSupabaseSyncDetails] = useState<{ totalSynced: number; tableErrors: string[] } | null>(null);
   const isSupabaseConnected = isSupabaseConfigured();
 
   const syncAllDataToSupabase = async (): Promise<{ success: boolean; count: number; error?: string }> => {
     setIsSyncingSupabase(true);
     try {
       let totalRows = 0;
+      const tableErrors: string[] = [];
 
-      // 1. Users
-      if (users.length > 0) {
-        const res = await syncToSupabaseTable('users', users);
-        if (res.success) totalRows += res.count;
+      const tablesToSync = [
+        { name: 'users', data: users },
+        { name: 'matrimonials', data: matrimonials },
+        { name: 'businesses', data: businesses },
+        { name: 'temples', data: temples },
+        { name: 'members', data: members },
+        { name: 'posts', data: posts },
+        { name: 'news', data: news },
+        { name: 'ads', data: ads },
+        { name: 'panchang', data: { id: 'today', ...panchang } },
+        { name: 'blood_donors', data: bloodDonors },
+        { name: 'jobs', data: jobs },
+        { name: 'bhajans', data: bhajans },
+        { name: 'pages', data: customPages },
+        { name: 'settings', data: { id: 'global', ...systemSettings } },
+      ];
+
+      for (const item of tablesToSync) {
+        if (item.data) {
+          const res = await syncToSupabaseTable(item.name, item.data);
+          if (res.success) {
+            totalRows += res.count;
+          } else if (res.error) {
+            tableErrors.push(`${item.name}: ${res.error}`);
+          }
+        }
       }
-
-      // 2. Matrimonials
-      if (matrimonials.length > 0) {
-        const res = await syncToSupabaseTable('matrimonials', matrimonials);
-        if (res.success) totalRows += res.count;
-      }
-
-      // 3. Businesses
-      if (businesses.length > 0) {
-        const res = await syncToSupabaseTable('businesses', businesses);
-        if (res.success) totalRows += res.count;
-      }
-
-      // 4. Temples
-      if (temples.length > 0) {
-        const res = await syncToSupabaseTable('temples', temples);
-        if (res.success) totalRows += res.count;
-      }
-
-      // 5. Members
-      if (members.length > 0) {
-        const res = await syncToSupabaseTable('members', members);
-        if (res.success) totalRows += res.count;
-      }
-
-      // 6. Posts
-      if (posts.length > 0) {
-        const res = await syncToSupabaseTable('posts', posts);
-        if (res.success) totalRows += res.count;
-      }
-
-      // 7. News
-      if (news.length > 0) {
-        const res = await syncToSupabaseTable('news', news);
-        if (res.success) totalRows += res.count;
-      }
-
-      // 8. Ads
-      if (ads.length > 0) {
-        const res = await syncToSupabaseTable('ads', ads);
-        if (res.success) totalRows += res.count;
-      }
-
-      // 9. Panchang
-      const resPanchang = await syncToSupabaseTable('panchang', { id: 'today', ...panchang });
-      if (resPanchang.success) totalRows += resPanchang.count;
-
-      // 10. Blood Donors
-      if (bloodDonors.length > 0) {
-        const res = await syncToSupabaseTable('blood_donors', bloodDonors);
-        if (res.success) totalRows += res.count;
-      }
-
-      // 11. Jobs
-      if (jobs.length > 0) {
-        const res = await syncToSupabaseTable('jobs', jobs);
-        if (res.success) totalRows += res.count;
-      }
-
-      // 12. Bhajans
-      if (bhajans.length > 0) {
-        const res = await syncToSupabaseTable('bhajans', bhajans);
-        if (res.success) totalRows += res.count;
-      }
-
-      // 13. Custom Pages
-      if (customPages.length > 0) {
-        const res = await syncToSupabaseTable('pages', customPages);
-        if (res.success) totalRows += res.count;
-      }
-
-      // 14. Settings
-      const resSettings = await syncToSupabaseTable('settings', { id: 'global', ...systemSettings });
-      if (resSettings.success) totalRows += resSettings.count;
 
       const timeStr = new Date().toLocaleTimeString();
       setLastSupabaseSyncTime(timeStr);
       setIsSyncingSupabase(false);
 
-      if (isSupabaseConnected) {
-        showToast('Supabase Database Synced!', `Persisted ${totalRows} records across 14 tables into Supabase database.`, 'success');
+      if (!isSupabaseConfigured()) {
+        setLastSupabaseSyncStatus('failed');
+        setLastSupabaseSyncMessage('Supabase project configuration (URL / Anon Key) is missing in environment variables.');
+        setLastSupabaseSyncDetails({ totalSynced: 0, tableErrors: ['Configuration missing in VITE_SUPABASE_URL'] });
+        showToast('Supabase Configuration Missing', 'Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in project settings to connect your Supabase database.', 'info');
+        return { success: false, count: 0, error: 'Configuration missing' };
+      } else if (tableErrors.length > 0) {
+        setLastSupabaseSyncStatus('partial');
+        setLastSupabaseSyncMessage(`Synced ${totalRows} records. ${tableErrors.length} table(s) returned notices: ${tableErrors[0]}`);
+        setLastSupabaseSyncDetails({ totalSynced: totalRows, tableErrors });
+        showToast(
+          'Supabase Sync Partially Complete',
+          `Synced ${totalRows} rows. Notice: Please run supabase_schema.sql in your Supabase SQL Editor to create missing tables.`,
+          'info'
+        );
+        return { success: true, count: totalRows, error: tableErrors.join('; ') };
       } else {
-        showToast('Supabase Schema Ready', 'Connect VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to finalize live sync.', 'info');
+        setLastSupabaseSyncStatus('success');
+        setLastSupabaseSyncMessage(`Successfully transferred ${totalRows} records across 14 tables into Supabase.`);
+        setLastSupabaseSyncDetails({ totalSynced: totalRows, tableErrors: [] });
+        showToast('Supabase Database Synced!', `Successfully persisted ${totalRows} records across 14 tables into your Supabase database.`, 'success');
+        return { success: true, count: totalRows };
       }
-      return { success: true, count: totalRows };
     } catch (err: any) {
-      console.error('Supabase full sync exception:', err);
+      console.warn('Supabase full sync exception:', err);
       setIsSyncingSupabase(false);
+      setLastSupabaseSyncStatus('failed');
+      setLastSupabaseSyncMessage(err?.message || 'Data transfer failed due to an exception.');
+      setLastSupabaseSyncDetails({ totalSynced: 0, tableErrors: [err?.message || 'Unknown error'] });
       showToast('Supabase Data Dispatch Complete', 'All records structured for Supabase persistence.', 'info');
-      return { success: true, count: 0 };
+      return { success: false, count: 0, error: err?.message };
     }
   };
 
@@ -1784,6 +1768,89 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
   };
 
+  const hasRole = (roles: UserRole | UserRole[]): boolean => {
+    if (!currentUser) return false;
+    const roleList = Array.isArray(roles) ? roles : [roles];
+    return roleList.includes(currentUser.role);
+  };
+
+  const isSuperAdmin = currentUser?.role === 'Super Admin';
+  const isAdmin = currentUser?.role === 'Admin' || currentUser?.role === 'Super Admin';
+  const isVerifiedBusiness = currentUser?.role === 'VerifiedBusiness' || (currentUser?.role === 'Business Owner' && currentUser?.isVerified);
+
+  const userPermissions: RolePermissions = useMemo(() => {
+    const role = currentUser?.role;
+    const custom = currentUser?.rolePermissions || {};
+
+    if (role === 'Super Admin' || role === 'Admin') {
+      return {
+        canAccessAdmin: true,
+        canManageUsers: true,
+        canManageBusinesses: true,
+        canManageTemples: true,
+        canApproveProfiles: true,
+        canCreateAds: true,
+        canPublishNews: true,
+        canManagePanchang: true,
+        ...custom,
+      };
+    }
+
+    if (role === 'Moderator') {
+      return {
+        canAccessAdmin: true,
+        canManageUsers: false,
+        canManageBusinesses: true,
+        canManageTemples: true,
+        canApproveProfiles: true,
+        canCreateAds: true,
+        canPublishNews: true,
+        canManagePanchang: false,
+        ...custom,
+      };
+    }
+
+    if (role === 'Temple Admin') {
+      return {
+        canAccessAdmin: true,
+        canManageUsers: false,
+        canManageBusinesses: false,
+        canManageTemples: true,
+        canApproveProfiles: false,
+        canCreateAds: false,
+        canPublishNews: false,
+        canManagePanchang: true,
+        ...custom,
+      };
+    }
+
+    if (role === 'Business Owner' || role === 'VerifiedBusiness') {
+      return {
+        canAccessAdmin: false,
+        canManageUsers: false,
+        canManageBusinesses: true,
+        canManageTemples: false,
+        canApproveProfiles: false,
+        canCreateAds: true,
+        canPublishNews: false,
+        canManagePanchang: false,
+        ...custom,
+      };
+    }
+
+    return {
+      canAccessAdmin: false,
+      canManageUsers: false,
+      canManageBusinesses: false,
+      canManageTemples: false,
+      canApproveProfiles: false,
+      canCreateAds: false,
+      canPublishNews: false,
+      canManagePanchang: false,
+      ...custom,
+    };
+  }, [currentUser]);
+
   return (
     <AppContext.Provider
       value={{
@@ -1896,6 +1963,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         isSyncingSupabase,
         lastSupabaseSyncTime,
         isSupabaseConnected,
+        lastSupabaseSyncStatus,
+        lastSupabaseSyncMessage,
+        lastSupabaseSyncDetails,
+        hasRole,
+        userPermissions,
+        isSuperAdmin,
+        isAdmin,
+        isVerifiedBusiness,
       }}
     >
       {children}

@@ -4,19 +4,40 @@
 -- 1. Users Table
 CREATE TABLE IF NOT EXISTS public.users (
   id TEXT PRIMARY KEY,
+  "applicationId" TEXT,
   "fullName" TEXT NOT NULL,
-  email TEXT UNIQUE NOT NULL,
+  surname TEXT,
+  email TEXT,
   mobile TEXT,
-  role TEXT DEFAULT 'User',
+  whatsapp TEXT,
+  role TEXT DEFAULT 'Member',
   status TEXT DEFAULT 'Active',
-  city TEXT,
-  state TEXT,
-  country TEXT,
-  gotra TEXT,
+  "registrationType" TEXT,
+  gender TEXT,
+  dob TEXT,
+  age INT,
+  "maritalStatus" TEXT,
   sect TEXT,
+  "subSect" TEXT,
+  gotra TEXT,
+  qualification TEXT,
+  occupation TEXT,
+  company TEXT,
+  address TEXT,
+  country TEXT,
+  state TEXT,
+  city TEXT,
+  pincode TEXT,
   "profilePicture" TEXT,
+  "profilePhoto" TEXT,
+  "idProofUrl" TEXT,
+  "isVerified" BOOLEAN DEFAULT FALSE,
+  "membershipTier" TEXT,
   "createdAt" TIMESTAMPTZ DEFAULT NOW(),
-  "isVerified" BOOLEAN DEFAULT FALSE
+  "bloodGroup" TEXT,
+  "qrCodeUrl" TEXT,
+  "themePreference" TEXT,
+  "extraData" JSONB DEFAULT '{}'::jsonb
 );
 
 -- 2. Matrimonials Table
@@ -42,13 +63,15 @@ CREATE TABLE IF NOT EXISTS public.matrimonials (
   "interestsReceived" JSONB DEFAULT '[]'::jsonb,
   "interestsAccepted" JSONB DEFAULT '[]'::jsonb,
   "isApproved" BOOLEAN DEFAULT TRUE,
-  "createdAt" TIMESTAMPTZ DEFAULT NOW()
+  "createdAt" TIMESTAMPTZ DEFAULT NOW(),
+  "extraData" JSONB DEFAULT '{}'::jsonb
 );
 
 -- 3. Businesses Table
 CREATE TABLE IF NOT EXISTS public.businesses (
   id TEXT PRIMARY KEY,
   "ownerUserId" TEXT,
+  "ownerId" TEXT,
   "businessName" TEXT NOT NULL,
   category TEXT,
   description TEXT,
@@ -61,7 +84,13 @@ CREATE TABLE IF NOT EXISTS public.businesses (
   "logoUrl" TEXT,
   "isVerified" BOOLEAN DEFAULT FALSE,
   status TEXT DEFAULT 'Approved',
-  "createdAt" TIMESTAMPTZ DEFAULT NOW()
+  "createdAt" TIMESTAMPTZ DEFAULT NOW(),
+  "productsAndServices" JSONB DEFAULT '[]'::jsonb,
+  "galleryUrls" JSONB DEFAULT '[]'::jsonb,
+  "isSponsored" BOOLEAN DEFAULT FALSE,
+  rating NUMERIC DEFAULT 5.0,
+  "reviewCount" INT DEFAULT 0,
+  "extraData" JSONB DEFAULT '{}'::jsonb
 );
 
 -- 4. Temples Table
@@ -78,7 +107,11 @@ CREATE TABLE IF NOT EXISTS public.temples (
   description TEXT,
   timings TEXT,
   "isVerified" BOOLEAN DEFAULT TRUE,
-  "createdAt" TIMESTAMPTZ DEFAULT NOW()
+  "createdAt" TIMESTAMPTZ DEFAULT NOW(),
+  "dharamshalaAvailable" BOOLEAN DEFAULT FALSE,
+  "bhojanalayaAvailable" BOOLEAN DEFAULT FALSE,
+  "googleMapUrl" TEXT,
+  "extraData" JSONB DEFAULT '{}'::jsonb
 );
 
 -- 5. Members Table (Jain Directory)
@@ -93,7 +126,8 @@ CREATE TABLE IF NOT EXISTS public.members (
   sect TEXT,
   profession TEXT,
   "bloodGroup" TEXT,
-  "createdAt" TIMESTAMPTZ DEFAULT NOW()
+  "createdAt" TIMESTAMPTZ DEFAULT NOW(),
+  "extraData" JSONB DEFAULT '{}'::jsonb
 );
 
 -- 6. Posts Table (Community Feed)
@@ -109,7 +143,8 @@ CREATE TABLE IF NOT EXISTS public.posts (
   "createdAt" TIMESTAMPTZ DEFAULT NOW(),
   "likesCount" INT DEFAULT 0,
   "likedByUsers" JSONB DEFAULT '[]'::jsonb,
-  comments JSONB DEFAULT '[]'::jsonb
+  comments JSONB DEFAULT '[]'::jsonb,
+  "extraData" JSONB DEFAULT '{}'::jsonb
 );
 
 -- 7. News Table
@@ -122,7 +157,8 @@ CREATE TABLE IF NOT EXISTS public.news (
   "imageUrl" TEXT,
   "publishedDate" TEXT,
   author TEXT,
-  "isPinned" BOOLEAN DEFAULT FALSE
+  "isPinned" BOOLEAN DEFAULT FALSE,
+  "extraData" JSONB DEFAULT '{}'::jsonb
 );
 
 -- 8. Ads Table (Sponsorships)
@@ -138,7 +174,8 @@ CREATE TABLE IF NOT EXISTS public.ads (
   "startDate" TEXT,
   "expiryDate" TEXT,
   "isActive" BOOLEAN DEFAULT TRUE,
-  "clicksCount" INT DEFAULT 0
+  "clicksCount" INT DEFAULT 0,
+  "extraData" JSONB DEFAULT '{}'::jsonb
 );
 
 -- 9. Panchang Table
@@ -153,7 +190,8 @@ CREATE TABLE IF NOT EXISTS public.panchang (
   kalyanak TEXT,
   quote TEXT,
   pravachan TEXT,
-  "updatedAt" TIMESTAMPTZ DEFAULT NOW()
+  "updatedAt" TIMESTAMPTZ DEFAULT NOW(),
+  "extraData" JSONB DEFAULT '{}'::jsonb
 );
 
 -- 10. Blood Donors Table
@@ -166,7 +204,8 @@ CREATE TABLE IF NOT EXISTS public.blood_donors (
   state TEXT,
   mobile TEXT NOT NULL,
   available BOOLEAN DEFAULT TRUE,
-  "registeredDate" TEXT
+  "registeredDate" TEXT,
+  "extraData" JSONB DEFAULT '{}'::jsonb
 );
 
 -- 11. Jobs Table
@@ -179,7 +218,8 @@ CREATE TABLE IF NOT EXISTS public.jobs (
   description TEXT,
   salary TEXT,
   "contactEmail" TEXT,
-  "postedDate" TEXT
+  "postedDate" TEXT,
+  "extraData" JSONB DEFAULT '{}'::jsonb
 );
 
 -- 12. Bhajans Table
@@ -192,7 +232,8 @@ CREATE TABLE IF NOT EXISTS public.bhajans (
   singer TEXT,
   lyrics TEXT,
   "durationSeconds" INT DEFAULT 0,
-  "isActive" BOOLEAN DEFAULT TRUE
+  "isActive" BOOLEAN DEFAULT TRUE,
+  "extraData" JSONB DEFAULT '{}'::jsonb
 );
 
 -- 13. Dynamic Custom Pages Table
@@ -205,7 +246,8 @@ CREATE TABLE IF NOT EXISTS public.pages (
   content TEXT,
   "isPublished" BOOLEAN DEFAULT TRUE,
   "createdAt" TEXT,
-  "updatedAt" TEXT
+  "updatedAt" TEXT,
+  "extraData" JSONB DEFAULT '{}'::jsonb
 );
 
 -- 14. Global Portal Settings Table
@@ -220,48 +262,23 @@ CREATE TABLE IF NOT EXISTS public.settings (
   "secondaryColor" TEXT,
   "enableMatrimonialApproval" BOOLEAN,
   "enableBusinessApproval" BOOLEAN,
-  "updatedAt" TIMESTAMPTZ DEFAULT NOW()
+  "updatedAt" TIMESTAMPTZ DEFAULT NOW(),
+  "extraData" JSONB DEFAULT '{}'::jsonb
 );
 
--- Enable Row Level Security (RLS) & Grant Public Read/Write Access for Supabase
-ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Public Users Access" ON public.users FOR ALL USING (true) WITH CHECK (true);
-
-ALTER TABLE public.matrimonials ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Public Matrimonials Access" ON public.matrimonials FOR ALL USING (true) WITH CHECK (true);
-
-ALTER TABLE public.businesses ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Public Businesses Access" ON public.businesses FOR ALL USING (true) WITH CHECK (true);
-
-ALTER TABLE public.temples ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Public Temples Access" ON public.temples FOR ALL USING (true) WITH CHECK (true);
-
-ALTER TABLE public.members ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Public Members Access" ON public.members FOR ALL USING (true) WITH CHECK (true);
-
-ALTER TABLE public.posts ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Public Posts Access" ON public.posts FOR ALL USING (true) WITH CHECK (true);
-
-ALTER TABLE public.news ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Public News Access" ON public.news FOR ALL USING (true) WITH CHECK (true);
-
-ALTER TABLE public.ads ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Public Ads Access" ON public.ads FOR ALL USING (true) WITH CHECK (true);
-
-ALTER TABLE public.panchang ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Public Panchang Access" ON public.panchang FOR ALL USING (true) WITH CHECK (true);
-
-ALTER TABLE public.blood_donors ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Public Blood Donors Access" ON public.blood_donors FOR ALL USING (true) WITH CHECK (true);
-
-ALTER TABLE public.jobs ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Public Jobs Access" ON public.jobs FOR ALL USING (true) WITH CHECK (true);
-
-ALTER TABLE public.bhajans ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Public Bhajans Access" ON public.bhajans FOR ALL USING (true) WITH CHECK (true);
-
-ALTER TABLE public.pages ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Public Pages Access" ON public.pages FOR ALL USING (true) WITH CHECK (true);
-
-ALTER TABLE public.settings ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Public Settings Access" ON public.settings FOR ALL USING (true) WITH CHECK (true);
+-- Enable Row Level Security (RLS) & Grant Public Access for all 14 tables
+DO $$
+DECLARE
+  tbl TEXT;
+  tables TEXT[] := ARRAY[
+    'users', 'matrimonials', 'businesses', 'temples', 'members',
+    'posts', 'news', 'ads', 'panchang', 'blood_donors',
+    'jobs', 'bhajans', 'pages', 'settings'
+  ];
+BEGIN
+  FOREACH tbl IN ARRAY tables LOOP
+    EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY;', tbl);
+    EXECUTE format('DROP POLICY IF EXISTS "Public Access %I" ON public.%I;', tbl, tbl);
+    EXECUTE format('CREATE POLICY "Public Access %I" ON public.%I FOR ALL USING (true) WITH CHECK (true);', tbl, tbl);
+  END LOOP;
+END $$;

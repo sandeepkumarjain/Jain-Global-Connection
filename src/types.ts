@@ -1,10 +1,21 @@
-export type UserRole = 'Super Admin' | 'Admin' | 'Moderator' | 'Temple Admin' | 'Business Owner' | 'Member' | 'Guest';
+export type UserRole = 'Super Admin' | 'Admin' | 'Moderator' | 'Temple Admin' | 'Business Owner' | 'VerifiedBusiness' | 'Member' | 'Guest';
 
 export type UserStatus = 'Pending Approval' | 'Approved' | 'Rejected' | 'Suspended';
 
 export type RegistrationType = 'Individual' | 'Business' | 'Temple' | 'Marriage Profile' | 'NGO' | 'Trust';
 
 export type JainSect = 'Swetambar Murtipujak' | 'Swetambar Sthanakvasi' | 'Swetambar Terapanthi' | 'Digambar Bisapanthi' | 'Digambar Terapanthi' | 'Digambar Taranpanthi' | 'Swetambar' | 'Digambar' | 'Sthanakvasi' | 'Terapanthi' | 'Swetambar & Digambar' | string;
+
+export interface RolePermissions {
+  canAccessAdmin: boolean;
+  canManageUsers: boolean;
+  canManageBusinesses: boolean;
+  canManageTemples: boolean;
+  canApproveProfiles: boolean;
+  canCreateAds: boolean;
+  canPublishNews: boolean;
+  canManagePanchang: boolean;
+}
 
 export interface User {
   id: string;
@@ -47,6 +58,8 @@ export interface User {
   qrCodeUrl?: string;
   themePreference?: 'light' | 'dark' | 'auspicious';
   password?: string;
+  permissions?: string[];
+  rolePermissions?: Partial<RolePermissions>;
 }
 
 export interface MatrimonialProfile {

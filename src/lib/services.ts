@@ -370,14 +370,14 @@ export const AuthService = {
       });
 
       if (error) {
-        console.error('AuthService.signUp error:', error);
+        console.warn('AuthService.signUp notice:', error.message);
         return { user: null, session: null, error: error.message };
       }
 
       return { user: data.user, session: data.session, error: null };
     } catch (err: any) {
-      console.error('AuthService.signUp exception:', err);
-      return { user: null, session: null, error: err.message || 'Failed to sign up with Supabase Auth' };
+      console.warn('AuthService.signUp exception:', err?.message || err);
+      return { user: null, session: null, error: err?.message || 'Failed to sign up with Supabase Auth' };
     }
   },
 
@@ -397,14 +397,14 @@ export const AuthService = {
       });
 
       if (error) {
-        console.error('AuthService.signIn error:', error);
+        console.warn('AuthService.signIn notice:', error.message);
         return { user: null, session: null, error: error.message };
       }
 
       return { user: data.user, session: data.session, error: null };
     } catch (err: any) {
-      console.error('AuthService.signIn exception:', err);
-      return { user: null, session: null, error: err.message || 'Failed to log in with Supabase Auth' };
+      console.warn('AuthService.signIn exception:', err?.message || err);
+      return { user: null, session: null, error: err?.message || 'Failed to log in with Supabase Auth' };
     }
   },
 
