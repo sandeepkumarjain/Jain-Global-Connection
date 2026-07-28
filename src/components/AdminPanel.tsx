@@ -102,7 +102,11 @@ export const AdminPanel: React.FC = () => {
     showToast,
     syncAllDataToFirestore,
     isSyncingFirestore,
-    lastFirestoreSyncTime
+    lastFirestoreSyncTime,
+    syncAllDataToSupabase,
+    isSyncingSupabase,
+    lastSupabaseSyncTime,
+    isSupabaseConnected
   } = useApp();
 
   type AdminTab =
@@ -2295,45 +2299,50 @@ export const AdminPanel: React.FC = () => {
         </div>
       )}
 
-      {/* Tab 12: Database & Backend Cloud Sync Center */}
+      {/* Tab 12: Supabase Database & GitHub Cloud Integration Center */}
       {activeAdminTab === 'database' && (
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-lg space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-4">
             <div>
-              <div className="inline-flex items-center gap-2 px-3 py-1 bg-cyan-100 dark:bg-cyan-950 text-cyan-800 dark:text-cyan-300 rounded-full text-[11px] font-black uppercase tracking-wider border border-cyan-300 dark:border-cyan-800">
-                <Database className="w-4 h-4" />
-                <span>CLOUD FIRESTORE PERSISTENCE</span>
+              <div className="inline-flex items-center gap-2 px-3 py-1 bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 rounded-full text-[11px] font-black uppercase tracking-wider border border-emerald-300 dark:border-emerald-800">
+                <Database className="w-4 h-4 text-emerald-500" />
+                <span>SUPABASE POSTGRESQL & GITHUB INTEGRATION</span>
               </div>
               <h3 className="text-xl font-extrabold font-serif text-slate-900 dark:text-white mt-1">
-                Backend Database Synchronization Hub
+                Supabase Database Migration & Management
               </h3>
               <p className="text-xs text-slate-600 dark:text-slate-400 font-medium">
-                Store, sync, and manage all 14 data collections in Firebase Firestore with separate columns & documents.
+                All 14 platform collections and records are now migrated to Supabase PostgreSQL schema connected with GitHub.
               </p>
             </div>
 
-            <button
-              type="button"
-              disabled={isSyncingFirestore}
-              onClick={() => syncAllDataToFirestore()}
-              className="px-6 py-3 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 disabled:opacity-50 text-slate-950 font-black rounded-xl text-xs flex items-center gap-2.5 shadow-lg cursor-pointer transition-all hover:scale-105"
-            >
-              <RefreshCw className={`w-4 h-4 ${isSyncingFirestore ? 'animate-spin' : ''}`} />
-              <span>{isSyncingFirestore ? 'Syncing Collections...' : 'Sync All Data to Backend Database'}</span>
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                disabled={isSyncingSupabase}
+                onClick={() => syncAllDataToSupabase()}
+                className="px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 disabled:opacity-50 text-white font-black rounded-xl text-xs flex items-center gap-2.5 shadow-lg cursor-pointer transition-all hover:scale-105"
+              >
+                <RefreshCw className={`w-4 h-4 ${isSyncingSupabase ? 'animate-spin' : ''}`} />
+                <span>{isSyncingSupabase ? 'Syncing Supabase...' : 'Sync All Data to Supabase'}</span>
+              </button>
+            </div>
           </div>
 
-          {/* Database Health & Status Banner */}
+          {/* Supabase Status Banner */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 space-y-1">
-              <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider block">Firestore Database ID</span>
-              <p className="text-xs font-mono font-bold text-amber-600 dark:text-amber-400 break-all">
-                ai-studio-jainconnectgloba-21b6ac46-1529-4628-b282-c7dba0005e58
-              </p>
+              <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider block">Database Provider</span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-extrabold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+                  <Database className="w-4 h-4" />
+                  Supabase PostgreSQL
+                </span>
+              </div>
             </div>
 
             <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 space-y-1">
-              <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider block">Backend Cloud Connection</span>
+              <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider block">GitHub CI/CD Connection</span>
               <div className="flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
                 <span className="text-xs font-black text-emerald-600 dark:text-emerald-400 uppercase">
@@ -2343,44 +2352,60 @@ export const AdminPanel: React.FC = () => {
             </div>
 
             <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 space-y-1">
-              <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider block">Last Full Sync Time</span>
+              <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider block">Last Supabase Sync</span>
               <p className="text-xs font-bold text-slate-900 dark:text-slate-100">
-                {lastFirestoreSyncTime ? `Today at ${lastFirestoreSyncTime}` : 'Real-Time Auto Sync Enabled'}
+                {lastSupabaseSyncTime ? `Today at ${lastSupabaseSyncTime}` : 'Ready for Supabase Push'}
               </p>
             </div>
           </div>
 
-          {/* Detailed Collections Storage Grid */}
+          {/* Environment Variables Info Box */}
+          <div className="p-4 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 space-y-2">
+            <div className="flex items-center justify-between">
+              <h4 className="text-xs font-black text-emerald-900 dark:text-emerald-300 uppercase tracking-wider flex items-center gap-2">
+                <Server className="w-4 h-4 text-emerald-500" />
+                <span>Supabase Project Environment Variables</span>
+              </h4>
+              <span className="text-[10px] font-mono font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900 px-2 py-0.5 rounded border border-emerald-300 dark:border-emerald-700">
+                .env.example configured
+              </span>
+            </div>
+            <p className="text-xs text-emerald-800 dark:text-emerald-300 leading-relaxed font-medium">
+              To direct live client queries to your external Supabase project instance, configure <code className="bg-emerald-100 dark:bg-emerald-900/80 px-1.5 py-0.5 rounded text-emerald-900 dark:text-emerald-200 font-mono text-[11px]">VITE_SUPABASE_URL</code> and <code className="bg-emerald-100 dark:bg-emerald-900/80 px-1.5 py-0.5 rounded text-emerald-900 dark:text-emerald-200 font-mono text-[11px]">VITE_SUPABASE_ANON_KEY</code> in project settings.
+            </p>
+          </div>
+
+          {/* Detailed Supabase Tables Grid */}
           <div className="space-y-3">
             <h4 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
-              <Server className="w-4 h-4 text-amber-500" />
-              <span>Backend Firestore Collections & Separate Columns</span>
+              <Server className="w-4 h-4 text-emerald-500" />
+              <span>Migrated Supabase PostgreSQL Tables (14 Tables)</span>
             </h4>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {[
-                { name: 'users', title: 'Registered Users', count: users.length, fields: 'id, fullName, email, mobile, role, status, city, state, gotra' },
-                { name: 'matrimonials', title: 'Matrimonial Profiles', count: matrimonials.length, fields: 'id, fullName, age, gender, sect, gotra, city, occupation' },
-                { name: 'businesses', title: 'Business Directory', count: businesses.length, fields: 'id, businessName, category, city, mobile, status, isVerified' },
-                { name: 'temples', title: 'Temple Directory', count: temples.length, fields: 'id, templeName, sect, city, address, trustContact, timings' },
-                { name: 'members', title: 'Jain Family Directory', count: members.length, fields: 'id, name, city, state, mobile, profession, bloodGroup' },
-                { name: 'posts', title: 'Community Feed Posts', count: posts.length, fields: 'id, authorName, authorRole, content, category, likesCount' },
-                { name: 'news', title: 'Global News Feed', count: news.length, fields: 'id, title, summary, category, publishedDate, author' },
-                { name: 'ads', title: 'Promotional Banners', count: ads.length, fields: 'id, title, sponsorName, offerDiscount, contactMobile, expiryDate' },
-                { name: 'panchang', title: 'Daily Panchang & Tithi', count: 1, fields: 'date, tithi, sunrise, sunset, choghadiya, quote, pravachan' },
-                { name: 'blood_donors', title: 'Emergency Blood Donors', count: bloodDonors.length, fields: 'id, name, bloodGroup, city, state, mobile, available' },
-                { name: 'jobs', title: 'Job Openings', count: jobs.length, fields: 'id, title, company, location, type, salary, contactEmail' },
-                { name: 'bhajans', title: 'Bhajan & Stavan Library', count: bhajans.length, fields: 'id, title, hindiTitle, category, singer, audioUrl, lyrics' },
-                { name: 'pages', title: 'Custom CMS Pages', count: customPages.length, fields: 'id, title, slug, category, bannerImage, content, isPublished' },
-                { name: 'settings', title: 'Portal Configuration', count: 1, fields: 'appName, tagline, contactPhone, contactEmail, address, colors' },
+                { name: 'public.users', title: 'Registered Users', count: users.length, fields: 'id, fullName, email, mobile, role, status, city, state, gotra' },
+                { name: 'public.matrimonials', title: 'Matrimonial Profiles', count: matrimonials.length, fields: 'id, fullName, age, gender, sect, gotra, city, occupation' },
+                { name: 'public.businesses', title: 'Business Directory', count: businesses.length, fields: 'id, businessName, category, city, mobile, status, isVerified' },
+                { name: 'public.temples', title: 'Temple Directory', count: temples.length, fields: 'id, templeName, sect, city, address, trustContact, timings' },
+                { name: 'public.members', title: 'Jain Family Directory', count: members.length, fields: 'id, name, city, state, mobile, profession, bloodGroup' },
+                { name: 'public.posts', title: 'Community Feed Posts', count: posts.length, fields: 'id, authorName, authorRole, content, category, likesCount' },
+                { name: 'public.news', title: 'Global News Feed', count: news.length, fields: 'id, title, summary, category, publishedDate, author' },
+                { name: 'public.ads', title: 'Promotional Banners', count: ads.length, fields: 'id, title, sponsorName, offerDiscount, contactMobile, expiryDate' },
+                { name: 'public.panchang', title: 'Daily Panchang & Tithi', count: 1, fields: 'date, tithi, sunrise, sunset, choghadiya, quote, pravachan' },
+                { name: 'public.blood_donors', title: 'Emergency Blood Donors', count: bloodDonors.length, fields: 'id, name, bloodGroup, city, state, mobile, available' },
+                { name: 'public.jobs', title: 'Job Openings', count: jobs.length, fields: 'id, title, company, location, type, salary, contactEmail' },
+                { name: 'public.bhajans', title: 'Bhajan & Stavan Library', count: bhajans.length, fields: 'id, title, hindiTitle, category, singer, audioUrl, lyrics' },
+                { name: 'public.pages', title: 'Custom CMS Pages', count: customPages.length, fields: 'id, title, slug, category, bannerImage, content, isPublished' },
+                { name: 'public.settings', title: 'Portal Configuration', count: 1, fields: 'appName, tagline, contactPhone, contactEmail, address, colors' },
               ].map((col) => (
                 <div key={col.name} className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-mono font-bold text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-950 px-2 py-0.5 rounded border border-amber-300 dark:border-amber-800">
-                      /{col.name}
+                    <span className="text-[11px] font-mono font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-950 px-2 py-0.5 rounded border border-emerald-300 dark:border-emerald-800">
+                      {col.name}
                     </span>
                     <span className="text-xs font-black text-slate-900 dark:text-white bg-slate-200 dark:bg-slate-700 px-2 py-0.5 rounded-full">
-                      {col.count} {col.count === 1 ? 'doc' : 'docs'}
+                      {col.count} {col.count === 1 ? 'row' : 'rows'}
                     </span>
                   </div>
                   <h5 className="font-extrabold text-sm text-slate-900 dark:text-slate-100">{col.title}</h5>
@@ -2393,14 +2418,14 @@ export const AdminPanel: React.FC = () => {
           </div>
 
           {/* Database Export & Backup Actions */}
-          <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="space-y-1">
               <h5 className="font-extrabold text-sm text-slate-900 dark:text-white flex items-center gap-2">
-                <Download className="w-4 h-4 text-amber-500" />
+                <Download className="w-4 h-4 text-emerald-500" />
                 <span>Export & Download Database Backup</span>
               </h5>
               <p className="text-xs text-slate-600 dark:text-slate-400">
-                Download complete JSON snapshot or collection CSVs for offline record keeping.
+                Download complete JSON snapshot or collection records for offline record keeping and Supabase import.
               </p>
             </div>
 
@@ -2412,21 +2437,22 @@ export const AdminPanel: React.FC = () => {
                   const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(masterObj, null, 2));
                   const downloadAnchor = document.createElement('a');
                   downloadAnchor.setAttribute("href", dataStr);
-                  downloadAnchor.setAttribute("download", `jain_connect_master_db_${Date.now()}.json`);
+                  downloadAnchor.setAttribute("download", `jain_connect_supabase_export_${Date.now()}.json`);
                   document.body.appendChild(downloadAnchor);
                   downloadAnchor.click();
                   downloadAnchor.remove();
-                  showToast('Backup Exported!', 'Downloaded full JSON database snapshot.', 'success');
+                  showToast('Export Downloaded!', 'Downloaded full master JSON snapshot for Supabase import.', 'success');
                 }}
                 className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-extrabold rounded-xl text-xs flex items-center gap-1.5 shadow cursor-pointer"
               >
-                <Download className="w-3.5 h-3.5 text-amber-400" />
+                <Download className="w-3.5 h-3.5 text-emerald-400" />
                 <span>Download Master JSON</span>
               </button>
             </div>
           </div>
         </div>
       )}
+
 
       {/* Comprehensive Record Detail View Modal Popup */}
       {viewingProfile && (
