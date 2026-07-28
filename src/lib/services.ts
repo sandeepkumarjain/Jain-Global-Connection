@@ -345,3 +345,110 @@ export const BusinessService = {
     }
   },
 };
+
+// ==========================================
+// SUPABASE AUTHENTICATION SERVICE
+// ==========================================
+
+export const AuthService = {
+  /**
+   * Sign up user using email & password with optional profile metadata
+   */
+  async signUp(email: string, pass: string, profileData?: { fullName?: string; mobile?: string; city?: string }) {
+    const client = getClient();
+    if (!client) {
+      return { user: null, session: null, error: 'Supabase client is not configured.' };
+    }
+
+    try {
+      const { data, error } = await client.auth.signUp({
+        email,
+        password: pass,
+        options: {
+          data: profileData || {},
+        },
+      });
+
+      if (error) {
+        console.error('AuthService.signUp error:', error);
+        return { user: null, session: null, error: error.message };
+      }
+
+      return { user: data.user, session: data.session, error: null };
+    } catch (err: any) {
+      console.error('AuthService.signUp exception:', err);
+      return { user: null, session: null, error: err.message || 'Failed to sign up with Supabase Auth' };
+    }
+  },
+
+  /**
+   * Sign in user using email & password
+   */
+  async signIn(email: string, pass: string) {
+    const client = getClient();
+    if (!client) {
+      return { user: null, session: null, error: 'Supabase client is not configured.' };
+    }
+
+    try {
+      const { data, error } = await client.auth.signInWithPassword({
+        email,
+        password: pass,
+      });
+
+      if (error) {
+        console.error('AuthService.signIn error:', error);
+        return { user: null, session: null, error: error.message };
+      }
+
+      return { user: data.user, session: data.session, error: null };
+    } catch (err: any) {
+      console.error('AuthService.signIn exception:', err);
+      return { user: null, session: null, error: err.message || 'Failed to log in with Supabase Auth' };
+    }
+  },
+
+  /**
+   * Sign out current user session
+   */
+  async signOut() {
+    const client = getClient();
+    if (!client) return { error: null };
+
+    try {
+      const { error } = await client.auth.signOut();
+      if (error) console.error('AuthService.signOut error:', error);
+      return { error: error ? error.message : null };
+    } catch (err: any) {
+      console.error('AuthService.signOut exception:', err);
+      return { error: err.message || 'Failed to sign out' };
+    }
+  },
+
+  /**
+   * Get current authenticated user session
+   */
+  async getSession() {
+    const client = getClient();
+    if (!client) return { session: null, error: 'Supabase client not configured' };
+
+    try {
+      const { data, error } = await client.auth.getSession();
+      return { session: data.session, error: error ? error.message : null };
+    } catch (err: any) {
+      return { session: null, error: err.message };
+    }
+  },
+
+  /**
+   * Listen to auth state changes
+   */
+  onAuthStateChange(callback: (event: string, session: any) => void) {
+    const client = getClient();
+    if (!client) return { unsubscribe: () => {} };
+
+    const { data: { subscription } } = client.auth.onAuthStateChange(callback);
+    return subscription;
+  }
+};
+

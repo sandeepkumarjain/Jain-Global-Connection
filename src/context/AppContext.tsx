@@ -39,6 +39,7 @@ import { triggerConfetti, triggerCelebrationConfetti } from '../utils/confetti';
 import { db } from '../lib/firebase';
 import { doc, setDoc, deleteDoc } from 'firebase/firestore';
 import { syncToSupabaseTable, deleteFromSupabaseTable, isSupabaseConfigured, getSupabaseClient } from '../lib/supabase';
+import { AuthService } from '../lib/services';
 
 type LanguageOption = LanguageCode;
 type TabOption = 'home' | 'matrimonial' | 'business' | 'directory' | 'temple' | 'panchang' | 'feed' | 'emergency' | 'admin';
@@ -595,6 +596,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
 
       setCurrentUser(found);
+      // Authenticate with Supabase Auth session if configured
+      if (found.email) {
+        AuthService.signIn(found.email, pass).catch((err) =>
+          console.warn('Supabase auth signin note:', err)
+        );
+      }
       showToast('Welcome Back!', `Logged in as ${found.fullName}.`, 'success');
       return true;
     }
@@ -605,6 +612,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const logout = () => {
+    AuthService.signOut();
     setCurrentUser(null);
     localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
     setActiveTab('home');
@@ -707,11 +715,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     setUsers((prev) => [newUser, ...prev]);
 
-    // Save/Sync to Firestore table
+    // Save/Sync to Supabase & Firestore tables
     try {
+      syncToSupabaseTable('users', newUser);
+      if (newUser.email) {
+        AuthService.signUp(newUser.email, (userData as any).password || 'JainConnect@123', {
+          fullName: newUser.fullName,
+          mobile: newUser.mobile,
+          city: newUser.city,
+        });
+      }
       setDoc(doc(db, 'users', newUser.id), newUser, { merge: true });
     } catch (err) {
-      console.warn('Firestore sync notice:', err);
+      console.warn('Database sync notice:', err);
     }
 
     // Create notification for admin
