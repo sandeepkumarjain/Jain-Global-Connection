@@ -33,8 +33,8 @@ export const getSupabaseClient = (): SupabaseClient | null => {
   return supabaseClient;
 };
 
-// Export direct client reference (lazy initialized if configured)
-export const supabase = isSupabaseConfigured() ? createClient(supabaseUrl, supabaseAnonKey) : null;
+// Export singleton client reference (reusing getSupabaseClient to avoid multiple GoTrueClient instances)
+export const supabase = getSupabaseClient();
 export default supabase;
 
 // Schema whitelist map for all 14 tables to avoid PostgREST column mismatch errors
@@ -103,6 +103,42 @@ const TABLE_COLUMNS: Record<string, string[]> = {
   ],
 };
 
+// Runtime cache of columns known to be missing from remote PostgREST schema
+const missingColumnsMap: Record<string, Set<string>> = {};
+
+/**
+ * Register a missing column for a table in memory
+ */
+function recordMissingColumn(tableName: string, columnName: string) {
+  if (!missingColumnsMap[tableName]) {
+    missingColumnsMap[tableName] = new Set();
+  }
+  missingColumnsMap[tableName].add(columnName);
+}
+
+/**
+ * Ensures timestamp and date fields contain valid ISO strings expected by PostgreSQL.
+ * Handles relative time strings like "3 hours ago", "Just now", "2 days ago".
+ */
+function sanitizeValueForPostgres(key: string, val: any): any {
+  if (val === null || val === undefined) return val;
+
+  const isDateField = /createdAt|updatedAt|publishedDate|startDate|expiryDate|registeredDate|postedDate|birthDate/i.test(key);
+
+  if (isDateField && typeof val === 'string') {
+    const trimmed = val.trim();
+    if (!trimmed) return null;
+    const parsed = Date.parse(trimmed);
+    if (isNaN(parsed)) {
+      // Relative date string or non-standard format (e.g. "3 hours ago")
+      return new Date().toISOString();
+    }
+    return new Date(parsed).toISOString();
+  }
+
+  return val;
+}
+
 /**
  * Sanitize row object for Supabase PostgREST table insertion
  */
@@ -110,22 +146,32 @@ function sanitizeRowForTable(tableName: string, row: Record<string, any>): Recor
   if (!row || typeof row !== 'object') return {};
 
   const allowedCols = TABLE_COLUMNS[tableName];
+  const missingCols = missingColumnsMap[tableName] || new Set();
   const cleanRow: Record<string, any> = {};
   const extraData: Record<string, any> = { ...(row.extraData || {}) };
 
   Object.entries(row).forEach(([key, val]) => {
     if (val === undefined || typeof val === 'function') return;
 
+    // Skip column if known to be missing in remote schema cache
+    if (missingCols.has(key)) return;
+
+    const cleanVal = sanitizeValueForPostgres(key, val);
+
     // Check if key is allowed in table columns
     if (!allowedCols || allowedCols.includes(key)) {
-      cleanRow[key] = val;
+      cleanRow[key] = cleanVal;
     } else {
-      extraData[key] = val;
+      extraData[key] = cleanVal;
     }
   });
 
-  // Store extra unmapped properties into JSONB column
-  if (Object.keys(extraData).length > 0 && (!allowedCols || allowedCols.includes('extraData'))) {
+  // Store extra unmapped properties into JSONB column if supported and present
+  if (
+    Object.keys(extraData).length > 0 &&
+    (!allowedCols || allowedCols.includes('extraData')) &&
+    !missingCols.has('extraData')
+  ) {
     cleanRow.extraData = extraData;
   }
 
@@ -150,37 +196,81 @@ export async function syncToSupabaseTable<T extends { id?: string }>(
     const rawRows = Array.isArray(data) ? data : [data];
     if (rawRows.length === 0) return { success: true, count: 0 };
 
-    // Sanitize rows for Supabase SQL insert/upsert
-    const rows = rawRows.map((r) => sanitizeRowForTable(tableName, r as Record<string, any>));
+    // Sanitize rows for Supabase SQL insert/upsert using cached schema rules
+    let rows = rawRows.map((r) => sanitizeRowForTable(tableName, r as Record<string, any>));
 
-    // Batch Upsert
-    const { error } = await client.from(tableName).upsert(rows as any, { onConflict: 'id' });
-    if (!error) {
-      return { success: true, count: rows.length };
+    // Batch Upsert with silent auto-healing for missing schema columns in remote database
+    let attempts = 0;
+    const maxAttempts = 5;
+    let lastError = '';
+
+    while (attempts < maxAttempts) {
+      attempts++;
+      const { error } = await client.from(tableName).upsert(rows as any, { onConflict: 'id' });
+
+      if (!error) {
+        return { success: true, count: rows.length };
+      }
+
+      lastError = error.message;
+
+      // Auto-heal if the remote Supabase schema is missing a column (e.g. 'extraData' or 'address')
+      const missingColMatch = error.message.match(/Could not find the '([^']+)' column/i);
+      if (missingColMatch && missingColMatch[1]) {
+        const missingCol = missingColMatch[1];
+        recordMissingColumn(tableName, missingCol);
+
+        // Re-sanitize rows with the newly cached missing column rule
+        rows = rawRows.map((r) => sanitizeRowForTable(tableName, r as Record<string, any>));
+        continue;
+      }
+
+      break;
     }
 
-    console.warn(`Supabase batch sync notice on table [${tableName}]: ${error.message}. Retrying row-by-row...`);
-
-    // Row-by-row fallback if batch has schema or individual item issue
+    // Row-by-row fallback if batch has item-level error
     let successCount = 0;
-    let lastError = error.message;
 
-    for (const singleRow of rows) {
-      const { error: singleErr } = await client.from(tableName).upsert([singleRow] as any, { onConflict: 'id' });
-      if (!singleErr) {
-        successCount++;
-      } else {
+    for (const rawSingleRow of rawRows) {
+      let singleErr: any = null;
+      let singleAttempts = 0;
+
+      while (singleAttempts < 4) {
+        singleAttempts++;
+        const sanitizedSingle = sanitizeRowForTable(tableName, rawSingleRow as Record<string, any>);
+        const { error: err } = await client.from(tableName).upsert([sanitizedSingle] as any, { onConflict: 'id' });
+        singleErr = err;
+
+        if (!singleErr) {
+          successCount++;
+          break;
+        }
+
+        const missingColMatch = singleErr.message.match(/Could not find the '([^']+)' column/i);
+        if (missingColMatch && missingColMatch[1]) {
+          const missingCol = missingColMatch[1];
+          recordMissingColumn(tableName, missingCol);
+          continue;
+        }
+
+        break;
+      }
+
+      if (singleErr) {
         lastError = singleErr.message;
       }
     }
 
     if (successCount > 0) {
-      return { success: true, count: successCount, error: successCount < rows.length ? lastError : undefined };
+      return {
+        success: true,
+        count: successCount,
+        error: successCount < rawRows.length ? lastError : undefined
+      };
     }
 
     return { success: false, count: 0, error: lastError };
   } catch (err: any) {
-    console.warn(`Supabase sync exception on table [${tableName}]:`, err?.message || err);
     return { success: false, count: 0, error: err?.message || 'Unknown Supabase sync notice' };
   }
 }
@@ -193,12 +283,10 @@ export async function deleteFromSupabaseTable(tableName: string, id: string): Pr
   try {
     const { error } = await client.from(tableName).delete().eq('id', id);
     if (error) {
-      console.warn(`Supabase delete error on table [${tableName}]:`, error.message);
       return false;
     }
     return true;
   } catch (err) {
-    console.warn(`Supabase delete exception on table [${tableName}]:`, err);
     return false;
   }
 }
@@ -211,12 +299,11 @@ export async function fetchFromSupabaseTable<T>(tableName: string): Promise<T[] 
   try {
     const { data, error } = await client.from(tableName).select('*');
     if (error) {
-      console.warn(`Supabase fetch error on table [${tableName}]:`, error.message);
       return null;
     }
     if (!data) return [];
 
-    // Re-hydrate extraData into root object
+    // Re-hydrate extraData into root object if present
     const rehydrated = data.map((item: any) => {
       if (item && item.extraData && typeof item.extraData === 'object') {
         const { extraData, ...rest } = item;
@@ -227,7 +314,6 @@ export async function fetchFromSupabaseTable<T>(tableName: string): Promise<T[] 
 
     return rehydrated as T[];
   } catch (err) {
-    console.warn(`Supabase fetch exception on table [${tableName}]:`, err);
     return null;
   }
 }

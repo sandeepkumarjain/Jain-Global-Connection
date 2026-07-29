@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { sendPasswordResetEmail } from 'firebase/auth';
 import { auth } from '../lib/firebase';
 import { useApp } from '../context/AppContext';
+import { PasswordInput } from './PasswordInput';
 import {
   LogIn,
   X,
@@ -258,20 +259,15 @@ export const AuthModal: React.FC = () => {
                   <span>Forgot Password?</span>
                 </button>
               </div>
-              <div className="relative">
-                <input
-                  type="password"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => {
-                    setPassword(e.target.value);
-                    if (errorMessage) setErrorMessage('');
-                  }}
-                  required
-                  className="w-full pl-9 pr-3 py-3 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-500 font-medium"
-                />
-                <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-3.5" />
-              </div>
+              <PasswordInput
+                value={password}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  if (errorMessage) setErrorMessage('');
+                }}
+                placeholder="••••••••"
+                required
+              />
             </div>
 
             <button
@@ -386,40 +382,37 @@ export const AuthModal: React.FC = () => {
                   <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
                     New Password
                   </label>
-                  <div className="relative">
-                    <input
-                      type="password"
-                      placeholder="Enter new password"
-                      value={newPassword}
-                      onChange={(e) => {
-                        setNewPassword(e.target.value);
-                        if (errorMessage) setErrorMessage('');
-                      }}
-                      required
-                      className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-500 font-medium"
-                    />
-                    <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
-                  </div>
+                  <PasswordInput
+                    value={newPassword}
+                    onChange={(e) => {
+                      setNewPassword(e.target.value);
+                      if (errorMessage) setErrorMessage('');
+                    }}
+                    placeholder="Enter new password"
+                    showStrengthIndicator={true}
+                    required
+                  />
                 </div>
 
                 <div>
                   <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
                     Confirm New Password
                   </label>
-                  <div className="relative">
-                    <input
-                      type="password"
-                      placeholder="Re-enter new password"
-                      value={confirmPassword}
-                      onChange={(e) => {
-                        setConfirmPassword(e.target.value);
-                        if (errorMessage) setErrorMessage('');
-                      }}
-                      required
-                      className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-500 font-medium"
-                    />
-                    <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
-                  </div>
+                  <PasswordInput
+                    value={confirmPassword}
+                    onChange={(e) => {
+                      setConfirmPassword(e.target.value);
+                      if (errorMessage) setErrorMessage('');
+                    }}
+                    placeholder="Re-enter new password"
+                    required
+                  />
+                  {confirmPassword && newPassword !== confirmPassword && (
+                    <p className="text-[11px] font-bold text-red-500 mt-1">Passwords do not match</p>
+                  )}
+                  {confirmPassword && newPassword === confirmPassword && (
+                    <p className="text-[11px] font-bold text-emerald-500 mt-1">Passwords match!</p>
+                  )}
                 </div>
 
                 <div className="flex items-center gap-2 pt-1">

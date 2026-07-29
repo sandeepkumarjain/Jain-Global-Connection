@@ -30,14 +30,14 @@ export const UserService = {
         .order('createdAt', { ascending: false });
 
       if (error) {
-        console.error('UserService.getAllUsers error:', error);
+        console.warn('UserService.getAllUsers notice:', error.message);
         return { data: null, error: error.message };
       }
 
       return { data: data as User[], error: null };
     } catch (err: any) {
-      console.error('UserService.getAllUsers exception:', err);
-      return { data: null, error: err.message || 'Failed to fetch users' };
+      console.warn('UserService.getAllUsers exception:', err?.message || err);
+      return { data: null, error: err?.message || 'Failed to fetch users' };
     }
   },
 
@@ -58,14 +58,14 @@ export const UserService = {
         .single();
 
       if (error) {
-        console.error(`UserService.getUserById error (${id}):`, error);
+        console.warn(`UserService.getUserById error (${id}):`, error.message);
         return { data: null, error: error.message };
       }
 
       return { data: data as User, error: null };
     } catch (err: any) {
-      console.error(`UserService.getUserById exception (${id}):`, err);
-      return { data: null, error: err.message || 'Failed to fetch user profile' };
+      console.warn(`UserService.getUserById exception (${id}):`, err?.message || err);
+      return { data: null, error: err?.message || 'Failed to fetch user profile' };
     }
   },
 
@@ -94,14 +94,14 @@ export const UserService = {
         .single();
 
       if (error) {
-        console.error('UserService.createUser error:', error);
+        console.warn('UserService.createUser error:', error.message);
         return { data: null, error: error.message };
       }
 
       return { data: data as User, error: null };
     } catch (err: any) {
-      console.error('UserService.createUser exception:', err);
-      return { data: null, error: err.message || 'Failed to create user profile' };
+      console.warn('UserService.createUser exception:', err?.message || err);
+      return { data: null, error: err?.message || 'Failed to create user profile' };
     }
   },
 
@@ -123,14 +123,14 @@ export const UserService = {
         .single();
 
       if (error) {
-        console.error(`UserService.updateUser error (${id}):`, error);
+        console.warn(`UserService.updateUser error (${id}):`, error.message);
         return { data: null, error: error.message };
       }
 
       return { data: data as User, error: null };
     } catch (err: any) {
-      console.error(`UserService.updateUser exception (${id}):`, err);
-      return { data: null, error: err.message || 'Failed to update user profile' };
+      console.warn(`UserService.updateUser exception (${id}):`, err?.message || err);
+      return { data: null, error: err?.message || 'Failed to update user profile' };
     }
   },
 
@@ -150,14 +150,14 @@ export const UserService = {
         .eq('id', id);
 
       if (error) {
-        console.error(`UserService.deleteUser error (${id}):`, error);
+        console.warn(`UserService.deleteUser error (${id}):`, error.message);
         return { success: false, error: error.message };
       }
 
       return { success: true, error: null };
     } catch (err: any) {
-      console.error(`UserService.deleteUser exception (${id}):`, err);
-      return { success: false, error: err.message || 'Failed to delete user profile' };
+      console.warn(`UserService.deleteUser exception (${id}):`, err?.message || err);
+      return { success: false, error: err?.message || 'Failed to delete user profile' };
     }
   },
 };
@@ -183,14 +183,14 @@ export const BusinessService = {
         .order('createdAt', { ascending: false });
 
       if (error) {
-        console.error('BusinessService.getAllBusinesses error:', error);
+        console.warn('BusinessService.getAllBusinesses error:', error.message);
         return { data: null, error: error.message };
       }
 
       return { data: data as BusinessListing[], error: null };
     } catch (err: any) {
-      console.error('BusinessService.getAllBusinesses exception:', err);
-      return { data: null, error: err.message || 'Failed to fetch business listings' };
+      console.warn('BusinessService.getAllBusinesses exception:', err?.message || err);
+      return { data: null, error: err?.message || 'Failed to fetch business listings' };
     }
   },
 
@@ -211,14 +211,14 @@ export const BusinessService = {
         .single();
 
       if (error) {
-        console.error(`BusinessService.getBusinessById error (${id}):`, error);
+        console.warn(`BusinessService.getBusinessById error (${id}):`, error.message);
         return { data: null, error: error.message };
       }
 
       return { data: data as BusinessListing, error: null };
     } catch (err: any) {
-      console.error(`BusinessService.getBusinessById exception (${id}):`, err);
-      return { data: null, error: err.message || 'Failed to fetch business listing' };
+      console.warn(`BusinessService.getBusinessById exception (${id}):`, err?.message || err);
+      return { data: null, error: err?.message || 'Failed to fetch business listing' };
     }
   },
 
@@ -238,14 +238,14 @@ export const BusinessService = {
         .eq('ownerId', ownerId);
 
       if (error) {
-        console.error(`BusinessService.getBusinessesByOwner error (${ownerId}):`, error);
+        console.warn(`BusinessService.getBusinessesByOwner error (${ownerId}):`, error.message);
         return { data: null, error: error.message };
       }
 
       return { data: data as BusinessListing[], error: null };
     } catch (err: any) {
-      console.error(`BusinessService.getBusinessesByOwner exception (${ownerId}):`, err);
-      return { data: null, error: err.message || 'Failed to fetch owner businesses' };
+      console.warn(`BusinessService.getBusinessesByOwner exception (${ownerId}):`, err?.message || err);
+      return { data: null, error: err?.message || 'Failed to fetch owner businesses' };
     }
   },
 
@@ -278,14 +278,14 @@ export const BusinessService = {
         .single();
 
       if (error) {
-        console.error('BusinessService.createBusiness error:', error);
+        console.warn('BusinessService.createBusiness error:', error.message);
         return { data: null, error: error.message };
       }
 
       return { data: data as BusinessListing, error: null };
     } catch (err: any) {
-      console.error('BusinessService.createBusiness exception:', err);
-      return { data: null, error: err.message || 'Failed to create business listing' };
+      console.warn('BusinessService.createBusiness exception:', err?.message || err);
+      return { data: null, error: err?.message || 'Failed to create business listing' };
     }
   },
 
@@ -307,14 +307,14 @@ export const BusinessService = {
         .single();
 
       if (error) {
-        console.error(`BusinessService.updateBusiness error (${id}):`, error);
+        console.warn(`BusinessService.updateBusiness error (${id}):`, error.message);
         return { data: null, error: error.message };
       }
 
       return { data: data as BusinessListing, error: null };
     } catch (err: any) {
-      console.error(`BusinessService.updateBusiness exception (${id}):`, err);
-      return { data: null, error: err.message || 'Failed to update business listing' };
+      console.warn(`BusinessService.updateBusiness exception (${id}):`, err?.message || err);
+      return { data: null, error: err?.message || 'Failed to update business listing' };
     }
   },
 
@@ -334,14 +334,14 @@ export const BusinessService = {
         .eq('id', id);
 
       if (error) {
-        console.error(`BusinessService.deleteBusiness error (${id}):`, error);
+        console.warn(`BusinessService.deleteBusiness error (${id}):`, error.message);
         return { success: false, error: error.message };
       }
 
       return { success: true, error: null };
     } catch (err: any) {
-      console.error(`BusinessService.deleteBusiness exception (${id}):`, err);
-      return { success: false, error: err.message || 'Failed to delete business listing' };
+      console.warn(`BusinessService.deleteBusiness exception (${id}):`, err?.message || err);
+      return { success: false, error: err?.message || 'Failed to delete business listing' };
     }
   },
 };

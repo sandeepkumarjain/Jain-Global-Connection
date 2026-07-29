@@ -5,6 +5,7 @@ import { JainEventsCalendar } from './JainEventsCalendar';
 import { FeaturedAdsSection } from './FeaturedAdsSection';
 import { createGoogleCalendarEvent, getGoogleCalendarWebUrl } from '../lib/googleCalendar';
 import { getAccessToken, googleSignIn } from '../lib/googleAuth';
+import { JAIN_AGAM_QUOTES, getCityPachkanTimings, CityPachkanTiming } from '../utils/jainPanchang';
 import {
   Calendar,
   Sun,
@@ -21,138 +22,9 @@ import {
   Navigation,
   Compass,
   RefreshCw,
-  CalendarPlus
+  CalendarPlus,
+  Flame
 } from 'lucide-react';
-
-interface CityTiming {
-  city: string;
-  state: string;
-  sunrise: string;
-  sunset: string;
-  navkarshi: string;
-  chouvihar: string;
-}
-
-const JAIN_AGAM_QUOTES = [
-  {
-    text: '"Live and let live. Ahimsa Paramo Dharma — Non-violence is the supreme virtue and duty of every soul."',
-    source: 'Bhagwan Mahavira (Acharanga Sutra)',
-    translation: 'Ahimsa (Non-violence) in thought, word, and deed.'
-  },
-  {
-    text: '"Khamemi Savva Jive, Savve Jiva Khamantu Me. Mitti Me Savva Bhutesu, Veram Majjham Na Kenai."',
-    source: 'Samvatsari Kshamavani Sutra',
-    translation: 'I forgive all living beings, may all living beings forgive me. I have friendship with all beings, and enmity toward none.'
-  },
-  {
-    text: '"Samyak Darshana Jnana Charitrani Moksha Margah."',
-    source: 'Acharya Umasvati (Tattvartha Sutra 1.1)',
-    translation: 'Right Faith, Right Knowledge, and Right Conduct together form the path to liberation.'
-  },
-  {
-    text: '"Anathho Parathho Vaa, Appaa Nahanu Parassa Vaa."',
-    source: 'Bhagwan Mahavira (Uttaradhyayana Sutra 20.21)',
-    translation: 'You are your own master. Look inward for true liberation; the soul is its own refuge.'
-  },
-  {
-    text: '"Possa Thimima Paratthattham, Jasa Bhutana Dayai."',
-    source: 'Bhagwan Mahavira (Dasaveyaliya Sutra 6.9)',
-    translation: 'True spiritual knowledge produces compassion and loving-kindness for all living creatures.'
-  },
-  {
-    text: '"Parasparopagraho Jivanam."',
-    source: 'Acharya Umasvati (Tattvartha Sutra 5.21)',
-    translation: 'All life is bound together by mutual support and interdependence.'
-  },
-  {
-    text: '"Anekantavada teaches us that truth has many facets; respect for all viewpoints is the highest intellectual non-violence."',
-    source: 'Acharya Haribhadra Suri (Agam Commentary)',
-    translation: 'Non-absolutism & respect for diverse perspectives.'
-  }
-];
-
-const CITY_TIMINGS: Record<string, CityTiming> = {
-  Bikaner: {
-    city: 'Bikaner',
-    state: 'Rajasthan',
-    sunrise: '06:02 AM',
-    sunset: '07:22 PM',
-    navkarshi: '06:50 AM (+48 mins)',
-    chouvihar: '07:02 PM (-20 mins)',
-  },
-  Mumbai: {
-    city: 'Mumbai',
-    state: 'Maharashtra',
-    sunrise: '06:14 AM',
-    sunset: '07:18 PM',
-    navkarshi: '07:02 AM (+48 mins)',
-    chouvihar: '06:58 PM (-20 mins)',
-  },
-  Ahmedabad: {
-    city: 'Ahmedabad',
-    state: 'Gujarat',
-    sunrise: '06:10 AM',
-    sunset: '07:24 PM',
-    navkarshi: '06:58 AM (+48 mins)',
-    chouvihar: '07:04 PM (-20 mins)',
-  },
-  Jaipur: {
-    city: 'Jaipur',
-    state: 'Rajasthan',
-    sunrise: '05:58 AM',
-    sunset: '07:19 PM',
-    navkarshi: '06:46 AM (+48 mins)',
-    chouvihar: '06:59 PM (-20 mins)',
-  },
-  Delhi: {
-    city: 'Delhi',
-    state: 'NCR',
-    sunrise: '05:48 AM',
-    sunset: '07:22 PM',
-    navkarshi: '06:36 AM (+48 mins)',
-    chouvihar: '07:02 PM (-20 mins)',
-  },
-  Surat: {
-    city: 'Surat',
-    state: 'Gujarat',
-    sunrise: '06:12 AM',
-    sunset: '07:22 PM',
-    navkarshi: '07:00 AM (+48 mins)',
-    chouvihar: '07:02 PM (-20 mins)',
-  },
-  Kolkata: {
-    city: 'Kolkata',
-    state: 'West Bengal',
-    sunrise: '05:12 AM',
-    sunset: '06:28 PM',
-    navkarshi: '06:00 AM (+48 mins)',
-    chouvihar: '06:08 PM (-20 mins)',
-  },
-  Indore: {
-    city: 'Indore',
-    state: 'Madhya Pradesh',
-    sunrise: '06:02 AM',
-    sunset: '07:14 PM',
-    navkarshi: '06:50 AM (+48 mins)',
-    chouvihar: '06:54 PM (-20 mins)',
-  },
-  Bangalore: {
-    city: 'Bangalore',
-    state: 'Karnataka',
-    sunrise: '06:06 AM',
-    sunset: '06:50 PM',
-    navkarshi: '06:54 AM (+48 mins)',
-    chouvihar: '06:30 PM (-20 mins)',
-  },
-  Chennai: {
-    city: 'Chennai',
-    state: 'Tamil Nadu',
-    sunrise: '05:56 AM',
-    sunset: '06:38 PM',
-    navkarshi: '06:44 AM (+48 mins)',
-    chouvihar: '06:18 PM (-20 mins)',
-  },
-};
 
 export const PanchangWidget: React.FC = () => {
   const { panchang, showToast } = useApp();
@@ -160,12 +32,17 @@ export const PanchangWidget: React.FC = () => {
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const [copiedQuote, setCopiedQuote] = useState(false);
   const [isDetectingLoc, setIsDetectingLoc] = useState(false);
-  const [currentQuoteIndex, setCurrentQuoteIndex] = useState(0);
+
+  // Auto-calculate daily index based on current date
+  const dayOfYear = Math.floor((new Date().getTime() - new Date(new Date().getFullYear(), 0, 0).getTime()) / (1000 * 60 * 60 * 24));
+  const defaultQuoteIdx = dayOfYear % JAIN_AGAM_QUOTES.length;
+  const [currentQuoteIndex, setCurrentQuoteIndex] = useState(defaultQuoteIdx);
   const [isSyncingToday, setIsSyncingToday] = useState(false);
   const [isTodaySynced, setIsTodaySynced] = useState(false);
 
-  const activeTiming = CITY_TIMINGS[selectedCityKey] || CITY_TIMINGS['Bikaner'];
-  const activeQuote = JAIN_AGAM_QUOTES[currentQuoteIndex];
+  const cityTimingsMap = getCityPachkanTimings(new Date());
+  const activeTiming: CityPachkanTiming = cityTimingsMap[selectedCityKey] || cityTimingsMap['Bikaner'];
+  const activeQuote = JAIN_AGAM_QUOTES[currentQuoteIndex] || JAIN_AGAM_QUOTES[0];
 
   const handleSyncTodayTithi = async () => {
     let token = getAccessToken();
@@ -298,9 +175,9 @@ export const PanchangWidget: React.FC = () => {
               onChange={(e) => setSelectedCityKey(e.target.value)}
               className="bg-transparent font-bold text-slate-800 dark:text-slate-200 focus:outline-none text-xs cursor-pointer"
             >
-              {Object.keys(CITY_TIMINGS).map((c) => (
+              {Object.keys(cityTimingsMap).map((c) => (
                 <option key={c} value={c} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">
-                  {c} ({CITY_TIMINGS[c].state})
+                  {c} ({cityTimingsMap[c].state})
                 </option>
               ))}
             </select>
@@ -380,6 +257,46 @@ export const PanchangWidget: React.FC = () => {
           <div>
             <p className="text-[10px] text-emerald-700 dark:text-emerald-400 font-bold uppercase">Navkarshi / Chouvihar</p>
             <p className="text-[11px] font-bold text-slate-900 dark:text-white">N: {activeTiming.navkarshi.split(' ')[0]} | C: {activeTiming.chouvihar.split(' ')[0]}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Daily Pachkan Timings Grid */}
+      <div className="bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 rounded-xl p-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <h3 className="text-xs font-bold text-amber-900 dark:text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
+            <Flame className="w-4 h-4 text-amber-500" />
+            Daily Pachkan Timings ({activeTiming.city}, {activeTiming.state})
+          </h3>
+          <span className="text-[10px] bg-amber-200 dark:bg-amber-900 text-amber-900 dark:text-amber-100 font-bold px-2 py-0.5 rounded-full">
+            Auto-Updated Daily
+          </span>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 text-xs">
+          <div className="p-2.5 rounded-lg bg-white dark:bg-slate-900 border border-amber-200/80 dark:border-slate-800">
+            <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase">Navkarshi</p>
+            <p className="text-xs font-black text-amber-700 dark:text-amber-400 mt-0.5">{activeTiming.navkarshi}</p>
+          </div>
+          <div className="p-2.5 rounded-lg bg-white dark:bg-slate-900 border border-amber-200/80 dark:border-slate-800">
+            <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase">Porshi (1 Prahar)</p>
+            <p className="text-xs font-black text-slate-800 dark:text-slate-200 mt-0.5">{activeTiming.porshi}</p>
+          </div>
+          <div className="p-2.5 rounded-lg bg-white dark:bg-slate-900 border border-amber-200/80 dark:border-slate-800">
+            <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase">Sadh-Porshi</p>
+            <p className="text-xs font-black text-slate-800 dark:text-slate-200 mt-0.5">{activeTiming.sadhPorshi}</p>
+          </div>
+          <div className="p-2.5 rounded-lg bg-white dark:bg-slate-900 border border-amber-200/80 dark:border-slate-800">
+            <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase">Purimatta (2 Prahar)</p>
+            <p className="text-xs font-black text-slate-800 dark:text-slate-200 mt-0.5">{activeTiming.purimatta}</p>
+          </div>
+          <div className="p-2.5 rounded-lg bg-white dark:bg-slate-900 border border-amber-200/80 dark:border-slate-800">
+            <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase">Avaddh (3 Prahar)</p>
+            <p className="text-xs font-black text-slate-800 dark:text-slate-200 mt-0.5">{activeTiming.avaddh}</p>
+          </div>
+          <div className="p-2.5 rounded-lg bg-white dark:bg-slate-900 border border-indigo-200/80 dark:border-indigo-900/50">
+            <p className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 uppercase">Chouvihar</p>
+            <p className="text-xs font-black text-indigo-700 dark:text-indigo-300 mt-0.5">{activeTiming.chouvihar}</p>
           </div>
         </div>
       </div>

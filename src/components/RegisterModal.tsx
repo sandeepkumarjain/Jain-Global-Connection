@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import confetti from 'canvas-confetti';
 import { useApp } from '../context/AppContext';
+import { PasswordInput } from './PasswordInput';
 import {
   X,
   UserPlus,
@@ -1025,13 +1026,12 @@ export const RegisterModal: React.FC = () => {
 
               <div>
                 <label className="block font-bold mb-1 text-slate-700 dark:text-slate-200">Create Account Password *</label>
-                <input
-                  type="password"
-                  placeholder="Create a strong password"
+                <PasswordInput
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Create a strong password"
+                  showStrengthIndicator={true}
                   required
-                  className="w-full p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700"
                 />
               </div>
 

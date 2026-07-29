@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
+import { getDailyJainPanchang } from '../utils/jainPanchang';
 import {
   User,
   UserRole,
@@ -287,6 +288,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     localStorage.setItem('jcg_custom_pages_v1', JSON.stringify(customPages));
   }, [customPages]);
+
+  // Auto Update Jain Panchang, Pachkan Timings & Agam Quotes daily
+  useEffect(() => {
+    const refreshDailyPanchang = () => {
+      const todayPanchang = getDailyJainPanchang();
+      setPanchang(todayPanchang);
+    };
+    refreshDailyPanchang();
+    const interval = setInterval(refreshDailyPanchang, 3600000);
+    return () => clearInterval(interval);
+  }, []);
 
   const [currentSong, setCurrentSong] = useState<BhajanSong | null>(null);
   const [isPlayingSong, setIsPlayingSong] = useState(false);

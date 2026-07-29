@@ -277,8 +277,34 @@ DECLARE
   ];
 BEGIN
   FOREACH tbl IN ARRAY tables LOOP
+    -- Ensure Row Level Security
     EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY;', tbl);
     EXECUTE format('DROP POLICY IF EXISTS "Public Access %I" ON public.%I;', tbl, tbl);
     EXECUTE format('CREATE POLICY "Public Access %I" ON public.%I FOR ALL USING (true) WITH CHECK (true);', tbl, tbl);
+    
+    -- Migration helper: Ensure extraData column exists on all tables
+    EXECUTE format('ALTER TABLE public.%I ADD COLUMN IF NOT EXISTS "extraData" JSONB DEFAULT ''{}''::jsonb;', tbl);
   END LOOP;
+
+  -- Migration helper: Ensure missing columns exist on public tables if created earlier without them
+  ALTER TABLE public.users ADD COLUMN IF NOT EXISTS gender TEXT;
+  ALTER TABLE public.users ADD COLUMN IF NOT EXISTS address TEXT;
+  ALTER TABLE public.users ADD COLUMN IF NOT EXISTS "profilePicture" TEXT;
+  ALTER TABLE public.users ADD COLUMN IF NOT EXISTS "profilePhoto" TEXT;
+  ALTER TABLE public.users ADD COLUMN IF NOT EXISTS "qrCodeUrl" TEXT;
+  ALTER TABLE public.users ADD COLUMN IF NOT EXISTS "themePreference" TEXT;
+
+  ALTER TABLE public.businesses ADD COLUMN IF NOT EXISTS "reviewCount" INT DEFAULT 0;
+  ALTER TABLE public.businesses ADD COLUMN IF NOT EXISTS rating NUMERIC DEFAULT 5.0;
+  ALTER TABLE public.businesses ADD COLUMN IF NOT EXISTS "productsAndServices" JSONB DEFAULT '[]'::jsonb;
+  ALTER TABLE public.businesses ADD COLUMN IF NOT EXISTS "galleryUrls" JSONB DEFAULT '[]'::jsonb;
+  ALTER TABLE public.businesses ADD COLUMN IF NOT EXISTS "isSponsored" BOOLEAN DEFAULT FALSE;
+
+  ALTER TABLE public.posts ADD COLUMN IF NOT EXISTS "likesCount" INT DEFAULT 0;
+  ALTER TABLE public.posts ADD COLUMN IF NOT EXISTS "likedByUsers" JSONB DEFAULT '[]'::jsonb;
+  ALTER TABLE public.posts ADD COLUMN IF NOT EXISTS comments JSONB DEFAULT '[]'::jsonb;
+
+  ALTER TABLE public.temples ADD COLUMN IF NOT EXISTS "dharamshalaAvailable" BOOLEAN DEFAULT FALSE;
+  ALTER TABLE public.temples ADD COLUMN IF NOT EXISTS "bhojanalayaAvailable" BOOLEAN DEFAULT FALSE;
+  ALTER TABLE public.temples ADD COLUMN IF NOT EXISTS "googleMapUrl" TEXT;
 END $$;

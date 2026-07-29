@@ -118,7 +118,6 @@ export const AdminPanel: React.FC = () => {
     | 'businesses'
     | 'members'
     | 'temples'
-    | 'panchang'
     | 'feed'
     | 'services'
     | 'ads'
@@ -142,17 +141,6 @@ export const AdminPanel: React.FC = () => {
     type: 'user' | 'matrimonial' | 'business' | 'temple' | 'member' | 'post';
     data: any;
   } | null>(null);
-
-  // Panchang Form State
-  const [panchangDate, setPanchangDate] = useState(panchang.date || '');
-  const [panchangTithi, setPanchangTithi] = useState(panchang.tithi || '');
-  const [panchangSunrise, setPanchangSunrise] = useState(panchang.sunrise || '06:12 AM');
-  const [panchangSunset, setPanchangSunset] = useState(panchang.sunset || '07:05 PM');
-  const [panchangChoghadiyaDay, setPanchangChoghadiyaDay] = useState(panchang.choghadiyaDay || 'Shubh, Labh, Amrit');
-  const [panchangChoghadiyaNight, setPanchangChoghadiyaNight] = useState(panchang.choghadiyaNight || 'Shubh, Amrit');
-  const [panchangQuote, setPanchangQuote] = useState(panchang.quote || '');
-  const [panchangPravachan, setPanchangPravachan] = useState(panchang.pravachanQuote || '');
-  const [panchangKalyanak, setPanchangKalyanak] = useState(panchang.kalyanak || '');
 
   // Admin Broadcast Post
   const [broadcastContent, setBroadcastContent] = useState('');
@@ -334,21 +322,6 @@ export const AdminPanel: React.FC = () => {
       privacyPolicy,
     });
     showToast('Settings Saved', 'Theme color palette, policies & website wordings updated across the platform.', 'success');
-  };
-
-  const handleSavePanchang = (e: React.FormEvent) => {
-    e.preventDefault();
-    updatePanchang({
-      date: panchangDate,
-      tithi: panchangTithi,
-      sunrise: panchangSunrise,
-      sunset: panchangSunset,
-      choghadiyaDay: panchangChoghadiyaDay,
-      choghadiyaNight: panchangChoghadiyaNight,
-      quote: panchangQuote,
-      pravachanQuote: panchangPravachan,
-      kalyanak: panchangKalyanak,
-    });
   };
 
   const handlePostBroadcast = (e: React.FormEvent) => {
@@ -588,19 +561,6 @@ export const AdminPanel: React.FC = () => {
           >
             <MapPin className="w-4 h-4 text-amber-500" />
             <span>Temple Directory ({temples.length})</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveAdminTab('panchang')}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
-              activeAdminTab === 'panchang'
-                ? 'bg-amber-500 text-slate-950 shadow-md font-black ring-2 ring-amber-400'
-                : 'bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 hover:bg-amber-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700'
-            }`}
-          >
-            <Sun className="w-4 h-4 text-orange-500" />
-            <span>Panchang & Quotes</span>
           </button>
 
           <button
@@ -1269,128 +1229,6 @@ export const AdminPanel: React.FC = () => {
               </tbody>
             </table>
           </div>
-        </div>
-      )}
-
-      {/* Tab 6: Panchang & Quotes Manager */}
-      {activeAdminTab === 'panchang' && (
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-lg space-y-6">
-          <div className="pb-3 border-b border-slate-100 dark:border-slate-800">
-            <h3 className="text-sm font-black uppercase text-slate-900 dark:text-white flex items-center gap-2">
-              <Sun className="w-4 h-4 text-amber-500" />
-              Daily Jain Panchang, Tithi, Quotes & Pravachan Manager
-            </h3>
-            <p className="text-xs text-slate-500">Update daily Tithi, sunrise/sunset, Choghadiya timings and daily spiritual quotes shown on homepage.</p>
-          </div>
-
-          <form onSubmit={handleSavePanchang} className="space-y-4 text-xs">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              <div>
-                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Panchang Date</label>
-                <input
-                  type="text"
-                  value={panchangDate}
-                  onChange={(e) => setPanchangDate(e.target.value)}
-                  placeholder="e.g. Monday, 28 July 2026"
-                  className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-400 border border-slate-300 dark:border-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-amber-500"
-                />
-              </div>
-
-              <div>
-                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Today's Jain Tithi</label>
-                <input
-                  type="text"
-                  value={panchangTithi}
-                  onChange={(e) => setPanchangTithi(e.target.value)}
-                  placeholder="e.g. Ashadh Sud Chaudas (14th Tithi)"
-                  className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 font-bold text-amber-600 dark:text-amber-400 placeholder-slate-400 dark:placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500"
-                />
-              </div>
-
-              <div>
-                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Sunrise / Sunset</label>
-                <div className="grid grid-cols-2 gap-2">
-                  <input
-                    type="text"
-                    value={panchangSunrise}
-                    onChange={(e) => setPanchangSunrise(e.target.value)}
-                    placeholder="06:12 AM"
-                    className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-400 border border-slate-300 dark:border-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-amber-500"
-                  />
-                  <input
-                    type="text"
-                    value={panchangSunset}
-                    onChange={(e) => setPanchangSunset(e.target.value)}
-                    placeholder="07:05 PM"
-                    className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-400 border border-slate-300 dark:border-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-amber-500"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Day Choghadiya</label>
-                <input
-                  type="text"
-                  value={panchangChoghadiyaDay}
-                  onChange={(e) => setPanchangChoghadiyaDay(e.target.value)}
-                  placeholder="Shubh, Labh, Amrit"
-                  className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-400 border border-slate-300 dark:border-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-amber-500"
-                />
-              </div>
-
-              <div>
-                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Night Choghadiya</label>
-                <input
-                  type="text"
-                  value={panchangChoghadiyaNight}
-                  onChange={(e) => setPanchangChoghadiyaNight(e.target.value)}
-                  placeholder="Shubh, Amrit"
-                  className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-400 border border-slate-300 dark:border-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-amber-500"
-                />
-              </div>
-
-              <div>
-                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Kalyanak / Festival Special</label>
-                <input
-                  type="text"
-                  value={panchangKalyanak}
-                  onChange={(e) => setPanchangKalyanak(e.target.value)}
-                  placeholder="e.g. Mahavir Janma Kalyanak Special"
-                  className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-400 border border-slate-300 dark:border-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-amber-500"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Daily Jain Thought / Quote (Suvichar)</label>
-              <textarea
-                rows={2}
-                value={panchangQuote}
-                onChange={(e) => setPanchangQuote(e.target.value)}
-                placeholder="Ahimsa Parmo Dharma - Live and Let Live..."
-                className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-400 border border-slate-300 dark:border-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-amber-500"
-              />
-            </div>
-
-            <div>
-              <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Daily Pravachan Thought / Sadguru Vani</label>
-              <textarea
-                rows={2}
-                value={panchangPravachan}
-                onChange={(e) => setPanchangPravachan(e.target.value)}
-                placeholder="Spiritual message from Pujya Gurudev..."
-                className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-400 border border-slate-300 dark:border-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-amber-500"
-              />
-            </div>
-
-            <button
-              type="submit"
-              className="px-6 py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black rounded-xl shadow-md transition-all flex items-center gap-2 cursor-pointer"
-            >
-              <Save className="w-4 h-4" />
-              <span>Save & Update Panchang Across Portal</span>
-            </button>
-          </form>
         </div>
       )}
 
@@ -2483,7 +2321,6 @@ export const AdminPanel: React.FC = () => {
                 { name: 'public.posts', title: 'Community Feed Posts', count: posts.length, fields: 'id, authorName, authorRole, content, category, likesCount' },
                 { name: 'public.news', title: 'Global News Feed', count: news.length, fields: 'id, title, summary, category, publishedDate, author' },
                 { name: 'public.ads', title: 'Promotional Banners', count: ads.length, fields: 'id, title, sponsorName, offerDiscount, contactMobile, expiryDate' },
-                { name: 'public.panchang', title: 'Daily Panchang & Tithi', count: 1, fields: 'date, tithi, sunrise, sunset, choghadiya, quote, pravachan' },
                 { name: 'public.blood_donors', title: 'Emergency Blood Donors', count: bloodDonors.length, fields: 'id, name, bloodGroup, city, state, mobile, available' },
                 { name: 'public.jobs', title: 'Job Openings', count: jobs.length, fields: 'id, title, company, location, type, salary, contactEmail' },
                 { name: 'public.bhajans', title: 'Bhajan & Stavan Library', count: bhajans.length, fields: 'id, title, hindiTitle, category, singer, audioUrl, lyrics' },
@@ -2524,7 +2361,7 @@ export const AdminPanel: React.FC = () => {
               <button
                 type="button"
                 onClick={() => {
-                  const masterObj = { users, matrimonials, businesses, temples, members, posts, news, ads, panchang, bloodDonors, jobs, bhajans, customPages, systemSettings };
+                  const masterObj = { users, matrimonials, businesses, temples, members, posts, news, ads, bloodDonors, jobs, bhajans, customPages, systemSettings };
                   const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(masterObj, null, 2));
                   const downloadAnchor = document.createElement('a');
                   downloadAnchor.setAttribute("href", dataStr);

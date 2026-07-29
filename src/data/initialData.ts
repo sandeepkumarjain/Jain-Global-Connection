@@ -1,3 +1,4 @@
+import { getDailyJainPanchang } from '../utils/jainPanchang';
 import {
   User,
   MatrimonialProfile,
@@ -860,33 +861,7 @@ export const INITIAL_ADS: AdBanner[] = [
   },
 ];
 
-export const INITIAL_PANCHANG: PanchangInfo = {
-  date: 'Wednesday, 22 July 2026',
-  tithi: 'Shukla Paksha Ashtami (8th Tithi)',
-  paksha: 'Shukla Paksha',
-  month: 'Sravana (Shravan) Masa',
-  sunrise: '06:08 AM',
-  sunset: '07:14 PM',
-  choghadiyaDay: [
-    { name: 'Labh (Gain)', type: 'Auspicious', time: '06:08 AM - 07:46 AM' },
-    { name: 'Amrit (Nectar)', type: 'Auspicious', time: '07:46 AM - 09:24 AM' },
-    { name: 'Kaal (Loss)', type: 'Inauspicious', time: '09:24 AM - 11:02 AM' },
-    { name: 'Shubh (Good)', type: 'Auspicious', time: '11:02 AM - 12:41 PM' },
-    { name: 'Rog (Disease)', type: 'Inauspicious', time: '12:41 PM - 02:19 PM' },
-    { name: 'Udveg (Anxiety)', type: 'Inauspicious', time: '02:19 PM - 03:57 PM' },
-    { name: 'Chara (Variable)', type: 'Neutral', time: '03:57 PM - 05:35 PM' },
-    { name: 'Labh (Gain)', type: 'Auspicious', time: '05:35 PM - 07:14 PM' },
-  ],
-  dailyQuote: {
-    text: '"Live and let live. Ahimsa Paramo Dharma — Non-violence is the supreme virtue and duty of every soul."',
-    source: 'Bhagwan Mahavira (Agam Sutra)',
-  },
-  upcomingFestivals: [
-    { name: 'Paryushan Parva (Swetambar)', date: '2026-08-25', description: '8 Days of spiritual introspection, fasting, and Pratikraman.' },
-    { name: 'Das Lakshana Parva (Digambar)', date: '2026-09-02', description: '10 Days honoring Supreme Forgiveness, Modesty, Purity, and Truth.' },
-    { name: 'Samvatsari Kshamavani', date: '2026-09-01', description: 'Universal Forgiveness Day: "Micchami Dukkadam" to all living beings.' },
-  ],
-};
+export const INITIAL_PANCHANG: PanchangInfo = getDailyJainPanchang();
 
 export const INITIAL_BLOOD_DONORS: BloodDonor[] = [
   { id: 'bd_001', name: 'Sandeep Bachhawat', bloodGroup: 'O+', city: 'Mumbai', state: 'Maharashtra', mobile: '+91 98200 98580', available: true },
