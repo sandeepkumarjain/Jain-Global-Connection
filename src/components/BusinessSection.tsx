@@ -29,7 +29,12 @@ export const BusinessSection: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedBusiness, setSelectedBusiness] = useState<BusinessListing | null>(null);
   const [showQRModal, setShowQRModal] = useState(false);
-  const [qrLoaded, setQrLoaded] = useState(false);
+  const [onlyGstVerified, setOnlyGstVerified] = useState(false);
+
+  // Live GST Verification API state
+  const [gstSearchInput, setGstSearchInput] = useState('');
+  const [isVerifyingGst, setIsVerifyingGst] = useState(false);
+  const [gstModalResult, setGstModalResult] = useState<any>(null);
 
   const categories = [
     'All',
@@ -44,13 +49,45 @@ export const BusinessSection: React.FC = () => {
     'Doctors & Consultants',
   ];
 
+  const handleVerifyGstApi = async (gstinToVerify?: string) => {
+    const input = gstinToVerify || gstSearchInput;
+    if (!input || input.trim().length < 5) {
+      showToast('Enter GST Number', 'Please enter a valid 15-character GST number (GSTIN) to verify.', 'error');
+      return;
+    }
+
+    setIsVerifyingGst(true);
+    try {
+      const response = await fetch('/api/gst/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ gstin: input }),
+      });
+
+      const data = await response.json();
+      if (data.success && data.verified) {
+        setGstModalResult(data);
+        showToast('GST Verification Successful', `GST Number ${data.gstin} is ACTIVE & Verified!`, 'success');
+      } else {
+        showToast('GST Lookup Warning', data.error || 'Could not verify GSTIN.', 'error');
+      }
+    } catch (err) {
+      console.error('GST API Verification error:', err);
+      showToast('GST Verification Failed', 'Server error while verifying GSTIN.', 'error');
+    } finally {
+      setIsVerifyingGst(false);
+    }
+  };
+
   const filtered = businesses.filter((b) => {
     if (selectedCategory !== 'All' && b.category !== selectedCategory) return false;
+    if (onlyGstVerified && (!b.gstNumber || !b.isVerified)) return false;
     if (
       searchTerm &&
       !b.businessName.toLowerCase().includes(searchTerm.toLowerCase()) &&
       !b.city.toLowerCase().includes(searchTerm.toLowerCase()) &&
-      !b.description.toLowerCase().includes(searchTerm.toLowerCase())
+      !b.description.toLowerCase().includes(searchTerm.toLowerCase()) &&
+      !(b.gstNumber && b.gstNumber.toLowerCase().includes(searchTerm.toLowerCase()))
     ) {
       return false;
     }
@@ -95,15 +132,27 @@ export const BusinessSection: React.FC = () => {
 
       {/* Search & Category Filter */}
       <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-3">
-        <div className="relative">
-          <input
-            type="text"
-            placeholder="Search Business Name, City, Product or Service..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-3 text-xs rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-500 min-h-[44px]"
-          />
-          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3.5" />
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+          <div className="relative flex-1">
+            <input
+              type="text"
+              placeholder="Search Business Name, City, Product or Service..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-3 text-xs rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-500 min-h-[44px]"
+            />
+            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3.5" />
+          </div>
+
+          <label className="flex items-center gap-2 cursor-pointer text-amber-700 dark:text-amber-400 hover:text-amber-800 font-bold text-xs shrink-0 bg-amber-50 dark:bg-amber-950/40 p-2.5 rounded-xl border border-amber-200 dark:border-amber-800/50">
+            <input
+              type="checkbox"
+              checked={onlyGstVerified}
+              onChange={(e) => setOnlyGstVerified(e.target.checked)}
+              className="w-4 h-4 rounded border-amber-300 text-amber-600 focus:ring-amber-500"
+            />
+            <span>Show GST Verified Listings Only</span>
+          </label>
         </div>
 
         {/* Category Chips */}
@@ -185,10 +234,21 @@ export const BusinessSection: React.FC = () => {
                   <MapPin className="w-3.5 h-3.5 text-amber-500 shrink-0" />
                   <span>{b.address}, {b.city}, {b.state}</span>
                 </p>
-                {b.gstNumber && (
-                  <p className="text-[10px] text-slate-400 font-mono">
-                    GST: {b.gstNumber}
-                  </p>
+                {b.gstNumber ? (
+                  <div className="flex items-center justify-between pt-0.5">
+                    <span className="text-[10px] text-slate-400 font-mono">
+                      GST: {b.gstNumber}
+                    </span>
+                    <button
+                      onClick={() => handleVerifyGstApi(b.gstNumber)}
+                      className="px-2 py-0.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30 rounded text-[9px] font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                    >
+                      <ShieldCheck className="w-3 h-3 text-amber-500" />
+                      <span>Verify GST</span>
+                    </button>
+                  </div>
+                ) : (
+                  <span className="text-[10px] text-slate-400 italic">GST Verification Pending</span>
                 )}
               </div>
             </div>
@@ -353,6 +413,114 @@ END:VCARD`;
           </div>
         );
       })()}
+
+      {/* GST Verification Certificate Modal */}
+      {gstModalResult && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md overflow-y-auto">
+          <div className="bg-white dark:bg-slate-900 border border-amber-500/50 rounded-2xl w-full max-w-lg p-6 shadow-2xl relative text-slate-800 dark:text-slate-100 space-y-4 my-auto">
+            {/* Close Button */}
+            <button
+              onClick={() => setGstModalResult(null)}
+              className="absolute top-3 right-3 text-slate-400 hover:text-slate-700 dark:hover:text-white p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800 transition-colors z-10 cursor-pointer"
+              title="Close"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="text-center pt-2 space-y-1.5">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 font-extrabold text-[11px] rounded-full border border-emerald-500/30 uppercase tracking-wider">
+                <CheckCircle className="w-3.5 h-3.5 text-emerald-500" />
+                <span>GSTIN ACTIVE & OFFICIALLY VERIFIED</span>
+              </div>
+              <h3 className="text-xl font-bold font-serif text-slate-900 dark:text-white">
+                {gstModalResult.tradeName || gstModalResult.legalName}
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Official Taxpayer Verification Report from Indian GST Portal API
+              </p>
+            </div>
+
+            {/* Certificate Details Card */}
+            <div className="bg-gradient-to-br from-amber-50 to-amber-100/60 dark:from-slate-800 dark:to-slate-800/80 border border-amber-300 dark:border-amber-700/50 p-4 rounded-xl space-y-2.5 text-xs">
+              <div className="flex justify-between items-center border-b border-amber-200 dark:border-slate-700 pb-2">
+                <span className="text-slate-500 dark:text-slate-400 font-semibold">GSTIN:</span>
+                <span className="font-mono font-extrabold text-amber-700 dark:text-amber-400 text-sm">
+                  {gstModalResult.gstin}
+                </span>
+              </div>
+
+              <div className="flex justify-between items-center border-b border-amber-200 dark:border-slate-700 pb-2">
+                <span className="text-slate-500 dark:text-slate-400 font-semibold">Legal Taxpayer Name:</span>
+                <span className="font-bold text-slate-800 dark:text-slate-100 text-right max-w-[240px] truncate">
+                  {gstModalResult.legalName}
+                </span>
+              </div>
+
+              <div className="flex justify-between items-center border-b border-amber-200 dark:border-slate-700 pb-2">
+                <span className="text-slate-500 dark:text-slate-400 font-semibold">Registration Status:</span>
+                <span className="px-2 py-0.5 bg-emerald-600 text-white font-black text-[10px] rounded uppercase">
+                  {gstModalResult.status}
+                </span>
+              </div>
+
+              <div className="flex justify-between items-center border-b border-amber-200 dark:border-slate-700 pb-2">
+                <span className="text-slate-500 dark:text-slate-400 font-semibold">Jurisdiction / State:</span>
+                <span className="font-bold text-slate-800 dark:text-slate-100">
+                  {gstModalResult.state}
+                </span>
+              </div>
+
+              {(gstModalResult.city || gstModalResult.pincode) && (
+                <div className="flex justify-between items-center border-b border-amber-200 dark:border-slate-700 pb-2">
+                  <span className="text-slate-500 dark:text-slate-400 font-semibold">City / Pincode:</span>
+                  <span className="font-bold text-slate-800 dark:text-slate-100">
+                    {gstModalResult.city}{gstModalResult.pincode ? ` - ${gstModalResult.pincode}` : ''}
+                  </span>
+                </div>
+              )}
+
+              {gstModalResult.address && (
+                <div className="flex flex-col gap-1 border-b border-amber-200 dark:border-slate-700 pb-2">
+                  <span className="text-slate-500 dark:text-slate-400 font-semibold">Official Business Address:</span>
+                  <span className="font-medium text-slate-700 dark:text-slate-200 text-xs bg-amber-50/50 dark:bg-slate-900/50 p-2 rounded-lg border border-amber-200/50 dark:border-slate-700/50">
+                    {gstModalResult.address}
+                  </span>
+                </div>
+              )}
+
+              <div className="flex justify-between items-center border-b border-amber-200 dark:border-slate-700 pb-2">
+                <span className="text-slate-500 dark:text-slate-400 font-semibold">Taxpayer Type:</span>
+                <span className="font-medium text-slate-700 dark:text-slate-300">
+                  {gstModalResult.taxpayerType}
+                </span>
+              </div>
+
+              <div className="flex justify-between items-center pt-1">
+                <span className="text-slate-500 dark:text-slate-400 font-semibold">Jain Chamber Registry:</span>
+                <span className="font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                  <ShieldCheck className="w-3.5 h-3.5 text-amber-500" />
+                  <span>Verified Member</span>
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between text-[10px] text-slate-400 pt-1">
+              <span>API Key: {gstModalResult.apiKeyUsed}</span>
+              <span>Source: {gstModalResult.source}</span>
+            </div>
+
+            <button
+              onClick={() => {
+                setSearchTerm(gstModalResult.gstin);
+                setGstModalResult(null);
+              }}
+              className="w-full py-3 min-h-[44px] bg-amber-600 hover:bg-amber-700 text-white font-extrabold text-xs rounded-xl shadow-md transition-colors cursor-pointer"
+            >
+              Filter Business Directory by GSTIN
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

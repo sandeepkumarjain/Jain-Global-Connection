@@ -226,6 +226,80 @@ export const RegisterModal: React.FC = () => {
   const [businessName, setBusinessName] = useState('');
   const [bizCategory, setBizCategory] = useState('Jewellery & Gems');
   const [gstNumber, setGstNumber] = useState('');
+  const [isVerifyingGstModal, setIsVerifyingGstModal] = useState(false);
+  const [gstVerifiedStatus, setGstVerifiedStatus] = useState<null | {
+    verified: boolean;
+    legalName: string;
+    tradeName: string;
+    state: string;
+    status: string;
+    city?: string;
+    pincode?: string;
+    address?: string;
+  }>(null);
+
+  const handleVerifyGstInModal = async () => {
+    if (!gstNumber || gstNumber.trim().length < 5) {
+      showToast('Enter GSTIN', 'Please enter a valid 15-character GST Number (GSTIN) to verify.', 'error');
+      return;
+    }
+
+    setIsVerifyingGstModal(true);
+    try {
+      const response = await fetch('/api/gst/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ gstin: gstNumber.trim() }),
+      });
+
+      const data = await response.json();
+      if (data.success && data.verified) {
+        setGstVerifiedStatus({
+          verified: true,
+          legalName: data.legalName,
+          tradeName: data.tradeName,
+          state: data.state,
+          status: data.status,
+          city: data.city,
+          pincode: data.pincode,
+          address: data.address,
+        });
+
+        // Auto-populate ALL business fields from GST portal API
+        if (data.businessName || data.tradeName || data.legalName) {
+          setBusinessName(data.businessName || data.tradeName || data.legalName);
+        }
+        if (data.pincode) {
+          setPincode(data.pincode);
+        }
+        if (data.address) {
+          setAddress(data.address);
+        }
+        if (data.city) {
+          setCity(data.city);
+        }
+        if (data.state) {
+          setState(data.state);
+        }
+        setBizDescription(`GST Verified ${data.taxpayerType || 'Regular Taxpayer'}. Official Entity: ${data.legalName || data.tradeName}. Registered Location: ${data.address || ''}, ${data.city || ''}, ${data.state || ''} - ${data.pincode || ''}.`);
+
+        showToast(
+          'GST Verified & Auto-Filled!',
+          `Fetched details for ${data.gstin}: Auto-filled Business Name, Pincode (${data.pincode}), Address & City (${data.city}).`,
+          'success'
+        );
+      } else {
+        setGstVerifiedStatus(null);
+        showToast('GST Verification Notice', data.error || 'Could not verify GSTIN.', 'error');
+      }
+    } catch (err) {
+      console.error('GST Modal Verification error:', err);
+      showToast('Verification Failed', 'Server error while validating GST number.', 'error');
+    } finally {
+      setIsVerifyingGstModal(false);
+    }
+  };
+
   const [bizDescription, setBizDescription] = useState('');
   const [productsServices, setProductsServices] = useState('');
   const [googleMapUrl, setGoogleMapUrl] = useState('');
@@ -548,7 +622,7 @@ export const RegisterModal: React.FC = () => {
         website: websiteUrl,
         logoUrl,
         galleryUrls: [galleryUrl],
-        isVerified: false,
+        isVerified: gstVerifiedStatus?.verified ?? false,
       });
 
       const registeredUsr = registerUser({
@@ -2728,15 +2802,63 @@ export const RegisterModal: React.FC = () => {
                   </select>
                 </div>
 
-                <div>
-                  <label className="block font-bold mb-1 text-slate-700 dark:text-slate-200">GST Number</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. 27AAAAA0000A1Z5"
-                    value={gstNumber}
-                    onChange={(e) => setGstNumber(e.target.value)}
-                    className="w-full p-2.5 rounded-xl bg-white dark:bg-slate-900 border font-mono"
-                  />
+                <div className="sm:col-span-2 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <label className="block font-bold text-slate-700 dark:text-slate-200">GST Number (GSTIN)</label>
+                    <span className="text-[11px] text-amber-600 dark:text-amber-400 font-semibold flex items-center gap-1">
+                      <ShieldCheck className="w-3.5 h-3.5 text-amber-500" />
+                      Live API Verification & Auto-Fill
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="relative flex-1">
+                      <input
+                        type="text"
+                        placeholder="e.g. 27AAAAA0000A1Z5"
+                        value={gstNumber}
+                        onChange={(e) => {
+                          setGstNumber(e.target.value.toUpperCase());
+                          if (gstVerifiedStatus) setGstVerifiedStatus(null);
+                        }}
+                        className="w-full p-2.5 rounded-xl bg-white dark:bg-slate-900 border font-mono uppercase tracking-wider text-xs font-bold"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleVerifyGstInModal}
+                      disabled={isVerifyingGstModal || !gstNumber}
+                      className="px-4 py-2.5 min-h-[44px] bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-amber-950 font-extrabold text-xs rounded-xl shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-1.5 shrink-0 disabled:opacity-50 cursor-pointer"
+                    >
+                      {isVerifyingGstModal ? (
+                        <>
+                          <div className="w-3.5 h-3.5 border-2 border-amber-950 border-t-transparent rounded-full animate-spin" />
+                          <span>Verifying...</span>
+                        </>
+                      ) : (
+                        <>
+                          <ShieldCheck className="w-4 h-4 text-amber-950" />
+                          <span>Verify Now</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                  {gstVerifiedStatus && gstVerifiedStatus.verified && (
+                    <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl space-y-1 text-xs text-emerald-800 dark:text-emerald-200 shadow-sm">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5 font-extrabold text-emerald-700 dark:text-emerald-300">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                          <span>{gstVerifiedStatus.tradeName || gstVerifiedStatus.legalName}</span>
+                        </div>
+                        <span className="px-2 py-0.5 bg-emerald-600 text-white font-black text-[9px] rounded uppercase shrink-0">
+                          GST ACTIVE & AUTO-FILLED
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-emerald-600 dark:text-emerald-400">
+                        <span className="font-semibold">Auto-Filled Location:</span> {gstVerifiedStatus.address ? `${gstVerifiedStatus.address}, ` : ''}{gstVerifiedStatus.city}, {gstVerifiedStatus.state} {gstVerifiedStatus.pincode ? ` - ${gstVerifiedStatus.pincode}` : ''}
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 <div>

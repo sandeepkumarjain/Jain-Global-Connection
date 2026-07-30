@@ -23,6 +23,7 @@ import { GmailCenterModal } from './components/GmailCenterModal';
 import { AudioPlayer } from './components/AudioPlayer';
 import { LoginRequiredView } from './components/LoginRequiredView';
 import { DailyJainWisdom } from './components/DailyJainWisdom';
+import { JainPrinciplesSection } from './components/JainPrinciplesSection';
 import {
   CheckCircle2,
   AlertCircle,
@@ -340,63 +341,40 @@ const MainContent: React.FC = () => {
                 </div>
 
                 {/* Core Jain Principles & Platform Security */}
-                <div className="bg-slate-900 text-white rounded-3xl p-6 sm:p-8 border border-amber-500/30 shadow-xl space-y-6">
-                  <div className="text-center space-y-1.5 max-w-xl mx-auto">
-                    <span className="text-xs font-bold text-amber-400 uppercase tracking-widest flex items-center justify-center gap-1.5">
-                      <Award className="w-4 h-4 text-amber-400" />
-                      <span>Ethical & Secure Digital Ecosystem</span>
+                <JainPrinciplesSection />
+
+                {/* Bottom Call to Action - Modern Gold Gradient Canvas */}
+                <div className="relative overflow-hidden bg-gradient-to-r from-amber-500 via-amber-600 to-amber-700 text-amber-950 rounded-3xl p-8 sm:p-10 shadow-2xl text-center space-y-5 border border-amber-300/40">
+                  {/* Subtle Background Pattern Accent */}
+                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-amber-300/20 via-transparent to-transparent pointer-events-none" />
+
+                  <div className="relative z-10 max-w-2xl mx-auto space-y-2">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-950/15 border border-amber-950/20 rounded-full text-[11px] font-extrabold uppercase tracking-widest text-amber-950">
+                      <Sparkles className="w-3.5 h-3.5 text-amber-950" />
+                      <span>Empowering Global Jain Unity</span>
                     </span>
-                    <h3 className="text-2xl font-bold font-serif">
-                      Guided by Five Eternal Jain Principles
+                    <h3 className="text-2xl sm:text-4xl font-black font-serif tracking-tight text-amber-950">
+                      Join Over 10,000,000+ Jains Worldwide Today
                     </h3>
+                    <p className="text-xs sm:text-sm font-semibold text-amber-950/85 leading-relaxed">
+                      Register your family details, matrimonial candidate profile, business listing, or temple trust for instant verification and global digital connectivity.
+                    </p>
                   </div>
 
-                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-center text-xs">
-                    <div className="p-3 bg-slate-800/80 rounded-xl border border-slate-700 space-y-1">
-                      <p className="font-extrabold text-amber-400">AHIMSA</p>
-                      <p className="text-[10px] text-slate-400">Non-Violence</p>
-                    </div>
-                    <div className="p-3 bg-slate-800/80 rounded-xl border border-slate-700 space-y-1">
-                      <p className="font-extrabold text-amber-400">SATYA</p>
-                      <p className="text-[10px] text-slate-400">Truthfulness</p>
-                    </div>
-                    <div className="p-3 bg-slate-800/80 rounded-xl border border-slate-700 space-y-1">
-                      <p className="font-extrabold text-amber-400">ASTEYA</p>
-                      <p className="text-[10px] text-slate-400">Non-Stealing</p>
-                    </div>
-                    <div className="p-3 bg-slate-800/80 rounded-xl border border-slate-700 space-y-1">
-                      <p className="font-extrabold text-amber-400">BRAHMACHARYA</p>
-                      <p className="text-[10px] text-slate-400">Chastity</p>
-                    </div>
-                    <div className="p-3 bg-slate-800/80 rounded-xl border border-slate-700 space-y-1 col-span-2 sm:col-span-1">
-                      <p className="font-extrabold text-amber-400">APARIGRAHA</p>
-                      <p className="text-[10px] text-slate-400">Non-Possessiveness</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Bottom Call to Action */}
-                <div className="bg-gradient-to-r from-amber-500 via-amber-600 to-amber-700 text-amber-950 rounded-3xl p-8 shadow-2xl text-center space-y-4">
-                  <h3 className="text-2xl font-black font-serif">
-                    Join Over 10,000,000+ Jains Worldwide Today
-                  </h3>
-                  <p className="text-xs font-semibold max-w-xl mx-auto text-amber-950/80">
-                    Register your family details, matrimonial candidate profile, business listing, or temple trust for verification.
-                  </p>
-                  <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+                  <div className="relative z-10 flex flex-wrap items-center justify-center gap-3.5 pt-2">
                     <button
                       onClick={() => setIsAuthModalOpen(true)}
-                      className="px-6 py-3 bg-amber-950 hover:bg-black text-amber-100 font-extrabold text-xs rounded-2xl shadow-xl transition-all flex items-center gap-2"
+                      className="px-6 py-3.5 bg-amber-950 hover:bg-black text-amber-100 font-extrabold text-xs rounded-2xl shadow-2xl hover:shadow-black/30 transition-all duration-300 flex items-center gap-2 cursor-pointer hover:-translate-y-0.5 active:translate-y-0"
                     >
                       <LogIn className="w-4 h-4 text-amber-400" />
                       <span>Existing Member Sign In</span>
                     </button>
                     <button
                       onClick={() => setIsRegModalOpen(true)}
-                      className="px-6 py-3 bg-white hover:bg-amber-50 text-amber-950 font-extrabold text-xs rounded-2xl shadow-xl transition-all flex items-center gap-2"
+                      className="px-6 py-3.5 bg-white hover:bg-amber-50 text-amber-950 font-extrabold text-xs rounded-2xl shadow-2xl transition-all duration-300 flex items-center gap-2 cursor-pointer hover:-translate-y-0.5 active:translate-y-0"
                     >
                       <UserPlus className="w-4 h-4 text-amber-600" />
-                      <span>New Registration</span>
+                      <span>Free Family Profile Registration</span>
                     </button>
                   </div>
                 </div>
