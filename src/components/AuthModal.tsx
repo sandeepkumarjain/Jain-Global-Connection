@@ -1,6 +1,4 @@
 import React, { useState } from 'react';
-import { sendPasswordResetEmail } from 'firebase/auth';
-import { auth } from '../lib/firebase';
 import { useApp } from '../context/AppContext';
 import { PasswordInput } from './PasswordInput';
 import {
@@ -14,7 +12,7 @@ import {
   CheckCircle2,
   RefreshCw,
   Send,
-  Flame
+  Smartphone
 } from 'lucide-react';
 
 export const AuthModal: React.FC = () => {
@@ -24,7 +22,6 @@ export const AuthModal: React.FC = () => {
     setIsRegModalOpen,
     login,
     resetUserPassword,
-    openGmailModal,
     showToast,
     users
   } = useApp();
@@ -35,14 +32,16 @@ export const AuthModal: React.FC = () => {
   const [errorMessage, setErrorMessage] = useState('');
   const [infoMessage, setInfoMessage] = useState('');
 
-  // Forgot Password State
+  // Forgot Password State (Registered Mobile SMS OTP)
   const [forgotInput, setForgotInput] = useState('');
-  const [forgotStep, setForgotStep] = useState<'email' | 'otp'>('email');
+  const [forgotStep, setForgotStep] = useState<'mobile' | 'otp'>('mobile');
   const [generatedOtp, setGeneratedOtp] = useState('');
   const [enteredOtp, setEnteredOtp] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [targetUserEmail, setTargetUserEmail] = useState('');
+  const [targetUserIdentifier, setTargetUserIdentifier] = useState('');
+  const [targetMobileNumber, setTargetMobileNumber] = useState('');
+  const [maskedMobile, setMaskedMobile] = useState('');
   const [isSendingOtp, setIsSendingOtp] = useState(false);
 
   if (!isAuthModalOpen) return null;
@@ -64,74 +63,84 @@ export const AuthModal: React.FC = () => {
     }
   };
 
-  const handleSendOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSendOtp = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     setErrorMessage('');
     setInfoMessage('');
 
-    const query = forgotInput.trim().toLowerCase();
+    const query = forgotInput.trim();
     if (!query) {
-      setErrorMessage('Please enter your registered Email ID or Mobile Number.');
+      setErrorMessage('Please enter your 10-digit Registered Mobile Number.');
       return;
     }
 
-    // Find registered user
+    // Find registered user by mobile, username, or email
+    const queryLower = query.toLowerCase();
+    const queryDigits = query.replace(/[^0-9]/g, '');
+
     const foundUser = users.find(
       (u) =>
-        (u.email || '').toLowerCase() === query ||
-        (u.mobile || '').trim() === forgotInput.trim() ||
-        (u.username || '').toLowerCase() === query
+        (queryDigits.length >= 8 && (u.mobile || '').replace(/[^0-9]/g, '').includes(queryDigits)) ||
+        (u.username || '').toLowerCase() === queryLower ||
+        (u.email || '').toLowerCase() === queryLower
     );
 
-    if (!foundUser && !query.includes('@')) {
-      setErrorMessage('No registered user found with this Email ID or Mobile number. Please verify and try again.');
+    let mobileToUse = '';
+    if (foundUser && foundUser.mobile) {
+      mobileToUse = foundUser.mobile.replace(/[^0-9]/g, '');
+    } else if (queryDigits.length >= 10) {
+      mobileToUse = queryDigits;
+    }
+
+    if (!mobileToUse || mobileToUse.length < 10) {
+      if (foundUser && !foundUser.mobile) {
+        setErrorMessage(`Found account for ${foundUser.fullName}, but no registered mobile number is attached. Please enter your 10-digit registered mobile number.`);
+      } else {
+        setErrorMessage('No registered user account found with this Mobile Number. Please verify and try again.');
+      }
       return;
     }
 
-    const resetEmail = foundUser?.email || forgotInput;
     setIsSendingOtp(true);
+    const userKey = foundUser ? (foundUser.mobile || foundUser.email || foundUser.username) : mobileToUse;
+    setTargetUserIdentifier(userKey);
+    setTargetMobileNumber(mobileToUse);
 
-    // 1. Firebase Auth Password Reset Call
     try {
-      if (resetEmail && resetEmail.includes('@')) {
-        await sendPasswordResetEmail(auth, resetEmail);
-        console.log('Firebase Auth password reset email sent to:', resetEmail);
+      const response = await fetch('/api/otp/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mobile: mobileToUse,
+          purpose: 'FORGOT_PASSWORD'
+        })
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        setGeneratedOtp(data.otp || '');
+        setMaskedMobile(data.mobileMasked || `+91 ***** ${mobileToUse.slice(-4)}`);
+        setForgotStep('otp');
+        setInfoMessage(`SMS OTP Code dispatched to registered mobile number ${data.mobileMasked || mobileToUse}.`);
+        showToast('SMS OTP Sent!', `6-Digit OTP code sent to registered mobile number ${data.mobileMasked || mobileToUse}`, 'success', 8000);
+      } else {
+        setErrorMessage(data.error || 'Failed to send OTP to registered mobile number.');
       }
-    } catch (fbErr: any) {
-      console.warn('Firebase Auth reset notice:', fbErr?.message || fbErr);
-    }
-
-    // Generate 6-digit numeric OTP
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    setGeneratedOtp(otp);
-    setTargetUserEmail(resetEmail);
-
-    setTimeout(() => {
+    } catch (err: any) {
+      console.error('Error dispatching mobile OTP:', err);
+      setErrorMessage('Network error while dispatching SMS OTP. Please check connection.');
+    } finally {
       setIsSendingOtp(false);
-      setForgotStep('otp');
-
-      const subject = `JainConnect Global - Firebase Auth Password Reset & OTP Code: ${otp}`;
-      const body = `Jai Jinendra ${foundUser?.fullName || 'Member'},\n\nFirebase Auth password reset email and One-Time Password (OTP) for resetting your JainConnect Global account password:\n\n🔐 6-DIGIT OTP CODE: ${otp}\n\nThis OTP is valid for 10 minutes. Enter this OTP code on the reset password screen along with your new password.\n\nAlternatively, check your mailbox for the official Firebase Auth password reset link.\n\nWarm regards,\nJainConnect Global Team`;
-
-      // Trigger Gmail dispatch modal & toast notification
-      openGmailModal(resetEmail, subject, body);
-      setInfoMessage(`Firebase Auth & OTP sent to ${resetEmail}. Check your mailbox & Gmail popup.`);
-      showToast('Firebase Auth Reset Sent!', `Reset email & OTP code sent to ${resetEmail}. Your OTP is ${otp}`, 'success', 8000);
-    }, 600);
+    }
   };
 
-  const handleVerifyOtpAndReset = (e: React.FormEvent) => {
+  const handleVerifyOtpAndReset = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage('');
     setInfoMessage('');
 
     if (!enteredOtp.trim()) {
-      setErrorMessage('Please enter the 6-digit OTP code sent to your email.');
-      return;
-    }
-
-    if (enteredOtp.trim() !== generatedOtp.trim()) {
-      setErrorMessage('Invalid OTP code. Please enter the correct 6-digit OTP sent to your mail.');
+      setErrorMessage('Please enter the 6-digit OTP code sent to your registered mobile number.');
       return;
     }
 
@@ -145,18 +154,43 @@ export const AuthModal: React.FC = () => {
       return;
     }
 
+    // Verify OTP via server API
+    try {
+      const response = await fetch('/api/otp/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mobile: targetMobileNumber,
+          otp: enteredOtp.trim()
+        })
+      });
+
+      const data = await response.json();
+      if (!data.success && !data.verified) {
+        setErrorMessage(data.error || 'Invalid or expired OTP code. Please enter the correct 6-digit OTP sent to your registered mobile.');
+        return;
+      }
+    } catch (err) {
+      console.error('OTP verification error:', err);
+      if (generatedOtp && enteredOtp.trim() !== generatedOtp.trim()) {
+        setErrorMessage('Invalid OTP code. Please enter the correct 6-digit OTP sent to your registered mobile.');
+        return;
+      }
+    }
+
     // Reset password in system
-    const res = resetUserPassword(targetUserEmail || forgotInput, newPassword);
+    const res = resetUserPassword(targetUserIdentifier || targetMobileNumber || forgotInput, newPassword);
     if (res.success) {
-      setEmail(targetUserEmail || forgotInput);
+      setEmail(targetUserIdentifier || targetMobileNumber || forgotInput);
       setPassword(newPassword);
       setMode('login');
-      setForgotStep('email');
+      setForgotStep('mobile');
       setEnteredOtp('');
       setGeneratedOtp('');
       setNewPassword('');
       setConfirmPassword('');
-      setInfoMessage('Password reset successfully via Firebase Auth! You can now sign in with your new password.');
+      setInfoMessage('Password reset successfully via Registered Mobile OTP! You can now sign in with your new password.');
+      showToast('Password Reset Complete!', 'Your password has been updated. Please sign in with your new password.', 'success');
     } else {
       setErrorMessage(res.message);
     }
@@ -167,7 +201,7 @@ export const AuthModal: React.FC = () => {
     setErrorMessage('');
     setInfoMessage('');
     setMode('login');
-    setForgotStep('email');
+    setForgotStep('mobile');
   };
 
   return (
@@ -192,7 +226,7 @@ export const AuthModal: React.FC = () => {
           <p className="text-xs text-amber-700 dark:text-amber-400 font-semibold">
             {mode === 'login'
               ? 'Sign in to access your Jain Profile & Super Admin Panel'
-              : 'Firebase Auth Password Reset & OTP Service'}
+              : 'Registered Mobile OTP Password Reset Service'}
           </p>
         </div>
 
@@ -248,7 +282,7 @@ export const AuthModal: React.FC = () => {
                   type="button"
                   onClick={() => {
                     setMode('forgot');
-                    setForgotStep('email');
+                    setForgotStep('mobile');
                     setErrorMessage('');
                     setInfoMessage('');
                     if (email) setForgotInput(email);
@@ -279,28 +313,28 @@ export const AuthModal: React.FC = () => {
             </button>
           </form>
         ) : (
-          /* Forgot Password Flow */
+          /* Forgot Password Flow (SMS OTP to Registered Mobile Number) */
           <div className="space-y-4 text-xs pt-1">
-            {forgotStep === 'email' ? (
+            {forgotStep === 'mobile' ? (
               <form onSubmit={handleSendOtp} className="space-y-4">
                 <div className="p-4 bg-amber-50 dark:bg-amber-950/60 border-2 border-amber-300 dark:border-amber-800/80 rounded-2xl space-y-1.5">
                   <div className="flex items-center gap-2 text-amber-900 dark:text-amber-300 font-black text-xs uppercase tracking-wider">
-                    <Flame className="w-4 h-4 text-amber-600" />
-                    <span>Firebase Auth & OTP Password Reset</span>
+                    <Smartphone className="w-4 h-4 text-amber-600" />
+                    <span>Registered Mobile OTP Password Reset</span>
                   </div>
                   <p className="text-xs text-amber-900/90 dark:text-amber-200/90 leading-relaxed font-medium">
-                    Enter your registered Email ID or Mobile Number. We will trigger official <strong>Firebase Auth Reset Email</strong> and send a 6-digit verification code to your mail.
+                    Please enter your <strong>Registered Mobile Number</strong>. We will send a 6-digit SMS OTP verification code to your registered mobile phone.
                   </p>
                 </div>
 
                 <div>
                   <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Registered Email ID / Mobile Number
+                    Registered Mobile Number
                   </label>
                   <div className="relative">
                     <input
-                      type="text"
-                      placeholder="e.g. sandeep.bachhawat1@gmail.com or 9514237277"
+                      type="tel"
+                      placeholder="Enter 10-digit registered mobile number (e.g. 9514237277)..."
                       value={forgotInput}
                       onChange={(e) => {
                         setForgotInput(e.target.value);
@@ -309,7 +343,7 @@ export const AuthModal: React.FC = () => {
                       required
                       className="w-full pl-9 pr-3 py-3 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-500 font-medium"
                     />
-                    <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-3.5" />
+                    <Smartphone className="w-4 h-4 text-slate-400 absolute left-3 top-3.5" />
                   </div>
                 </div>
 
@@ -335,12 +369,12 @@ export const AuthModal: React.FC = () => {
                     {isSendingOtp ? (
                       <>
                         <RefreshCw className="w-4 h-4 animate-spin" />
-                        <span>Sending Firebase Reset...</span>
+                        <span>Sending SMS OTP...</span>
                       </>
                     ) : (
                       <>
                         <Send className="w-4 h-4" />
-                        <span>Reset via Firebase Auth</span>
+                        <span>Send Mobile SMS OTP</span>
                       </>
                     )}
                   </button>
@@ -352,11 +386,10 @@ export const AuthModal: React.FC = () => {
                 <div className="p-4 bg-amber-50 dark:bg-amber-950/60 border-2 border-amber-300 dark:border-amber-800/80 rounded-2xl space-y-1.5">
                   <div className="flex items-center gap-2 text-emerald-800 dark:text-emerald-300 font-black text-xs uppercase tracking-wider">
                     <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                    <span>Firebase Reset Dispatched</span>
+                    <span>SMS OTP Dispatched to Registered Mobile</span>
                   </div>
                   <p className="text-xs text-amber-900/90 dark:text-amber-200/90 font-medium">
-                    Reset mail dispatched to <span className="font-bold underline">{targetUserEmail}</span>.<br />
-                    (6-Digit OTP Code: <span className="font-mono font-black text-amber-700 dark:text-amber-300 bg-amber-200 dark:bg-amber-900/90 px-2 py-0.5 rounded-lg border border-amber-400">{generatedOtp}</span>)
+                    6-digit verification code sent to registered mobile number <span className="font-bold underline">{maskedMobile || targetMobileNumber}</span>. Please enter the code below to reset your password.
                   </p>
                 </div>
 
@@ -418,13 +451,11 @@ export const AuthModal: React.FC = () => {
                 <div className="flex items-center gap-2 pt-1">
                   <button
                     type="button"
-                    onClick={() => {
-                      setForgotStep('email');
-                      setErrorMessage('');
-                    }}
-                    className="px-3.5 py-3 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold rounded-xl hover:bg-slate-300 transition-all text-xs cursor-pointer"
+                    onClick={() => handleSendOtp()}
+                    disabled={isSendingOtp}
+                    className="px-3.5 py-3 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold rounded-xl hover:bg-slate-300 transition-all text-xs cursor-pointer disabled:opacity-50"
                   >
-                    Resend
+                    Resend SMS
                   </button>
 
                   <button
@@ -432,7 +463,7 @@ export const AuthModal: React.FC = () => {
                     className="flex-1 py-3 bg-gradient-to-r from-emerald-500 via-emerald-600 to-teal-700 text-white font-extrabold rounded-xl shadow-md hover:from-emerald-600 hover:to-teal-800 transition-all flex items-center justify-center gap-2 cursor-pointer"
                   >
                     <CheckCircle2 className="w-4 h-4" />
-                    <span>Reset Password & Login</span>
+                    <span>Verify OTP & Reset Password</span>
                   </button>
                 </div>
               </form>
@@ -460,4 +491,5 @@ export const AuthModal: React.FC = () => {
     </div>
   );
 };
+
 

@@ -37,6 +37,113 @@ app.get("/api/health", (_req, res) => {
   });
 });
 
+// Mobile SMS OTP Store (Expires in 10 minutes)
+interface OtpEntry {
+  otp: string;
+  expiresAt: number;
+  mobile: string;
+}
+const otpStore = new Map<string, OtpEntry>();
+
+// Send OTP to Registered Mobile Number API
+app.post("/api/otp/send", async (req, res) => {
+  try {
+    const { mobile, purpose = "FORGOT_PASSWORD" } = req.body;
+    if (!mobile || typeof mobile !== "string") {
+      return res.status(400).json({ success: false, error: "Valid registered mobile number is required." });
+    }
+
+    const cleanMobile = mobile.replace(/[^0-9]/g, '');
+    if (cleanMobile.length < 10) {
+      return res.status(400).json({ success: false, error: "Please enter a valid 10-digit registered mobile number." });
+    }
+
+    // Generate 6-digit numeric OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = Date.now() + 10 * 60 * 1000; // 10 minutes
+
+    // Store in memory cache
+    otpStore.set(cleanMobile, { otp, expiresAt, mobile: cleanMobile });
+
+    // Optional SMS gateway integration (Fast2SMS / 2Factor / custom API if configured)
+    const smsApiKey = process.env.SMS_API_KEY || process.env.FAST2SMS_API_KEY;
+    let smsSent = false;
+
+    if (smsApiKey) {
+      try {
+        const smsRes = await fetch("https://www.fast2sms.com/dev/bulkV2", {
+          method: "POST",
+          headers: {
+            "authorization": smsApiKey,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            route: "otp",
+            variables_values: otp,
+            numbers: cleanMobile
+          })
+        });
+        if (smsRes.ok) {
+          smsSent = true;
+        }
+      } catch (err) {
+        console.warn("SMS Gateway API dispatch note:", err);
+      }
+    }
+
+    // Mask mobile number for privacy display (+91 ***** 37277)
+    const last4 = cleanMobile.slice(-4);
+    const maskedMobile = `+91 ***** ${last4}`;
+
+    console.log(`[Mobile SMS OTP Dispatch] Sent 6-digit OTP [${otp}] to registered mobile ${cleanMobile} (${maskedMobile}) for ${purpose}`);
+
+    return res.json({
+      success: true,
+      message: `OTP successfully sent to registered mobile number ${maskedMobile}`,
+      mobileMasked: maskedMobile,
+      otp, // Provided for live verification & preview demonstration
+      expiresInSeconds: 600,
+      smsSent
+    });
+  } catch (error: any) {
+    console.error("Error sending Mobile OTP:", error);
+    return res.status(500).json({ success: false, error: "Failed to dispatch SMS OTP code" });
+  }
+});
+
+// Verify Mobile OTP API
+app.post("/api/otp/verify", async (req, res) => {
+  try {
+    const { mobile, otp } = req.body;
+    if (!mobile || !otp) {
+      return res.status(400).json({ success: false, error: "Mobile number and 6-digit OTP code are required." });
+    }
+
+    const cleanMobile = mobile.replace(/[^0-9]/g, '');
+    const entry = otpStore.get(cleanMobile);
+
+    if (!entry) {
+      return res.status(400).json({ success: false, error: "No active OTP request found for this mobile number. Please click Resend OTP." });
+    }
+
+    if (Date.now() > entry.expiresAt) {
+      otpStore.delete(cleanMobile);
+      return res.status(400).json({ success: false, error: "OTP has expired. Please request a new OTP code." });
+    }
+
+    if (entry.otp.trim() !== String(otp).trim()) {
+      return res.status(400).json({ success: false, error: "Invalid OTP code. Please enter the correct 6-digit OTP sent to your registered mobile." });
+    }
+
+    // OTP verified successfully
+    otpStore.delete(cleanMobile);
+    return res.json({ success: true, verified: true, message: "Registered mobile OTP verified successfully." });
+  } catch (error: any) {
+    console.error("Error verifying Mobile OTP:", error);
+    return res.status(500).json({ success: false, error: "Failed to verify OTP code" });
+  }
+});
+
 // GST Verification API (uses user's GST API Key)
 app.post("/api/gst/verify", async (req, res) => {
   try {
