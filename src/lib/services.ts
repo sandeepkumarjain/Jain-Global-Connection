@@ -347,6 +347,67 @@ export const BusinessService = {
 };
 
 // ==========================================
+// JOB OPENINGS SERVICE ('jobs' table)
+// ==========================================
+
+export const JobService = {
+  /**
+   * Post a new job opening to Supabase
+   */
+  async createJob(job: any): Promise<{ data: any; error: string | null }> {
+    const client = getClient();
+    if (!client) {
+      return { data: null, error: 'Supabase client is not configured.' };
+    }
+
+    try {
+      const { data, error } = await client
+        .from('jobs')
+        .insert([job])
+        .select()
+        .single();
+
+      if (error) {
+        console.warn('JobService.createJob error:', error.message);
+        return { data: null, error: error.message };
+      }
+
+      return { data, error: null };
+    } catch (err: any) {
+      console.warn('JobService.createJob exception:', err?.message || err);
+      return { data: null, error: err?.message || 'Failed to post job opening' };
+    }
+  },
+
+  /**
+   * Fetch all job openings from Supabase
+   */
+  async getAllJobs(): Promise<{ data: any[] | null; error: string | null }> {
+    const client = getClient();
+    if (!client) {
+      return { data: null, error: 'Supabase client is not configured.' };
+    }
+
+    try {
+      const { data, error } = await client
+        .from('jobs')
+        .select('*')
+        .order('postedDate', { ascending: false });
+
+      if (error) {
+        console.warn('JobService.getAllJobs error:', error.message);
+        return { data: null, error: error.message };
+      }
+
+      return { data, error: null };
+    } catch (err: any) {
+      console.warn('JobService.getAllJobs exception:', err?.message || err);
+      return { data: null, error: err?.message || 'Failed to fetch job openings' };
+    }
+  },
+};
+
+// ==========================================
 // SUPABASE AUTHENTICATION SERVICE
 // ==========================================
 

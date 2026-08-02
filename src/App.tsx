@@ -101,6 +101,8 @@ const MainContent: React.FC = () => {
     toast,
     themeMode,
     currentUser,
+    isMatrimonialOnlyUser,
+    isBusinessOnlyUser,
     setIsAuthModalOpen,
     setIsRegModalOpen,
     isGmailCenterOpen,
@@ -151,8 +153,13 @@ const MainContent: React.FC = () => {
 
       {/* Main Body */}
       <main className="flex-1 max-w-7xl w-full max-w-full mx-auto px-2.5 sm:px-6 pt-4 sm:pt-6 pb-12 space-y-6 sm:space-y-8 overflow-x-hidden">
-        
-        {/* TAB 1: HOME VIEW */}
+        {isMatrimonialOnlyUser ? (
+          <MatrimonialSection />
+        ) : isBusinessOnlyUser ? (
+          <BusinessSection />
+        ) : (
+          <>
+            {/* TAB 1: HOME VIEW */}
         {activeTab === 'home' && (
           <div className="space-y-10">
             {/* Hero Banner Carousel */}
@@ -487,6 +494,8 @@ const MainContent: React.FC = () => {
               sectionIcon="admin"
             />
           )
+        )}
+          </>
         )}
       </main>
 

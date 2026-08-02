@@ -414,3 +414,14 @@ export interface SystemSettings {
   servicesSubtitle?: string;
 }
 
+export interface MatrimonialMessage {
+  id: string;
+  senderId: string;
+  senderName: string;
+  receiverId: string;
+  receiverName: string;
+  text: string;
+  timestamp: string;
+  read?: boolean;
+}
+

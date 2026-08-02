@@ -5,7 +5,7 @@ import { JainEventsCalendar } from './JainEventsCalendar';
 import { FeaturedAdsSection } from './FeaturedAdsSection';
 import { createGoogleCalendarEvent, getGoogleCalendarWebUrl } from '../lib/googleCalendar';
 import { getAccessToken, googleSignIn } from '../lib/googleAuth';
-import { JAIN_AGAM_QUOTES, getCityPachkanTimings, CityPachkanTiming } from '../utils/jainPanchang';
+import { JAIN_AGAM_QUOTES, getCityPachkanTimings, CityPachkanTiming, findNearestCity, getGPSCustomTiming } from '../utils/jainPanchang';
 import {
   Calendar,
   Sun,
@@ -33,6 +33,8 @@ export const PanchangWidget: React.FC = () => {
   const [copiedQuote, setCopiedQuote] = useState(false);
   const [isDetectingLoc, setIsDetectingLoc] = useState(false);
 
+  const [customGpsTiming, setCustomGpsTiming] = useState<CityPachkanTiming | null>(null);
+
   // Auto-calculate daily index based on current date
   const dayOfYear = Math.floor((new Date().getTime() - new Date(new Date().getFullYear(), 0, 0).getTime()) / (1000 * 60 * 60 * 24));
   const defaultQuoteIdx = dayOfYear % JAIN_AGAM_QUOTES.length;
@@ -40,8 +42,12 @@ export const PanchangWidget: React.FC = () => {
   const [isSyncingToday, setIsSyncingToday] = useState(false);
   const [isTodaySynced, setIsTodaySynced] = useState(false);
 
-  const cityTimingsMap = getCityPachkanTimings(new Date());
-  const activeTiming: CityPachkanTiming = cityTimingsMap[selectedCityKey] || cityTimingsMap['Bikaner'];
+  const baseCityTimings = getCityPachkanTimings(new Date());
+  const cityTimingsMap: Record<string, CityPachkanTiming> = {
+    ...baseCityTimings,
+    ...(customGpsTiming ? { [customGpsTiming.city + ' (GPS Synced)']: customGpsTiming } : {})
+  };
+  const activeTiming: CityPachkanTiming = cityTimingsMap[selectedCityKey] || customGpsTiming || baseCityTimings['Bikaner'];
   const activeQuote = JAIN_AGAM_QUOTES[currentQuoteIndex] || JAIN_AGAM_QUOTES[0];
 
   const handleSyncTodayTithi = async () => {
@@ -121,27 +127,71 @@ export const PanchangWidget: React.FC = () => {
     }
   };
 
-  const handleDetectLocation = () => {
+  const handleDetectLocation = async () => {
+    setIsDetectingLoc(true);
+
+    const applyGpsPosition = (lat: number, lng: number, placeName?: string) => {
+      const customTiming = getGPSCustomTiming(lat, lng);
+      setCustomGpsTiming(customTiming);
+      const nearest = findNearestCity(lat, lng);
+      const keyName = customTiming.city + ' (GPS Synced)';
+      setSelectedCityKey(keyName);
+      setIsDetectingLoc(false);
+
+      showToast(
+        'GPS Location Synced!',
+        `Coordinates (${lat.toFixed(2)}°, ${lng.toFixed(2)}°). Matched region: ${placeName || nearest.name}, ${nearest.state}. Sunrise: ${customTiming.sunrise}, Sunset: ${customTiming.sunset}.`,
+        'success'
+      );
+    };
+
+    const tryIpFallback = async () => {
+      try {
+        const res = await fetch('https://ipapi.co/json/');
+        if (res.ok) {
+          const data = await res.json();
+          if (data && typeof data.latitude === 'number' && typeof data.longitude === 'number') {
+            applyGpsPosition(data.latitude, data.longitude, data.city);
+            return true;
+          }
+        }
+      } catch (e) {
+        // IP geolocation fallback error ignored
+      }
+      return false;
+    };
+
     if ('geolocation' in navigator) {
-      setIsDetectingLoc(true);
       navigator.geolocation.getCurrentPosition(
         (pos) => {
-          setIsDetectingLoc(false);
-          // Set to user's nearest city or Bikaner/Mumbai
-          setSelectedCityKey('Bikaner');
-          showToast(
-            'GPS Location Synced!',
-            `Coordinates (${pos.coords.latitude.toFixed(2)}, ${pos.coords.longitude.toFixed(2)}). Calculated Sunrise & Sunset for Rani Bazar / Bikaner Region.`,
-            'success'
-          );
+          applyGpsPosition(pos.coords.latitude, pos.coords.longitude);
         },
-        (err) => {
-          setIsDetectingLoc(false);
-          showToast('Location Detection', 'Defaulting to Bikaner, Rajasthan Panchang timings.', 'info');
+        async (err) => {
+          console.warn('Browser geolocation denied/timed out, trying network IP fallback...', err);
+          const fallbackSuccess = await tryIpFallback();
+          if (!fallbackSuccess) {
+            setIsDetectingLoc(false);
+            let reason = 'Defaulted to Bikaner Pachkan timings.';
+            if (err.code === err.PERMISSION_DENIED) {
+              reason = 'Browser location permission denied. Defaulted to Bikaner.';
+            } else if (err.code === err.TIMEOUT) {
+              reason = 'Location detection timed out. Defaulted to Bikaner.';
+            }
+            showToast('GPS Location Warning', reason, 'info');
+          }
+        },
+        {
+          enableHighAccuracy: false, // Fast network/cell/IP positioning
+          timeout: 8000,
+          maximumAge: 300000
         }
       );
     } else {
-      showToast('Location Error', 'Geolocation is not supported by your browser.', 'error');
+      const fallbackSuccess = await tryIpFallback();
+      if (!fallbackSuccess) {
+        setIsDetectingLoc(false);
+        showToast('Location Error', 'Geolocation is not supported by your browser.', 'error');
+      }
     }
   };
 

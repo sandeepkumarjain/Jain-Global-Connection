@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 
 export const Footer: React.FC = () => {
-  const { systemSettings, setActiveTab, setIsAuthModalOpen } = useApp();
+  const { systemSettings, setActiveTab, setIsAuthModalOpen, isMatrimonialOnlyUser } = useApp();
   const [policyType, setPolicyType] = useState<'terms' | 'privacy' | null>(null);
 
   return (
@@ -62,33 +62,37 @@ export const Footer: React.FC = () => {
                   <span>Jain Matrimonial Directory</span>
                 </button>
               </li>
-              <li>
-                <button
-                  onClick={() => setActiveTab('business')}
-                  className="hover:text-amber-400 transition-colors flex items-center gap-1.5"
-                >
-                  <Building2 className="w-3.5 h-3.5 text-amber-500" />
-                  <span>Jain Business Directory</span>
-                </button>
-              </li>
-              <li>
-                <button
-                  onClick={() => setActiveTab('temple')}
-                  className="hover:text-amber-400 transition-colors flex items-center gap-1.5"
-                >
-                  <MapPin className="w-3.5 h-3.5 text-amber-500" />
-                  <span>Jain Temple Directory & Live Darshan</span>
-                </button>
-              </li>
-              <li>
-                <button
-                  onClick={() => setActiveTab('directory')}
-                  className="hover:text-amber-400 transition-colors flex items-center gap-1.5"
-                >
-                  <Users className="w-3.5 h-3.5 text-amber-500" />
-                  <span>Jain Community Members Directory</span>
-                </button>
-              </li>
+              {!isMatrimonialOnlyUser && (
+                <>
+                  <li>
+                    <button
+                      onClick={() => setActiveTab('business')}
+                      className="hover:text-amber-400 transition-colors flex items-center gap-1.5"
+                    >
+                      <Building2 className="w-3.5 h-3.5 text-amber-500" />
+                      <span>Jain Business Directory</span>
+                    </button>
+                  </li>
+                  <li>
+                    <button
+                      onClick={() => setActiveTab('temple')}
+                      className="hover:text-amber-400 transition-colors flex items-center gap-1.5"
+                    >
+                      <MapPin className="w-3.5 h-3.5 text-amber-500" />
+                      <span>Jain Temple Directory & Live Darshan</span>
+                    </button>
+                  </li>
+                  <li>
+                    <button
+                      onClick={() => setActiveTab('directory')}
+                      className="hover:text-amber-400 transition-colors flex items-center gap-1.5"
+                    >
+                      <Users className="w-3.5 h-3.5 text-amber-500" />
+                      <span>Jain Community Members Directory</span>
+                    </button>
+                  </li>
+                </>
+              )}
             </ul>
           </div>
 
@@ -98,22 +102,26 @@ export const Footer: React.FC = () => {
               Portals & Governance
             </h4>
             <ul className="space-y-2 text-xs text-slate-400">
-              <li>
-                <button
-                  onClick={() => setActiveTab('panchang')}
-                  className="hover:text-amber-400 transition-colors"
-                >
-                  Jain Panchang & Choghadiya
-                </button>
-              </li>
-              <li>
-                <button
-                  onClick={() => setActiveTab('emergency')}
-                  className="hover:text-amber-400 transition-colors"
-                >
-                  Jain Emergency Blood Donor Directory
-                </button>
-              </li>
+              {!isMatrimonialOnlyUser && (
+                <>
+                  <li>
+                    <button
+                      onClick={() => setActiveTab('panchang')}
+                      className="hover:text-amber-400 transition-colors"
+                    >
+                      Jain Panchang & Choghadiya
+                    </button>
+                  </li>
+                  <li>
+                    <button
+                      onClick={() => setActiveTab('emergency')}
+                      className="hover:text-amber-400 transition-colors"
+                    >
+                      Jain Emergency Blood Donor Directory
+                    </button>
+                  </li>
+                </>
+              )}
               <li>
                 <button
                   onClick={() => setPolicyType('terms')}

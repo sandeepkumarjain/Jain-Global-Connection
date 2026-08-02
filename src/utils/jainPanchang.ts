@@ -176,6 +176,51 @@ function formatMinutesToTime(totalMinutes: number): string {
   return `${paddedHours}:${paddedMins} ${period}`;
 }
 
+export interface BaseCityInfo {
+  name: string;
+  state: string;
+  lat: number;
+  lng: number;
+  srMin: number;
+  ssMin: number;
+}
+
+export const BASE_CITIES: BaseCityInfo[] = [
+  { name: 'Bikaner', state: 'Rajasthan', lat: 28.0229, lng: 73.3119, srMin: 365, ssMin: 1155 },
+  { name: 'Mumbai', state: 'Maharashtra', lat: 19.0760, lng: 72.8777, srMin: 374, ssMin: 1152 },
+  { name: 'Ahmedabad', state: 'Gujarat', lat: 23.0225, lng: 72.5714, srMin: 370, ssMin: 1158 },
+  { name: 'Jaipur', state: 'Rajasthan', lat: 26.9124, lng: 75.7873, srMin: 358, ssMin: 1154 },
+  { name: 'Delhi', state: 'NCR', lat: 28.6139, lng: 77.2090, srMin: 348, ssMin: 1156 },
+  { name: 'Surat', state: 'Gujarat', lat: 21.1702, lng: 72.8311, srMin: 372, ssMin: 1156 },
+  { name: 'Kolkata', state: 'West Bengal', lat: 22.5726, lng: 88.3639, srMin: 312, ssMin: 1104 },
+  { name: 'Indore', state: 'Madhya Pradesh', lat: 22.7196, lng: 75.8577, srMin: 362, ssMin: 1148 },
+  { name: 'Bangalore', state: 'Karnataka', lat: 12.9716, lng: 77.5946, srMin: 366, ssMin: 1125 },
+  { name: 'Chennai', state: 'Tamil Nadu', lat: 13.0827, lng: 80.2707, srMin: 356, ssMin: 1118 },
+  { name: 'Udaipur', state: 'Rajasthan', lat: 24.5854, lng: 73.7125, srMin: 363, ssMin: 1152 },
+  { name: 'Pune', state: 'Maharashtra', lat: 18.5204, lng: 73.8567, srMin: 371, ssMin: 1149 },
+  { name: 'Hyderabad', state: 'Telangana', lat: 17.3850, lng: 78.4867, srMin: 355, ssMin: 1130 },
+];
+
+/**
+ * Finds the closest city in our dataset to the user's lat, lng
+ */
+export function findNearestCity(lat: number, lng: number): BaseCityInfo {
+  let closest = BASE_CITIES[0];
+  let minDistance = Infinity;
+
+  BASE_CITIES.forEach((c) => {
+    const dLat = c.lat - lat;
+    const dLng = c.lng - lng;
+    const dist = dLat * dLat + dLng * dLng; // Squared Euclidean distance for quick comparison
+    if (dist < minDistance) {
+      minDistance = dist;
+      closest = c;
+    }
+  });
+
+  return closest;
+}
+
 /**
  * Calculates seasonal sunrise & sunset for major Indian cities
  */
@@ -185,22 +230,9 @@ export function getCityPachkanTimings(date: Date = new Date()): Record<string, C
   // Seasonal variation in minutes (-20 to +20 mins around base times)
   const seasonalOffset = Math.round(18 * Math.sin((dayOfYear - 80) * (2 * Math.PI / 365)));
 
-  const baseCities = [
-    { name: 'Bikaner', state: 'Rajasthan', srMin: 365, ssMin: 1155 },     // ~06:05 AM, 07:15 PM
-    { name: 'Mumbai', state: 'Maharashtra', srMin: 374, ssMin: 1152 },     // ~06:14 AM, 07:12 PM
-    { name: 'Ahmedabad', state: 'Gujarat', srMin: 370, ssMin: 1158 },      // ~06:10 AM, 07:18 PM
-    { name: 'Jaipur', state: 'Rajasthan', srMin: 358, ssMin: 1154 },       // ~05:58 AM, 07:14 PM
-    { name: 'Delhi', state: 'NCR', srMin: 348, ssMin: 1156 },             // ~05:48 AM, 07:16 PM
-    { name: 'Surat', state: 'Gujarat', srMin: 372, ssMin: 1156 },          // ~06:12 AM, 07:16 PM
-    { name: 'Kolkata', state: 'West Bengal', srMin: 312, ssMin: 1104 },    // ~05:12 AM, 06:24 PM
-    { name: 'Indore', state: 'Madhya Pradesh', srMin: 362, ssMin: 1148 },  // ~06:02 AM, 07:08 PM
-    { name: 'Bangalore', state: 'Karnataka', srMin: 366, ssMin: 1125 },   // ~06:06 AM, 06:45 PM
-    { name: 'Chennai', state: 'Tamil Nadu', srMin: 356, ssMin: 1118 },     // ~05:56 AM, 06:38 PM
-  ];
-
   const cityMap: Record<string, CityPachkanTiming> = {};
 
-  baseCities.forEach((c) => {
+  BASE_CITIES.forEach((c) => {
     const sunriseMin = c.srMin - seasonalOffset;
     const sunsetMin = c.ssMin + seasonalOffset;
 
@@ -228,6 +260,42 @@ export function getCityPachkanTimings(date: Date = new Date()): Record<string, C
   });
 
   return cityMap;
+}
+
+/**
+ * Generates exact Pachkan timing for user's GPS coordinates
+ */
+export function getGPSCustomTiming(lat: number, lng: number, date: Date = new Date()): CityPachkanTiming {
+  const nearest = findNearestCity(lat, lng);
+  const dayOfYear = Math.floor((date.getTime() - new Date(date.getFullYear(), 0, 0).getTime()) / (1000 * 60 * 60 * 24));
+  const seasonalOffset = Math.round(18 * Math.sin((dayOfYear - 80) * (2 * Math.PI / 365)));
+
+  // Adjust sunrise/sunset based on exact longitude difference relative to nearest city (1 deg = ~4 mins)
+  const lngDiffMins = Math.round((nearest.lng - lng) * 4);
+  const sunriseMin = nearest.srMin - seasonalOffset + lngDiffMins;
+  const sunsetMin = nearest.ssMin + seasonalOffset + lngDiffMins;
+
+  const sunriseStr = formatMinutesToTime(sunriseMin);
+  const sunsetStr = formatMinutesToTime(sunsetMin);
+  const navkarshiStr = formatMinutesToTime(sunriseMin + 48);
+  const porshiStr = formatMinutesToTime(sunriseMin + 180);
+  const sadhPorshiStr = formatMinutesToTime(sunriseMin + 270);
+  const purimattaStr = formatMinutesToTime(sunriseMin + 360);
+  const avaddhStr = formatMinutesToTime(sunriseMin + 540);
+  const chouviharStr = formatMinutesToTime(sunsetMin - 20);
+
+  return {
+    city: nearest.name,
+    state: `${nearest.state} (GPS: ${lat.toFixed(2)}°, ${lng.toFixed(2)}°)`,
+    sunrise: sunriseStr,
+    sunset: sunsetStr,
+    navkarshi: `${navkarshiStr} (+48m)`,
+    porshi: `${porshiStr} (1 Prahar)`,
+    sadhPorshi: `${sadhPorshiStr} (1.5 Prahar)`,
+    purimatta: `${purimattaStr} (2 Prahar)`,
+    avaddh: `${avaddhStr} (3 Prahar)`,
+    chouvihar: `${chouviharStr} (-20m)`,
+  };
 }
 
 /**

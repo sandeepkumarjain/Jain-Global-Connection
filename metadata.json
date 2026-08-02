@@ -1,6 +1,8 @@
 {
   "name": "Jain Connect Global",
   "description": "One Platform for Every Jain, Every Business, Every Temple, Every Family. Developed By SKJ Tech World.",
-  "requestFramePermissions": [],
+  "requestFramePermissions": [
+    "geolocation"
+  ],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

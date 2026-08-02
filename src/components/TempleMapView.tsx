@@ -53,33 +53,57 @@ export const TempleMapView: React.FC<TempleMapViewProps> = ({
 
   // Request browser geolocation
   const handleDetectLocation = useCallback(() => {
-    if (!navigator.geolocation) {
-      setLocationStatus('Geolocation is not supported by your browser. Showing default region.');
-      return;
-    }
-
     setIsLocating(true);
     setLocationStatus('Locating your position...');
 
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const userPos = {
-          lat: pos.coords.latitude,
-          lng: pos.coords.longitude,
-        };
-        setUserLocation(userPos);
-        setMapCenter(userPos);
-        setMapZoom(11);
-        setIsLocating(false);
-        setLocationStatus('Current location detected successfully!');
-      },
-      (err) => {
-        console.warn('Geolocation error:', err);
-        setIsLocating(false);
-        setLocationStatus('Location access denied/unavailable. Showing temples across India.');
-      },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
-    );
+    const applyPosition = (lat: number, lng: number) => {
+      const userPos = { lat, lng };
+      setUserLocation(userPos);
+      setMapCenter(userPos);
+      setMapZoom(11);
+      setIsLocating(false);
+      setLocationStatus('Current location detected successfully!');
+    };
+
+    const tryIpFallback = async () => {
+      try {
+        const res = await fetch('https://ipapi.co/json/');
+        if (res.ok) {
+          const data = await res.json();
+          if (data && typeof data.latitude === 'number' && typeof data.longitude === 'number') {
+            applyPosition(data.latitude, data.longitude);
+            return true;
+          }
+        }
+      } catch (e) {
+        // IP fallback error ignored
+      }
+      return false;
+    };
+
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          applyPosition(pos.coords.latitude, pos.coords.longitude);
+        },
+        async (err) => {
+          console.warn('Geolocation error:', err);
+          const fallbackSuccess = await tryIpFallback();
+          if (!fallbackSuccess) {
+            setIsLocating(false);
+            setLocationStatus('Location access denied/unavailable. Showing temples across India.');
+          }
+        },
+        { enableHighAccuracy: false, timeout: 8000, maximumAge: 300000 }
+      );
+    } else {
+      tryIpFallback().then((fallbackSuccess) => {
+        if (!fallbackSuccess) {
+          setIsLocating(false);
+          setLocationStatus('Geolocation is not supported by your browser. Showing default region.');
+        }
+      });
+    }
   }, []);
 
   useEffect(() => {

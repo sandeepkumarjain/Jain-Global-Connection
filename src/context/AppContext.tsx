@@ -17,7 +17,8 @@ import {
   AppNotification,
   BhajanSong,
   SystemSettings,
-  CustomPage
+  CustomPage,
+  MatrimonialMessage
 } from '../types';
 import {
   INITIAL_SYSTEM_SETTINGS,
@@ -49,6 +50,8 @@ type TabOption = 'home' | 'matrimonial' | 'business' | 'directory' | 'temple' | 
 
 interface AppContextType {
   currentUser: User | null;
+  isMatrimonialOnlyUser: boolean;
+  isBusinessOnlyUser: boolean;
   users: User[];
   matrimonials: MatrimonialProfile[];
   businesses: BusinessListing[];
@@ -143,6 +146,8 @@ interface AppContextType {
   addComment: (postId: string, text: string) => void;
   sendInterest: (matrimonialId: string) => void;
   acceptInterest: (matrimonialId: string, fromUserId: string) => void;
+  matrimonialMessages: MatrimonialMessage[];
+  sendMatrimonialMessage: (receiverId: string, receiverName: string, text: string) => void;
   addBloodDonor: (donor: Partial<BloodDonor>) => void;
   deleteBloodDonor: (donorId: string) => void;
   addJob: (job: Partial<JobItem>) => void;
@@ -211,6 +216,7 @@ const STORAGE_KEYS = {
   THEME: 'jcg_theme_v1',
   BLOOD_DONORS: 'jcg_blood_donors_v1',
   BHAJANS: 'jcg_bhajans_v1',
+  MATRIMONIAL_MESSAGES: 'jcg_matrimonial_messages_v1',
 };
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -379,6 +385,51 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(currentUser));
   }, [currentUser]);
 
+  const isMatrimonialOnlyUser = useMemo(() => {
+    if (!currentUser) return false;
+    if (currentUser.role === 'Super Admin' || currentUser.role === 'Admin') return false;
+
+    const isMarriageType =
+      currentUser.registrationType === 'Marriage Profile' ||
+      currentUser.role === 'Marriage Profile';
+
+    const hasMatrimonialEntry = matrimonials.some(
+      (m) =>
+        m.userId === currentUser.id ||
+        (currentUser.email && m.contactEmail?.toLowerCase() === currentUser.email.toLowerCase()) ||
+        (currentUser.mobile && m.contactMobile?.replace(/[^0-9]/g, '').includes(currentUser.mobile.replace(/[^0-9]/g, '')))
+    );
+
+    return isMarriageType || hasMatrimonialEntry;
+  }, [currentUser, matrimonials]);
+
+  const isBusinessOnlyUser = useMemo(() => {
+    if (!currentUser) return false;
+    if (currentUser.role === 'Super Admin' || currentUser.role === 'Admin') return false;
+
+    const isBusinessType =
+      currentUser.registrationType === 'Business' ||
+      currentUser.role === 'Business Owner' ||
+      currentUser.role === 'VerifiedBusiness';
+
+    const hasBusinessEntry = businesses.some(
+      (b) =>
+        b.ownerId === currentUser.id ||
+        (currentUser.email && b.email?.toLowerCase() === currentUser.email.toLowerCase()) ||
+        (currentUser.mobile && b.mobile?.replace(/[^0-9]/g, '').includes(currentUser.mobile.replace(/[^0-9]/g, '')))
+    );
+
+    return isBusinessType || hasBusinessEntry;
+  }, [currentUser, businesses]);
+
+  useEffect(() => {
+    if (isMatrimonialOnlyUser && activeTab !== 'matrimonial') {
+      setActiveTab('matrimonial');
+    } else if (isBusinessOnlyUser && activeTab !== 'business') {
+      setActiveTab('business');
+    }
+  }, [isMatrimonialOnlyUser, isBusinessOnlyUser, activeTab]);
+
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.BLOOD_DONORS, JSON.stringify(bloodDonors));
   }, [bloodDonors]);
@@ -403,9 +454,35 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(systemSettings));
   }, [systemSettings]);
 
+  const [matrimonialMessages, setMatrimonialMessages] = useState<MatrimonialMessage[]>(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.MATRIMONIAL_MESSAGES);
+    return saved ? JSON.parse(saved) : [
+      {
+        id: 'msg_001',
+        senderId: 'usr_mat_002',
+        senderName: 'Diya Jain',
+        receiverId: 'usr_001',
+        receiverName: 'Sandeep Kumar Jain',
+        text: 'Jai Jinendra! We received your matrimonial profile interest.',
+        timestamp: new Date(Date.now() - 3600000 * 2).toISOString(),
+        read: true,
+      },
+      {
+        id: 'msg_002',
+        senderId: 'usr_001',
+        senderName: 'Sandeep Kumar Jain',
+        receiverId: 'usr_mat_002',
+        receiverName: 'Diya Jain',
+        text: 'Pranam! Pleased to connect with your esteemed family.',
+        timestamp: new Date(Date.now() - 3600000).toISOString(),
+        read: true,
+      }
+    ];
+  });
+
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.BHAJANS, JSON.stringify(bhajans));
-  }, [bhajans]);
+    localStorage.setItem(STORAGE_KEYS.MATRIMONIAL_MESSAGES, JSON.stringify(matrimonialMessages));
+  }, [matrimonialMessages]);
 
   const playSong = (song: BhajanSong) => {
     if (audioRef.current) {
@@ -620,6 +697,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
 
       setCurrentUser(found);
+      const isMatrimonialAcc =
+        (found.registrationType === 'Marriage Profile' || found.role === 'Marriage Profile') &&
+        found.role !== 'Super Admin' &&
+        found.role !== 'Admin';
+      if (isMatrimonialAcc) {
+        setActiveTab('matrimonial');
+      }
       // Authenticate with Supabase Auth session if configured
       if (found.email) {
         AuthService.signIn(found.email, pass).catch((err) =>
@@ -852,6 +936,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (targetUser) {
       try {
         setDoc(doc(db, 'users', targetUser.id), targetUser, { merge: true });
+        syncToSupabaseTable('users', targetUser);
       } catch (e) {
         console.warn('Firestore user update error:', e);
       }
@@ -934,6 +1019,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setMembers((prev) => [newMember, ...prev]);
     try {
       setDoc(doc(db, 'members', newMember.id), newMember, { merge: true });
+      syncToSupabaseTable('members', newMember);
     } catch (e) {
       console.warn('Firestore member sync error:', e);
     }
@@ -956,6 +1042,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (targetMem) {
       try {
         setDoc(doc(db, 'members', targetMem.id), targetMem, { merge: true });
+        syncToSupabaseTable('members', targetMem);
       } catch (e) {
         console.warn('Firestore member approve error:', e);
       }
@@ -1012,6 +1099,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setBusinesses((prev) => [newBiz, ...prev]);
     try {
       setDoc(doc(db, 'businesses', newBiz.id), newBiz, { merge: true });
+      syncToSupabaseTable('businesses', newBiz);
     } catch (e) {
       console.warn('Firestore business sync error:', e);
     }
@@ -1034,6 +1122,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (targetBiz) {
       try {
         setDoc(doc(db, 'businesses', targetBiz.id), targetBiz, { merge: true });
+        syncToSupabaseTable('businesses', targetBiz);
       } catch (e) {
         console.warn('Firestore business update error:', e);
       }
@@ -1090,6 +1179,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setTemples((prev) => [newTemple, ...prev]);
     try {
       setDoc(doc(db, 'temples', newTemple.id), newTemple, { merge: true });
+      syncToSupabaseTable('temples', newTemple);
     } catch (e) {
       console.warn('Firestore temple sync error:', e);
     }
@@ -1112,6 +1202,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (targetTemple) {
       try {
         setDoc(doc(db, 'temples', targetTemple.id), targetTemple, { merge: true });
+        syncToSupabaseTable('temples', targetTemple);
       } catch (e) {
         console.warn('Firestore temple update error:', e);
       }
@@ -1195,6 +1286,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setMatrimonials((prev) => [newMat, ...prev]);
     try {
       setDoc(doc(db, 'matrimonials', newMat.id), newMat, { merge: true });
+      syncToSupabaseTable('matrimonials', newMat);
     } catch (e) {
       console.warn('Firestore matrimonial sync error:', e);
     }
@@ -1217,6 +1309,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (targetMat) {
       try {
         setDoc(doc(db, 'matrimonials', targetMat.id), targetMat, { merge: true });
+        syncToSupabaseTable('matrimonials', targetMat);
       } catch (e) {
         console.warn('Firestore matrimonial approve error:', e);
       }
@@ -1472,6 +1565,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setPosts((prev) => [newPost, ...prev]);
     try {
       setDoc(doc(db, 'posts', newPost.id), newPost, { merge: true });
+      syncToSupabaseTable('posts', newPost);
     } catch (e) {
       console.warn('Firestore post sync notice:', e);
     }
@@ -1551,12 +1645,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const acceptInterest = (matrimonialId: string, fromUserId: string) => {
+    const targetMat = matrimonials.find((m) => m.id === matrimonialId || m.userId === matrimonialId);
+    const targetUserId = targetMat ? targetMat.userId : matrimonialId;
+
     setMatrimonials((prev) =>
       prev.map((m) => {
-        if (m.id === matrimonialId) {
+        // Target profile gets fromUserId added
+        if (m.id === matrimonialId || m.userId === matrimonialId) {
           const updated = {
             ...m,
-            interestsAccepted: [...m.interestsAccepted, fromUserId],
+            interestsAccepted: Array.from(new Set([...m.interestsAccepted, fromUserId])),
+          };
+          try {
+            setDoc(doc(db, 'matrimonials', m.id), updated, { merge: true });
+          } catch (e) {}
+          return updated;
+        }
+        // Sender profile gets targetUserId and targetMat ID added
+        if (m.userId === fromUserId || m.id === fromUserId) {
+          const updated = {
+            ...m,
+            interestsAccepted: Array.from(new Set([...m.interestsAccepted, targetUserId, matrimonialId])),
           };
           try {
             setDoc(doc(db, 'matrimonials', m.id), updated, { merge: true });
@@ -1568,6 +1677,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
     triggerCelebrationConfetti();
     showToast('Interest Accepted!', 'You can now view full contact details and chat directly.', 'success');
+  };
+
+  const sendMatrimonialMessage = (receiverId: string, receiverName: string, text: string) => {
+    if (!text.trim() || !currentUser) return;
+    const newMsg: MatrimonialMessage = {
+      id: `msg_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      senderId: currentUser.id,
+      senderName: currentUser.fullName || 'Jain Member',
+      receiverId,
+      receiverName,
+      text: text.trim(),
+      timestamp: new Date().toISOString(),
+      read: false,
+    };
+    setMatrimonialMessages((prev) => [...prev, newMsg]);
+    try {
+      setDoc(doc(db, 'matrimonial_messages', newMsg.id), newMsg, { merge: true });
+    } catch (e) {}
   };
 
   const addBloodDonor = (donor: Partial<BloodDonor>) => {
@@ -1583,6 +1710,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setBloodDonors((prev) => [newDonor, ...prev]);
     try {
       setDoc(doc(db, 'blood_donors', newDonor.id), newDonor, { merge: true });
+      syncToSupabaseTable('blood_donors', newDonor);
     } catch (e) {}
     triggerConfetti();
     showToast('Donor Registered!', 'Thank you for registering in the Jain Emergency Blood Network.', 'success');
@@ -1603,9 +1731,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setJobs((prev) => [newJob, ...prev]);
     try {
       setDoc(doc(db, 'jobs', newJob.id), newJob, { merge: true });
+      syncToSupabaseTable('jobs', newJob);
     } catch (e) {}
     triggerConfetti();
-    showToast('Job Opportunity Posted!', 'Listed on Jain Education & Career Portal.', 'success');
+    showToast('Job Opportunity Posted!', 'Job saved to Supabase & listed on Jain Career Portal.', 'success');
   };
 
   const deletePost = (postId: string) => {
@@ -1867,6 +1996,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     <AppContext.Provider
       value={{
         currentUser,
+        isMatrimonialOnlyUser,
+        isBusinessOnlyUser,
         users,
         matrimonials,
         businesses,
@@ -1944,6 +2075,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         addComment,
         sendInterest,
         acceptInterest,
+        matrimonialMessages,
+        sendMatrimonialMessage,
         addBloodDonor,
         deleteBloodDonor,
         addJob,

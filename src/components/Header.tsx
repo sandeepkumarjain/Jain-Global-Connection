@@ -40,6 +40,8 @@ export const Header: React.FC = () => {
   const [isLangDropdownOpen, setIsLangDropdownOpen] = useState(false);
   const {
     currentUser,
+    isMatrimonialOnlyUser,
+    isBusinessOnlyUser,
     activeTab,
     setActiveTab,
     language,
@@ -85,6 +87,36 @@ export const Header: React.FC = () => {
   const animatedSearchPlaceholder = useTypingPlaceholder(SEARCH_PLACEHOLDERS);
 
   const handleTabClick = (tabId: string) => {
+    // Restricted Matrimonial logged-in user: can ONLY see Matrimonial
+    if (isMatrimonialOnlyUser) {
+      if (tabId !== 'matrimonial') {
+        showToast(
+          'Portal Restricted',
+          'Your account is registered exclusively for Matrimonial Services. Access to other portals is restricted.',
+          'info'
+        );
+        setActiveTab('matrimonial');
+        return;
+      }
+      setActiveTab('matrimonial');
+      return;
+    }
+
+    // Restricted Business logged-in user: can ONLY see Business Directory
+    if (isBusinessOnlyUser) {
+      if (tabId !== 'business') {
+        showToast(
+          'Business Portal Restricted',
+          'Your account is logged in as a Business Entity. Access is restricted exclusively to the Business Directory.',
+          'info'
+        );
+        setActiveTab('business');
+        return;
+      }
+      setActiveTab('business');
+      return;
+    }
+
     // 1. Logged-out Guest User: Only Matrimonial requires login
     if (!currentUser) {
       if (tabId === 'matrimonial') {
@@ -102,21 +134,7 @@ export const Header: React.FC = () => {
       return;
     }
 
-    // 3. Matrimonial registered users can see Matrimonial, Temple Directory, Panchang & Quotes
-    if (currentUser.registrationType === 'Marriage Profile') {
-      if (['business', 'directory'].includes(tabId)) {
-        showToast(
-          'Portal Restricted',
-          'Matrimonial members have access to Matrimonial, Temple Directory, Panchang & Community Feed.',
-          'info'
-        );
-        return;
-      }
-      setActiveTab(tabId as any);
-      return;
-    }
-
-    // 4. Jain Directory, Business Directory, Temple Directory registered users can see all options except Matrimonial
+    // 3. Jain Directory, Business Directory, Temple Directory registered users can see all options except Matrimonial
     if (['Business', 'Temple', 'Individual', 'NGO', 'Trust'].includes(currentUser.registrationType)) {
       if (tabId === 'matrimonial') {
         showToast(
@@ -156,6 +174,12 @@ export const Header: React.FC = () => {
     { id: 'feed', label: langTranslations.feed || 'Community Feed', icon: MessageSquare },
     { id: 'emergency', label: langTranslations.emergency || 'Services & Emergency', icon: AlertCircle },
   ];
+
+  const displayedNavItems = isMatrimonialOnlyUser
+    ? navItems.filter((item) => item.id === 'matrimonial')
+    : isBusinessOnlyUser
+    ? navItems.filter((item) => item.id === 'business')
+    : navItems;
 
   const userNotifications = useMemo(() => {
     if (!currentUser) return [];
@@ -349,7 +373,13 @@ export const Header: React.FC = () => {
           
           {/* Logo & Branding */}
           <div
-            onClick={() => setActiveTab('home')}
+            onClick={() => {
+              if (isMatrimonialOnlyUser) {
+                setActiveTab('matrimonial');
+              } else {
+                setActiveTab('home');
+              }
+            }}
             className="flex items-center gap-1.5 sm:gap-3 cursor-pointer group shrink min-w-0 overflow-hidden"
           >
             <div className="relative w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-amber-500 via-amber-600 to-amber-800 p-0.5 shadow-md group-hover:scale-105 transition-transform duration-300 shrink-0">
@@ -732,7 +762,7 @@ export const Header: React.FC = () => {
         <div className="hidden md:block bg-slate-900/95 dark:bg-slate-950 text-amber-100 border-t border-amber-500/20 shadow-lg w-full max-w-full overflow-hidden">
           <div className="max-w-7xl mx-auto px-2 sm:px-4 py-1.5 w-full max-w-full overflow-x-auto no-scrollbar touch-pan-x">
             <div className="flex items-center gap-1.5 sm:gap-2 flex-nowrap shrink-0 w-max min-w-full">
-              {navItems.map((item) => {
+              {displayedNavItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = activeTab === item.id;
                 return (
@@ -752,22 +782,24 @@ export const Header: React.FC = () => {
               })}
 
               {/* Devotional Bhajans Button */}
-              <button
-                onClick={() => setIsBhajanModalOpen(true)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all border shrink-0 whitespace-nowrap shadow-sm ${
-                  isPlayingSong
-                    ? 'border-amber-400 bg-amber-900/90 text-amber-300 animate-pulse'
-                    : 'border-amber-500/40 bg-amber-950/80 text-amber-200 hover:text-white hover:bg-amber-900'
-                }`}
-                title="Click to view & listen to Jain Devotional Bhajans & Songs in same window"
-              >
-                <Music className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                <span>Bhajans & Songs</span>
-                <span className="text-[10px] bg-amber-500/20 text-amber-300 font-extrabold px-1.5 py-0.2 rounded-full border border-amber-500/30">
-                  {bhajans.filter((b) => b.isActive).length}
-                </span>
-                {isPlayingSong && <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping ml-0.5" />}
-              </button>
+              {!isMatrimonialOnlyUser && (
+                <button
+                  onClick={() => setIsBhajanModalOpen(true)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all border shrink-0 whitespace-nowrap shadow-sm ${
+                    isPlayingSong
+                      ? 'border-amber-400 bg-amber-900/90 text-amber-300 animate-pulse'
+                      : 'border-amber-500/40 bg-amber-950/80 text-amber-200 hover:text-white hover:bg-amber-900'
+                  }`}
+                  title="Click to view & listen to Jain Devotional Bhajans & Songs in same window"
+                >
+                  <Music className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                  <span>Bhajans & Songs</span>
+                  <span className="text-[10px] bg-amber-500/20 text-amber-300 font-extrabold px-1.5 py-0.2 rounded-full border border-amber-500/30">
+                    {bhajans.filter((b) => b.isActive).length}
+                  </span>
+                  {isPlayingSong && <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping ml-0.5" />}
+                </button>
+              )}
 
               {/* Admin Panel Tab highlight if Admin */}
               {(currentUser?.role === 'Super Admin' || currentUser?.role === 'Admin') && (
@@ -939,7 +971,7 @@ export const Header: React.FC = () => {
                 Directory Portals & Features
               </p>
               <div className="grid grid-cols-2 gap-2">
-                {navItems.map((item) => {
+                {displayedNavItems.map((item) => {
                   const Icon = item.icon;
                   const isActive = activeTab === item.id;
                   return (
@@ -961,21 +993,23 @@ export const Header: React.FC = () => {
                   );
                 })}
 
-                <button
-                  onClick={() => {
-                    setIsBhajanModalOpen(true);
-                    setIsMobileMenuOpen(false);
-                  }}
-                  className="col-span-2 flex items-center justify-between p-2.5 rounded-xl text-xs font-bold bg-gradient-to-r from-amber-950 to-slate-900 text-amber-300 border border-amber-500/40 shadow-md hover:bg-amber-900"
-                >
-                  <div className="flex items-center gap-2">
-                    <Music className="w-4 h-4 text-amber-400 shrink-0" />
-                    <span>Devotional Bhajans & Stavan</span>
-                  </div>
-                  <span className="text-[10px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full font-extrabold border border-amber-500/30">
-                    {bhajans.filter((b) => b.isActive).length} Songs
-                  </span>
-                </button>
+                {!isMatrimonialOnlyUser && (
+                  <button
+                    onClick={() => {
+                      setIsBhajanModalOpen(true);
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className="col-span-2 flex items-center justify-between p-2.5 rounded-xl text-xs font-bold bg-gradient-to-r from-amber-950 to-slate-900 text-amber-300 border border-amber-500/40 shadow-md hover:bg-amber-900"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Music className="w-4 h-4 text-amber-400 shrink-0" />
+                      <span>Devotional Bhajans & Stavan</span>
+                    </div>
+                    <span className="text-[10px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full font-extrabold border border-amber-500/30">
+                      {bhajans.filter((b) => b.isActive).length} Songs
+                    </span>
+                  </button>
+                )}
 
                 {(currentUser?.role === 'Super Admin' || currentUser?.role === 'Admin') && (
                   <button

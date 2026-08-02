@@ -306,6 +306,37 @@ export const RegisterModal: React.FC = () => {
   const [websiteUrl, setWebsiteUrl] = useState('');
   const [logoUrl, setLogoUrl] = useState('');
   const [galleryUrl, setGalleryUrl] = useState('');
+  const [bizGalleryList, setBizGalleryList] = useState<string[]>([]);
+
+  const handleBusinessLogoFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 8 * 1024 * 1024) {
+      alert('Logo image size should be under 8MB');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setLogoUrl(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleBusinessGalleryFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []) as File[];
+    if (!files.length) return;
+    const promises = files.map((f) => {
+      return new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.readAsDataURL(f);
+      });
+    });
+    Promise.all<string>(promises).then((newImgs) => {
+      setBizGalleryList((prev) => [...prev, ...newImgs]);
+      if (newImgs[0] && !galleryUrl) setGalleryUrl(newImgs[0]);
+    });
+  };
 
   // 3. TEMPLE SPECIFIC FIELDS
   const [templeName, setTempleName] = useState('');
@@ -2929,26 +2960,79 @@ export const RegisterModal: React.FC = () => {
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-bold mb-1 text-slate-700 dark:text-slate-200">Business Logo Image URL</label>
-                  <input
-                    type="text"
-                    placeholder="https://..."
-                    value={logoUrl}
-                    onChange={(e) => setLogoUrl(e.target.value)}
-                    className="w-full p-2.5 rounded-xl bg-white dark:bg-slate-900 border"
-                  />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                {/* Business Logo File Upload */}
+                <div className="bg-white dark:bg-slate-900 p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 space-y-2">
+                  <label className="block font-bold text-xs text-slate-800 dark:text-slate-200 flex items-center justify-between">
+                    <span>Business Logo (Upload Image/File)</span>
+                    {logoUrl && <span className="text-[10px] text-emerald-600 font-extrabold">Uploaded ✓</span>}
+                  </label>
+                  
+                  {logoUrl ? (
+                    <div className="flex items-center gap-3">
+                      <img src={logoUrl} alt="Logo Preview" className="w-14 h-14 rounded-xl object-cover border border-amber-500/40 shadow-sm shrink-0" />
+                      <div className="space-y-1">
+                        <label className="px-3 py-1.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-700 dark:text-amber-300 font-bold text-xs rounded-lg border border-amber-500/40 cursor-pointer inline-flex items-center gap-1">
+                          <Upload className="w-3.5 h-3.5" />
+                          <span>Change Logo</span>
+                          <input type="file" accept="image/*" onChange={handleBusinessLogoFileUpload} className="hidden" />
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => setLogoUrl('')}
+                          className="block text-[11px] text-red-500 hover:underline font-semibold"
+                        >
+                          Remove Logo
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <label className="w-full h-20 border-2 border-dashed border-amber-500/40 hover:border-amber-500 bg-amber-50/50 dark:bg-amber-950/20 rounded-xl flex flex-col items-center justify-center gap-1 cursor-pointer transition-colors p-2 text-center">
+                      <Camera className="w-5 h-5 text-amber-500" />
+                      <span className="text-xs font-bold text-amber-900 dark:text-amber-300">Choose Business Logo</span>
+                      <span className="text-[10px] text-slate-500">Supports JPG, PNG, WEBP</span>
+                      <input type="file" accept="image/*" onChange={handleBusinessLogoFileUpload} className="hidden" />
+                    </label>
+                  )}
                 </div>
-                <div>
-                  <label className="block font-bold mb-1 text-slate-700 dark:text-slate-200">Store / Gallery Image URL</label>
-                  <input
-                    type="text"
-                    placeholder="https://..."
-                    value={galleryUrl}
-                    onChange={(e) => setGalleryUrl(e.target.value)}
-                    className="w-full p-2.5 rounded-xl bg-white dark:bg-slate-900 border"
-                  />
+
+                {/* Store / Gallery File Upload */}
+                <div className="bg-white dark:bg-slate-900 p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 space-y-2">
+                  <label className="block font-bold text-xs text-slate-800 dark:text-slate-200 flex items-center justify-between">
+                    <span>Store / Gallery Photos (Upload Files)</span>
+                    {bizGalleryList.length > 0 && <span className="text-[10px] text-emerald-600 font-extrabold">{bizGalleryList.length} Uploaded ✓</span>}
+                  </label>
+
+                  {bizGalleryList.length > 0 ? (
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
+                        {bizGalleryList.map((img, idx) => (
+                          <div key={idx} className="relative shrink-0 group">
+                            <img src={img} alt={`Gallery ${idx}`} className="w-12 h-12 rounded-lg object-cover border" />
+                            <button
+                              type="button"
+                              onClick={() => setBizGalleryList((prev) => prev.filter((_, i) => i !== idx))}
+                              className="absolute -top-1 -right-1 w-4 h-4 bg-red-600 text-white rounded-full text-[9px] flex items-center justify-center shadow"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                      <label className="px-3 py-1 bg-amber-500/20 hover:bg-amber-500/30 text-amber-700 dark:text-amber-300 font-bold text-[11px] rounded-lg border border-amber-500/40 cursor-pointer inline-flex items-center gap-1">
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Add More Photos</span>
+                        <input type="file" accept="image/*" multiple onChange={handleBusinessGalleryFileUpload} className="hidden" />
+                      </label>
+                    </div>
+                  ) : (
+                    <label className="w-full h-20 border-2 border-dashed border-amber-500/40 hover:border-amber-500 bg-amber-50/50 dark:bg-amber-950/20 rounded-xl flex flex-col items-center justify-center gap-1 cursor-pointer transition-colors p-2 text-center">
+                      <Upload className="w-5 h-5 text-amber-500" />
+                      <span className="text-xs font-bold text-amber-900 dark:text-amber-300">Choose Store / Product Photos</span>
+                      <span className="text-[10px] text-slate-500">Upload multiple images</span>
+                      <input type="file" accept="image/*" multiple onChange={handleBusinessGalleryFileUpload} className="hidden" />
+                    </label>
+                  )}
                 </div>
               </div>
             </div>
