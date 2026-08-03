@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { motion } from 'motion/react';
 import {
   ShieldCheck,
   HeartHandshake,
@@ -128,7 +129,13 @@ export const JainPrinciplesSection: React.FC = () => {
       <div className="absolute -bottom-20 -right-20 w-80 h-80 bg-rose-500/10 rounded-full blur-3xl pointer-events-none -z-0" />
 
       {/* Section Header */}
-      <div className="relative z-10 text-center space-y-3 max-w-3xl mx-auto">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, margin: '-50px' }}
+        transition={{ duration: 0.5 }}
+        className="relative z-10 text-center space-y-3 max-w-3xl mx-auto"
+      >
         <div className="inline-flex items-center gap-2 px-3.5 py-1 bg-gradient-to-r from-amber-500/20 to-amber-700/20 border border-amber-500/40 rounded-full text-amber-300 text-xs font-bold uppercase tracking-widest shadow-lg backdrop-blur-sm">
           <Award className="w-4 h-4 text-amber-400 animate-pulse" />
           <span>Ethical & Secure Digital Ecosystem</span>
@@ -141,17 +148,21 @@ export const JainPrinciplesSection: React.FC = () => {
         <p className="text-xs sm:text-sm text-slate-300 font-medium leading-relaxed max-w-2xl mx-auto">
           Every algorithm, verification badge, and community interaction on Jain Connect Global is anchored in the eternal wisdom of the <span className="text-amber-400 font-semibold">Pancha Mahavratas</span>.
         </p>
-      </div>
+      </motion.div>
 
       {/* Interactive 5 Principles Cards Grid */}
       <div className="relative z-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-        {principles.map((item) => {
+        {principles.map((item, index) => {
           const Icon = item.icon;
           const isSelected = selectedPrinciple === item.id;
 
           return (
-            <div
+            <motion.div
               key={item.id}
+              initial={{ opacity: 0, y: 25 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: '-30px' }}
+              transition={{ duration: 0.4, delay: index * 0.08 }}
               onClick={() => {
                 setSelectedPrinciple(item.id);
                 setShowModal(true);
@@ -203,7 +214,7 @@ export const JainPrinciplesSection: React.FC = () => {
                 </span>
                 <ChevronRight className="w-3.5 h-3.5 text-amber-400 group-hover:translate-x-1 transition-transform" />
               </div>
-            </div>
+            </motion.div>
           );
         })}
       </div>

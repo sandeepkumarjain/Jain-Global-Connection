@@ -23,9 +23,10 @@ import {
 } from 'lucide-react';
 import { TempleListing } from '../types';
 import { TempleMapView } from './TempleMapView';
+import { TempleSkeleton } from './Skeletons';
 
 export const TempleSection: React.FC = () => {
-  const { temples, openRegistrationModal, showToast } = useApp();
+  const { temples, openRegistrationModal, showToast, isLoadingData } = useApp();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSect, setSelectedSect] = useState<string>('All');
@@ -170,8 +171,13 @@ export const TempleSection: React.FC = () => {
         </div>
       </div>
 
-      {/* Map View */}
-      {(viewMode === 'map' || viewMode === 'both') && (
+      {/* Main Content View (Skeleton vs Real Views) */}
+      {isLoadingData ? (
+        <TempleSkeleton />
+      ) : (
+        <>
+          {/* Map View */}
+          {(viewMode === 'map' || viewMode === 'both') && (
         <div className="space-y-3">
           <TempleMapView
             temples={filtered}
@@ -314,6 +320,8 @@ export const TempleSection: React.FC = () => {
       </div>
     </div>
   )}
+        </>
+      )}
 
       {/* Live Darshan Modal */}
       {showLiveDarshan && selectedTemple && (

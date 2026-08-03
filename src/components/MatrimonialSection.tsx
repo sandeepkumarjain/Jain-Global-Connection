@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import { MatrimonialProfile } from '../types';
 import { generateBiodataPDF } from '../utils/pdfGenerator';
+import { MatrimonialSkeleton } from './Skeletons';
 
 export const MatrimonialSection: React.FC = () => {
   const {
@@ -39,7 +40,8 @@ export const MatrimonialSection: React.FC = () => {
     updateMatrimonialProfile,
     addMatrimonial,
     matrimonialMessages,
-    sendMatrimonialMessage
+    sendMatrimonialMessage,
+    isLoadingData
   } = useApp();
 
   const [genderFilter, setGenderFilter] = useState<'All' | 'Bride' | 'Groom'>('All');
@@ -49,6 +51,7 @@ export const MatrimonialSection: React.FC = () => {
   const [showBiodataModal, setShowBiodataModal] = useState(false);
   const [activePhotoIndex, setActivePhotoIndex] = useState<number>(0);
   const [downloadingPdfId, setDownloadingPdfId] = useState<string | null>(null);
+  const [fullViewPhotoUrl, setFullViewPhotoUrl] = useState<string | null>(null);
 
   // Shortlist State & Persistence
   const [shortlistOnly, setShortlistOnly] = useState(false);
@@ -758,9 +761,12 @@ export const MatrimonialSection: React.FC = () => {
         </div>
       </div>
 
-      {/* Candidate Profiles Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {filtered.map((p) => {
+      {/* Candidate Profiles Grid or Skeleton Loading State */}
+      {isLoadingData ? (
+        <MatrimonialSkeleton />
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {filtered.map((p) => {
           const hasInterest = currentUser && p.interestsReceived?.includes(currentUser.id);
           const unlocked = isContactUnlocked(p);
           const isShortlisted = shortlistedIds.includes(p.id);
@@ -774,8 +780,12 @@ export const MatrimonialSection: React.FC = () => {
                 {/* Candidate Header Info */}
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-start gap-4 flex-1 min-w-0">
-                    <div className="relative w-20 h-24 rounded-xl overflow-hidden border-2 border-amber-400 shrink-0 shadow-md">
-                      <img src={p.photoUrl} alt={p.fullName} className="w-full h-full object-cover" />
+                    <div
+                      onClick={() => setFullViewPhotoUrl(p.photoUrl)}
+                      className="relative w-20 h-24 rounded-xl overflow-hidden border-2 border-amber-400 shrink-0 shadow-md cursor-pointer group/img hover:scale-105 transition-transform"
+                      title="Click to view full photo"
+                    >
+                      <img src={p.photoUrl} alt={p.fullName} className="w-full h-full object-cover group-hover/img:brightness-105 transition-all" />
                       <span
                         className={`absolute top-1 right-1 px-1.5 py-0.5 rounded text-[9px] font-extrabold uppercase ${
                           p.gender === 'Groom' ? 'bg-blue-600 text-white' : 'bg-pink-600 text-white'
@@ -940,7 +950,8 @@ export const MatrimonialSection: React.FC = () => {
             </div>
           );
         })}
-      </div>
+        </div>
+      )}
 
       {/* Empty State when no profiles match or no profiles shortlisted */}
       {filtered.length === 0 && (
@@ -1005,14 +1016,18 @@ export const MatrimonialSection: React.FC = () => {
 
                   return (
                     <div className="flex flex-col items-center gap-2 shrink-0">
-                      <div className="relative group">
+                      <div
+                        onClick={() => setFullViewPhotoUrl(currentPhoto)}
+                        className="relative group cursor-pointer hover:scale-105 transition-transform"
+                        title="Click for full view"
+                      >
                         <img
                           src={currentPhoto}
                           alt={selectedProfile.fullName}
-                          className="w-32 h-40 object-cover rounded-xl border-2 border-amber-400 shadow-md"
+                          className="w-32 h-40 object-cover rounded-xl border-2 border-amber-400 shadow-md group-hover:brightness-110 transition-all"
                         />
                         <span className="absolute bottom-1 right-1 bg-black/70 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-md">
-                          {activePhotoIndex + 1} / {allPhotos.length}
+                          🔍 {activePhotoIndex + 1} / {allPhotos.length}
                         </span>
                       </div>
 
@@ -2645,6 +2660,34 @@ export const MatrimonialSection: React.FC = () => {
                 <span>Save Candidate Photos</span>
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Full View Candidate Photo Lightbox */}
+      {fullViewPhotoUrl && (
+        <div
+          onClick={() => setFullViewPhotoUrl(null)}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md cursor-pointer animate-fade-in"
+        >
+          <div
+            className="relative max-w-4xl max-h-[90vh] flex flex-col items-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setFullViewPhotoUrl(null)}
+              className="absolute -top-12 right-0 text-white bg-slate-800/80 hover:bg-slate-700 p-2 rounded-full transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
+            >
+              <X className="w-6 h-6" />
+            </button>
+            <img
+              src={fullViewPhotoUrl}
+              alt="Candidate Full View"
+              className="max-h-[82vh] w-auto object-contain rounded-2xl shadow-2xl border-2 border-amber-400"
+            />
+            <p className="text-xs text-amber-200 mt-2 font-medium bg-slate-900/80 px-3 py-1 rounded-full border border-amber-500/30">
+              🔍 Full Resolution Candidate Image View
+            </p>
           </div>
         </div>
       )}

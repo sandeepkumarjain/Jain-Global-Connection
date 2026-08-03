@@ -13,7 +13,9 @@ import {
   MessageSquare,
   CheckCircle2,
   Filter,
-  X
+  X,
+  Mail,
+  Trash2
 } from 'lucide-react';
 
 export const EmergencyDirectory: React.FC = () => {
@@ -21,6 +23,8 @@ export const EmergencyDirectory: React.FC = () => {
     bloodDonors,
     jobs,
     addBloodDonor,
+    deleteJob,
+    businesses,
     currentUser,
     setIsUserProfileModalOpen,
     setIsAuthModalOpen,
@@ -471,28 +475,66 @@ export const EmergencyDirectory: React.FC = () => {
         </div>
 
         <div className="space-y-3">
-          {jobs.map((j) => (
-            <div
-              key={j.id}
-              className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs"
-            >
-              <div className="space-y-1">
-                <h4 className="font-bold text-slate-900 dark:text-white text-sm">{j.title}</h4>
-                <p className="text-amber-600 dark:text-amber-400 font-semibold">{j.company} • {j.location}</p>
-                <p className="text-slate-500 text-[11px]">{j.description}</p>
-                <span className="inline-block text-[10px] bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200 px-2 py-0.5 rounded font-bold">
-                  {j.salary}
-                </span>
-              </div>
+          {jobs.map((j) => {
+            const myBusinesses = businesses.filter(
+              (b) =>
+                currentUser &&
+                (b.ownerId === currentUser.id ||
+                  (currentUser.email && b.email?.toLowerCase() === currentUser.email.toLowerCase()))
+            );
+            const isMyJob =
+              currentUser &&
+              (currentUser.role === 'admin' ||
+                j.postedByUserId === currentUser.id ||
+                (j.businessId && myBusinesses.some((b) => b.id === j.businessId)) ||
+                (currentUser.email && j.contactEmail?.toLowerCase() === currentUser.email.toLowerCase()));
 
-              <a
-                href={`mailto:${j.contactEmail}`}
-                className="px-4 py-2.5 min-h-[44px] bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 shrink-0 text-center flex items-center justify-center"
+            return (
+              <div
+                key={j.id}
+                className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs"
               >
-                Apply via Email
-              </a>
-            </div>
-          ))}
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <h4 className="font-bold text-slate-900 dark:text-white text-sm">{j.title}</h4>
+                    <span className="px-2 py-0.5 bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 font-bold text-[10px] rounded">
+                      {j.type}
+                    </span>
+                  </div>
+                  <p className="text-amber-600 dark:text-amber-400 font-semibold">{j.company} • {j.location}</p>
+                  <p className="text-slate-500 text-[11px]">{j.description}</p>
+                  <span className="inline-block text-[10px] bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200 px-2 py-0.5 rounded font-bold">
+                    {j.salary}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <a
+                    href={`mailto:${j.contactEmail}`}
+                    className="px-4 py-2.5 min-h-[44px] bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 text-center flex items-center justify-center gap-1.5"
+                  >
+                    <Mail className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Apply via Email</span>
+                  </a>
+
+                  {isMyJob && (
+                    <button
+                      onClick={() => {
+                        if (window.confirm(`Are you sure you want to delete the job post "${j.title}"?`)) {
+                          deleteJob(j.id);
+                        }
+                      }}
+                      className="px-3 py-2.5 min-h-[44px] bg-red-100 text-red-700 dark:bg-red-950/80 dark:text-red-300 hover:bg-red-200 rounded-xl font-bold flex items-center justify-center gap-1 cursor-pointer"
+                      title="Delete your job position"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Delete</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>

@@ -13,15 +13,73 @@ import {
   QrCode,
   ShieldCheck,
   Plus,
-  X
+  X,
+  Heart,
+  CheckCircle2,
+  Sparkles
 } from 'lucide-react';
-import { CommunityMemberProfile } from '../types';
+import { CommunityMemberProfile, FamilyMember, MatrimonialProfile } from '../types';
 
 export const DirectorySection: React.FC = () => {
-  const { members, openRegistrationModal, showToast } = useApp();
+  const { members, openRegistrationModal, showToast, registerMatrimonialFromDirectory, currentUser } = useApp();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedMember, setSelectedMember] = useState<CommunityMemberProfile | null>(null);
   const [showIDModal, setShowIDModal] = useState(false);
+
+  // Quick Matrimonial Register Modal State
+  const [selectedMatCandidate, setSelectedMatCandidate] = useState<{
+    member: CommunityMemberProfile;
+    familyIdx: number;
+    familyMember: FamilyMember;
+  } | null>(null);
+
+  const [matFormData, setMatFormData] = useState<Partial<MatrimonialProfile>>({});
+
+  const handleOpenMatrimonialModal = (member: CommunityMemberProfile, familyIdx: number, fam: FamilyMember) => {
+    const isFemale = fam.gender === 'Female' || fam.relation === 'Daughter' || fam.relation === 'Sister';
+    const initialGender: 'Bride' | 'Groom' = isFemale ? 'Bride' : 'Groom';
+
+    setMatFormData({
+      fullName: `${fam.name} ${member.surname || ''}`.trim(),
+      gender: initialGender,
+      age: fam.age || 24,
+      height: "5'6\"",
+      maritalStatus: 'Unmarried',
+      sect: 'Shwetambar',
+      subSect: 'Murti Pujak',
+      fatherName: `${member.name} ${member.surname || ''}`.trim(),
+      motherName: 'Jain Family Mother',
+      selfGotra: 'Kashyap',
+      motherGotra: 'Gautam',
+      highestDegree: fam.occupation || 'B.Tech / MBA',
+      employedIn: 'Private Sector',
+      annualIncome: '10 - 15 Lakhs',
+      city: member.city || 'Mumbai',
+      state: member.state || 'Maharashtra',
+      country: member.country || 'India',
+      aboutMe: `Registered from Jain Family Directory. ${fam.name} is a polite, family-oriented Jain candidate.`,
+      contactMobile: member.mobile,
+      contactEmail: member.email,
+      photoUrl: isFemale
+        ? 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=600&q=80'
+        : 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=600&q=80',
+    });
+
+    setSelectedMatCandidate({ member, familyIdx, familyMember: fam });
+  };
+
+  const handleConfirmMatrimonialSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedMatCandidate) return;
+
+    await registerMatrimonialFromDirectory(
+      selectedMatCandidate.member.id,
+      selectedMatCandidate.familyIdx,
+      matFormData
+    );
+
+    setSelectedMatCandidate(null);
+  };
 
   const filtered = members.filter((m) => {
     if (
@@ -123,21 +181,62 @@ export const DirectorySection: React.FC = () => {
               </div>
             </div>
 
-            {/* Family Members snippet */}
+            {/* Family Members snippet with Direct Matrimonial Registration */}
             {m.familyMembers && m.familyMembers.length > 0 && (
-              <div className="bg-slate-50 dark:bg-slate-800/50 p-3 rounded-xl border border-slate-100 dark:border-slate-700 text-xs">
-                <p className="font-bold text-slate-700 dark:text-slate-300 text-[11px] mb-1">
-                  Family Members ({m.familyMembers.length}):
+              <div className="bg-slate-50 dark:bg-slate-800/50 p-3 rounded-2xl border border-slate-100 dark:border-slate-700/60 text-xs space-y-2">
+                <p className="font-extrabold text-slate-800 dark:text-slate-200 text-[11px] flex items-center justify-between">
+                  <span>Family Members ({m.familyMembers.length}):</span>
+                  <span className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold">
+                    Direct Matrimonial Eligible
+                  </span>
                 </p>
-                <div className="flex flex-wrap gap-1">
-                  {m.familyMembers.map((fam, idx) => (
-                    <span
-                      key={idx}
-                      className="px-2 py-0.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded text-[10px]"
-                    >
-                      {fam.name} ({fam.relation})
-                    </span>
-                  ))}
+
+                <div className="space-y-1.5">
+                  {m.familyMembers.map((fam, idx) => {
+                    const isEligibleForMatrimony =
+                      fam.age >= 18 ||
+                      fam.relation === 'Son' ||
+                      fam.relation === 'Daughter' ||
+                      fam.relation === 'Brother' ||
+                      fam.relation === 'Sister';
+
+                    return (
+                      <div
+                        key={idx}
+                        className="flex flex-wrap items-center justify-between gap-2 p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700/70 rounded-xl text-[11px]"
+                      >
+                        <div className="flex items-center gap-1.5 font-medium">
+                          <span className="font-bold text-slate-900 dark:text-slate-100">
+                            {fam.name}
+                          </span>
+                          <span className="text-[10px] text-slate-500">
+                            ({fam.relation} • {fam.age || 22} yrs)
+                          </span>
+                        </div>
+
+                        {fam.matrimonialProfileCreated ? (
+                          <span className="px-2 py-0.5 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-[10px] font-bold rounded-full flex items-center gap-1">
+                            <CheckCircle2 className="w-3 h-3 text-emerald-500" />
+                            <span>Matrimonial Active</span>
+                          </span>
+                        ) : isEligibleForMatrimony ? (
+                          <button
+                            type="button"
+                            onClick={() => handleOpenMatrimonialModal(m, idx, fam)}
+                            className="px-2.5 py-1 bg-gradient-to-r from-rose-500 to-amber-600 hover:from-rose-600 hover:to-amber-700 text-white font-bold text-[10px] rounded-lg shadow-sm flex items-center gap-1 transition-all active:scale-95"
+                            title="Directly register candidate in Jain Matrimonial Bureau"
+                          >
+                            <Heart className="w-3 h-3 fill-white" />
+                            <span>Register in Matrimonial</span>
+                          </button>
+                        ) : (
+                          <span className="text-[10px] text-slate-400 italic">
+                            {fam.occupation || 'Family Member'}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -225,6 +324,169 @@ export const DirectorySection: React.FC = () => {
             >
               Save Digital ID Card
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Quick Matrimonial Registration Modal from Directory */}
+      {selectedMatCandidate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md overflow-y-auto">
+          <div className="bg-white dark:bg-slate-900 border border-rose-300 dark:border-rose-800 rounded-3xl w-full max-w-xl p-6 sm:p-8 shadow-2xl relative text-slate-800 dark:text-slate-100 my-8 space-y-5">
+            <button
+              onClick={() => setSelectedMatCandidate(null)}
+              className="absolute top-5 right-5 text-slate-400 hover:text-white p-2 rounded-full"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="space-y-1 text-center border-b border-rose-100 dark:border-rose-900/50 pb-4">
+              <div className="inline-flex p-3 bg-rose-100 dark:bg-rose-950/60 rounded-2xl text-rose-600 dark:text-rose-400 mb-1">
+                <Heart className="w-7 h-7 fill-rose-500" />
+              </div>
+              <h3 className="text-xl font-extrabold font-serif text-slate-900 dark:text-white">
+                Register Candidate in Jain Matrimonial Bureau
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Pre-filled from <span className="font-bold">{selectedMatCandidate.member.name} {selectedMatCandidate.member.surname}</span> family profile in Jain Directory.
+              </p>
+            </div>
+
+            <form onSubmit={handleConfirmMatrimonialSubmit} className="space-y-4 text-xs">
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Candidate Full Name *</label>
+                  <input
+                    type="text"
+                    value={matFormData.fullName || ''}
+                    onChange={(e) => setMatFormData({ ...matFormData, fullName: e.target.value })}
+                    required
+                    className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border font-medium"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Gender / Role *</label>
+                  <select
+                    value={matFormData.gender || 'Bride'}
+                    onChange={(e) => setMatFormData({ ...matFormData, gender: e.target.value as 'Bride' | 'Groom' })}
+                    className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border font-bold"
+                  >
+                    <option value="Bride">Bride (Kanya)</option>
+                    <option value="Groom">Groom (Var)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Age (Yrs)</label>
+                  <input
+                    type="number"
+                    value={matFormData.age || 24}
+                    onChange={(e) => setMatFormData({ ...matFormData, age: parseInt(e.target.value) || 24 })}
+                    className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border font-medium"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Height</label>
+                  <input
+                    type="text"
+                    value={matFormData.height || "5'6\""}
+                    onChange={(e) => setMatFormData({ ...matFormData, height: e.target.value })}
+                    className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border font-medium"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Sect</label>
+                  <select
+                    value={matFormData.sect || 'Shwetambar'}
+                    onChange={(e) => setMatFormData({ ...matFormData, sect: e.target.value })}
+                    className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border font-medium"
+                  >
+                    <option value="Shwetambar">Shwetambar</option>
+                    <option value="Digambar">Digambar</option>
+                    <option value="Sthanakvasi">Sthanakvasi</option>
+                    <option value="Terapanthi">Terapanthi</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Self Gotra</label>
+                  <input
+                    type="text"
+                    value={matFormData.selfGotra || 'Kashyap'}
+                    onChange={(e) => setMatFormData({ ...matFormData, selfGotra: e.target.value })}
+                    className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border font-medium"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Mother Gotra</label>
+                  <input
+                    type="text"
+                    value={matFormData.motherGotra || 'Gautam'}
+                    onChange={(e) => setMatFormData({ ...matFormData, motherGotra: e.target.value })}
+                    className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border font-medium"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">City / Location</label>
+                  <input
+                    type="text"
+                    value={matFormData.city || ''}
+                    onChange={(e) => setMatFormData({ ...matFormData, city: e.target.value })}
+                    className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border font-medium"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Contact Mobile</label>
+                  <input
+                    type="text"
+                    value={matFormData.contactMobile || ''}
+                    onChange={(e) => setMatFormData({ ...matFormData, contactMobile: e.target.value })}
+                    className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border font-medium"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Candidate Photo URL</label>
+                <input
+                  type="url"
+                  value={matFormData.photoUrl || ''}
+                  onChange={(e) => setMatFormData({ ...matFormData, photoUrl: e.target.value })}
+                  className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border font-medium"
+                />
+              </div>
+
+              <div className="pt-2 flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setSelectedMatCandidate(null)}
+                  className="px-4 py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold rounded-xl"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="submit"
+                  className="px-6 py-2.5 bg-gradient-to-r from-rose-600 to-amber-600 hover:from-rose-700 hover:to-amber-700 text-white font-bold rounded-xl shadow-lg flex items-center gap-2"
+                >
+                  <Sparkles className="w-4 h-4" />
+                  <span>Confirm & Register Matrimonial Candidate</span>
+                </button>
+              </div>
+
+            </form>
           </div>
         </div>
       )}

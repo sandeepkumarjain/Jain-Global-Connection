@@ -3,6 +3,7 @@ import { useApp } from '../context/AppContext';
 import { QRCodeSVG } from 'qrcode.react';
 import { VerifiedBadge } from './VerifiedBadge';
 import html2canvas from 'html2canvas';
+import { BusinessSkeleton } from './Skeletons';
 import {
   Building2,
   Search,
@@ -26,9 +27,26 @@ import {
   Navigation,
   Sparkles,
   Camera,
-  Layers
+  Layers,
+  Edit,
+  Trash2,
+  Printer,
+  Copy,
+  Check,
+  Smartphone,
+  Link,
+  Upload,
+  Image as ImageIcon
 } from 'lucide-react';
-import { BusinessListing } from '../types';
+import { BusinessListing, JobItem } from '../types';
+import { BusinessMapView } from './BusinessMapView';
+
+const BRANDING_COVER_PRESETS = [
+  { name: 'Gold Shimmer', url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=80' },
+  { name: 'Diamond Facet', url: 'https://images.unsplash.com/photo-1579546929518-9e396f3cc809?auto=format&fit=crop&w=800&q=80' },
+  { name: 'Royal Emerald', url: 'https://images.unsplash.com/photo-1550684848-fac1c5b4e853?auto=format&fit=crop&w=800&q=80' },
+  { name: 'Obsidian Velvet', url: 'https://images.unsplash.com/photo-1507679799987-c73779587ccf?auto=format&fit=crop&w=800&q=80' },
+];
 
 const CARD_DESIGN_STYLES = [
   {
@@ -94,7 +112,63 @@ const CARD_DESIGN_STYLES = [
 ];
 
 export const BusinessSection: React.FC = () => {
-  const { businesses, openRegistrationModal, showToast, openGmailModal, currentUser, setIsAuthModalOpen, addJob } = useApp();
+  const {
+    businesses,
+    jobs,
+    openRegistrationModal,
+    showToast,
+    openGmailModal,
+    currentUser,
+    setIsAuthModalOpen,
+    addJob,
+    updateJob,
+    deleteJob,
+    updateBusinessListing,
+    isLoadingData
+  } = useApp();
+
+  // Logo & Cover Image Upload Handlers (Device Camera or System File)
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>, business: BusinessListing) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 8 * 1024 * 1024) {
+      showToast('File Too Large', 'Please select an image smaller than 8MB.', 'error');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const result = event.target?.result as string;
+      if (result) {
+        updateBusinessListing(business.id, { logoUrl: result });
+        if (visitingCardBusiness && visitingCardBusiness.id === business.id) {
+          setVisitingCardBusiness({ ...visitingCardBusiness, logoUrl: result });
+        }
+        showToast('Logo Updated', 'Business card logo updated successfully from device.', 'success');
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleCoverUpload = (e: React.ChangeEvent<HTMLInputElement>, business: BusinessListing) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 8 * 1024 * 1024) {
+      showToast('File Too Large', 'Please select an image smaller than 8MB.', 'error');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const result = event.target?.result as string;
+      if (result) {
+        updateBusinessListing(business.id, { coverImageUrl: result });
+        if (visitingCardBusiness && visitingCardBusiness.id === business.id) {
+          setVisitingCardBusiness({ ...visitingCardBusiness, coverImageUrl: result });
+        }
+        showToast('Cover Banner Updated', 'Card cover banner updated successfully.', 'success');
+      }
+    };
+    reader.readAsDataURL(file);
+  };
 
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [searchTerm, setSearchTerm] = useState('');
@@ -105,8 +179,15 @@ export const BusinessSection: React.FC = () => {
   const [visitingCardBusiness, setVisitingCardBusiness] = useState<BusinessListing | null>(null);
   const [cardDesignIndex, setCardDesignIndex] = useState(0);
 
+  // Business QR Code Standee / Poster Modal State
+  const [qrModalBusiness, setQrModalBusiness] = useState<BusinessListing | null>(null);
+  const [qrPayloadType, setQrPayloadType] = useState<'profile' | 'vcard' | 'whatsapp' | 'maps'>('profile');
+  const [qrTheme, setQrTheme] = useState<'gold' | 'emerald' | 'saffron' | 'minimal'>('gold');
+  const [isCopiedLink, setIsCopiedLink] = useState(false);
+
   // Post Job Modal State
   const [showPostJobModal, setShowPostJobModal] = useState(false);
+  const [editingJob, setEditingJob] = useState<JobItem | null>(null);
   const [jobTitle, setJobTitle] = useState('');
   const [jobCompany, setJobCompany] = useState('');
   const [jobLocation, setJobLocation] = useState('Mumbai');
@@ -185,6 +266,29 @@ export const BusinessSection: React.FC = () => {
     return true;
   });
 
+  const isOwnerOfBusiness = (b: BusinessListing): boolean => {
+    if (!currentUser) return false;
+    if (currentUser.role === 'admin') return true;
+    return (
+      b.ownerId === currentUser.id ||
+      b.applicationId === currentUser.id ||
+      b.applicationId === currentUser.applicationId ||
+      (currentUser.email && b.email?.toLowerCase() === currentUser.email.toLowerCase())
+    );
+  };
+
+  const myBusinesses = businesses.filter((b) => isOwnerOfBusiness(b));
+
+  const myJobs = jobs.filter((j) => {
+    if (!currentUser) return false;
+    if (currentUser.role === 'admin') return true;
+    if (j.postedByUserId && j.postedByUserId === currentUser.id) return true;
+    if (j.businessId && myBusinesses.some((b) => b.id === j.businessId)) return true;
+    if (currentUser.email && j.contactEmail?.toLowerCase() === currentUser.email.toLowerCase()) return true;
+    if (myBusinesses.some((b) => b.businessName.toLowerCase() === j.company?.toLowerCase())) return true;
+    return false;
+  });
+
   const handleWhatsAppChat = (mobile: string, name: string) => {
     if (!currentUser) {
       showToast('Sign In Required', 'Please sign in or register to connect via WhatsApp.', 'info');
@@ -195,6 +299,18 @@ export const BusinessSection: React.FC = () => {
     window.open(`https://wa.me/${cleanNum}?text=Jai%20Jinendra!%20Inquiring%20about%20${encodeURIComponent(name)}%20via%20Jain%20Connect%20Global.`, '_blank');
   };
 
+  const handleOpenEditJobModal = (jobToEdit: JobItem) => {
+    setEditingJob(jobToEdit);
+    setJobTitle(jobToEdit.title);
+    setJobCompany(jobToEdit.company);
+    setJobLocation(jobToEdit.location);
+    setJobType(jobToEdit.type || 'Full-time');
+    setJobSalary(jobToEdit.salary || '');
+    setJobContactEmail(jobToEdit.contactEmail);
+    setJobDescription(jobToEdit.description || '');
+    setShowPostJobModal(true);
+  };
+
   // Open Post Job Modal with auto-filled company info
   const handleOpenPostJobModal = () => {
     if (!currentUser) {
@@ -203,14 +319,15 @@ export const BusinessSection: React.FC = () => {
       return;
     }
 
-    const myBusiness = businesses.find(
-      (b) => b.ownerId === currentUser.id || (currentUser.email && b.email?.toLowerCase() === currentUser.email.toLowerCase())
-    );
+    setEditingJob(null);
+    const myBusiness = myBusinesses[0];
 
     const defaultCompany = myBusiness?.businessName || currentUser.company || currentUser.fullName || 'Jain Business Enterprise';
     const defaultEmail = myBusiness?.email || currentUser.email || 'hr@jainbusiness.org';
     const defaultCity = myBusiness?.city || currentUser.city || 'Mumbai';
 
+    setJobTitle('');
+    setJobDescription('');
     setJobCompany(defaultCompany);
     setJobContactEmail(defaultEmail);
     setJobLocation(defaultCity);
@@ -224,17 +341,36 @@ export const BusinessSection: React.FC = () => {
       return;
     }
 
-    addJob({
-      title: jobTitle,
-      company: jobCompany,
-      location: jobLocation,
-      type: jobType,
-      salary: jobSalary,
-      contactEmail: jobContactEmail,
-      description: jobDescription,
-    });
+    const myBusiness = myBusinesses[0];
+
+    if (editingJob) {
+      updateJob(editingJob.id, {
+        title: jobTitle,
+        company: jobCompany,
+        location: jobLocation,
+        type: jobType as any,
+        salary: jobSalary,
+        contactEmail: jobContactEmail,
+        description: jobDescription,
+        businessId: myBusiness?.id || editingJob.businessId,
+        postedByUserId: currentUser?.id || editingJob.postedByUserId,
+      });
+    } else {
+      addJob({
+        businessId: myBusiness?.id,
+        postedByUserId: currentUser?.id,
+        title: jobTitle,
+        company: jobCompany,
+        location: jobLocation,
+        type: jobType as any,
+        salary: jobSalary,
+        contactEmail: jobContactEmail,
+        description: jobDescription,
+      });
+    }
 
     setShowPostJobModal(false);
+    setEditingJob(null);
     setJobTitle('');
     setJobDescription('');
   };
@@ -262,6 +398,105 @@ export const BusinessSection: React.FC = () => {
       console.error('Error generating visiting card image:', err);
       showToast('Card Download Error', 'Unable to capture card image.', 'error');
     }
+  };
+
+  const getQrValueForBusiness = (
+    b: BusinessListing,
+    type: 'profile' | 'vcard' | 'whatsapp' | 'maps'
+  ) => {
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://jainconnectglobal.org';
+    switch (type) {
+      case 'profile':
+        return `${origin}/#business-${b.id}`;
+      case 'whatsapp': {
+        const cleanNum = (b.whatsapp || b.mobile || '').replace(/\D/g, '');
+        return `https://wa.me/${cleanNum}?text=${encodeURIComponent(`Hello ${b.businessName}, I found your listing on Jain Connect Global.`)}`;
+      }
+      case 'maps':
+        return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${b.businessName} ${b.address} ${b.city}`)}`;
+      case 'vcard':
+        return `BEGIN:VCARD
+VERSION:3.0
+FN:${b.businessName}
+ORG:${b.businessName}
+TITLE:${b.category}
+TEL;TYPE=CELL:${b.mobile}
+TEL;TYPE=WORK,VOICE:${b.whatsapp || b.mobile}
+EMAIL:${b.email}
+ADR;TYPE=WORK:;;${b.address};${b.city};${b.state};;
+NOTE:Jain Verified Business (ID: ${b.id})${b.gstNumber ? `. GSTIN: ${b.gstNumber}` : ''}
+URL:${b.website || `${origin}/#business-${b.id}`}
+END:VCARD`;
+      default:
+        return `${origin}/#business-${b.id}`;
+    }
+  };
+
+  const handleDownloadQrPosterPng = async () => {
+    const node = document.getElementById('business-qr-poster-node');
+    if (!node || !qrModalBusiness) return;
+    try {
+      showToast('Rendering Poster', 'Generating high-resolution printable QR poster...', 'info');
+      const canvas = await html2canvas(node, {
+        scale: 3,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: null,
+      });
+      const dataUrl = canvas.toDataURL('image/png', 1.0);
+      const link = document.createElement('a');
+      link.href = dataUrl;
+      link.download = `Business_QR_Poster_${qrModalBusiness.businessName.replace(/\s+/g, '_')}_${qrPayloadType}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      showToast('QR Poster Downloaded!', 'Saved as 3x high-res PNG file for printing.', 'success');
+    } catch (err) {
+      console.error('Error generating QR poster image:', err);
+      showToast('Poster Download Failed', 'Unable to capture poster element.', 'error');
+    }
+  };
+
+  const handleDownloadQrCodeOnly = () => {
+    const svg = document.getElementById('business-qr-code-svg');
+    if (!svg || !qrModalBusiness) return;
+    try {
+      const svgData = new XMLSerializer().serializeToString(svg);
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      const img = new Image();
+      img.onload = () => {
+        canvas.width = 800;
+        canvas.height = 800;
+        if (ctx) {
+          ctx.fillStyle = '#FFFFFF';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(img, 0, 0, 800, 800);
+        }
+        const pngUrl = canvas.toDataURL('image/png');
+        const link = document.createElement('a');
+        link.href = pngUrl;
+        link.download = `QR_Code_${qrModalBusiness.businessName.replace(/\s+/g, '_')}.png`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        showToast('Pure QR Image Downloaded', 'Standalone high-res QR code saved.', 'success');
+      };
+      img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgData);
+    } catch (err) {
+      console.error('Error downloading QR image:', err);
+      showToast('Download Failed', 'Unable to extract pure QR SVG.', 'error');
+    }
+  };
+
+  const handleCopyQrPayload = (payload: string) => {
+    navigator.clipboard.writeText(payload).then(() => {
+      setIsCopiedLink(true);
+      showToast('Payload Copied!', 'QR Code link / text copied to clipboard.', 'success');
+      setTimeout(() => setIsCopiedLink(false), 2500);
+    }).catch(() => {
+      showToast('Copy Failed', 'Unable to copy text to clipboard.', 'error');
+    });
   };
 
   return (
@@ -309,6 +544,196 @@ export const BusinessSection: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* BUSINESS OWNER PANES & JOB POSITION MANAGEMENT */}
+      {currentUser && (
+        <div className="bg-white dark:bg-slate-900 border-2 border-amber-400/60 dark:border-amber-900/60 rounded-3xl p-5 sm:p-6 shadow-xl space-y-5">
+          {/* Pane Header */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
+            <div className="flex items-center gap-2.5">
+              <span className="p-2.5 bg-amber-500/20 text-amber-700 dark:text-amber-400 rounded-2xl border border-amber-500/40">
+                <Building2 className="w-5 h-5 text-amber-500" />
+              </span>
+              <div>
+                <h3 className="text-base font-extrabold uppercase tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
+                  My Business Workspace & Job Management
+                  <span className="text-[10px] px-2.5 py-0.5 bg-amber-500 text-slate-950 font-black rounded-full uppercase">
+                    Business ID Pane
+                  </span>
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Manage your registered business ID, access your digital visiting card, and post or delete job positions.
+                </p>
+              </div>
+            </div>
+
+            <button
+              onClick={handleOpenPostJobModal}
+              className="px-4 py-2.5 min-h-[44px] bg-amber-600 hover:bg-amber-700 text-white font-extrabold text-xs rounded-xl shadow transition-all flex items-center justify-center gap-2 shrink-0 cursor-pointer"
+            >
+              <Plus className="w-4 h-4" />
+              <span>+ Post New Job Position</span>
+            </button>
+          </div>
+
+          {/* Section A: My Business Listing(s) */}
+          {myBusinesses.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {myBusinesses.map((b) => (
+                <div
+                  key={b.id}
+                  className="p-4 rounded-2xl bg-amber-50/40 dark:bg-slate-800/80 border border-amber-300 dark:border-amber-800/60 space-y-3"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start gap-3">
+                      <img
+                        src={b.logoUrl}
+                        alt={b.businessName}
+                        className="w-12 h-12 rounded-xl object-cover border border-amber-300 shrink-0 bg-white"
+                      />
+                      <div className="space-y-0.5">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <h4 className="font-extrabold text-sm text-slate-900 dark:text-white">{b.businessName}</h4>
+                          <span className="text-[10px] px-2 py-0.5 bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 font-bold rounded">
+                            ID: {b.id}
+                          </span>
+                        </div>
+                        <p className="text-xs text-amber-700 dark:text-amber-400 font-semibold">{b.category}</p>
+                        <p className="text-[11px] text-slate-500">{b.city}, {b.state}</p>
+                      </div>
+                    </div>
+
+                    {/* Digital Visiting Card Studio & QR Code Buttons */}
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        onClick={() => {
+                          setVisitingCardBusiness(b);
+                          setCardDesignIndex(0);
+                        }}
+                        className="px-2.5 py-2 bg-slate-950 text-amber-300 dark:bg-amber-500 dark:text-slate-950 font-black text-xs rounded-xl shadow-md flex items-center gap-1 hover:scale-105 transition-all cursor-pointer"
+                        title="Access Digital Visiting Card Studio"
+                      >
+                        <QrCode className="w-3.5 h-3.5" />
+                        <span>Card</span>
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          setQrModalBusiness(b);
+                          setQrPayloadType('profile');
+                          setQrTheme('gold');
+                        }}
+                        className="px-2.5 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs rounded-xl shadow-md flex items-center gap-1 hover:scale-105 transition-all cursor-pointer"
+                        title="Generate & Download Printable QR Poster for Physical Spaces"
+                      >
+                        <Printer className="w-3.5 h-3.5" />
+                        <span>QR Poster</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 text-xs text-slate-600 dark:text-slate-300 flex flex-col sm:flex-row items-center justify-between gap-3">
+              <p className="font-medium">
+                You don't have a registered business listing associated with your profile yet. Register your business to generate your Business ID!
+              </p>
+              <button
+                onClick={() => openRegistrationModal('business')}
+                className="px-4 py-2.5 min-h-[44px] bg-slate-900 text-white rounded-xl font-extrabold whitespace-nowrap hover:bg-slate-800 transition-all cursor-pointer shrink-0"
+              >
+                List Business
+              </button>
+            </div>
+          )}
+
+          {/* Section B: Job Positions in His Pane */}
+          <div className="space-y-3 pt-2 border-t border-slate-100 dark:border-slate-800">
+            <div className="flex items-center justify-between">
+              <h4 className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                <Briefcase className="w-4 h-4 text-amber-500" />
+                <span>Job Openings Posted by My Business ID ({myJobs.length})</span>
+              </h4>
+              <span className="text-[10px] text-slate-400 italic hidden sm:inline">
+                Click trash icon to delete any position from your pane anytime
+              </span>
+            </div>
+
+            {myJobs.length === 0 ? (
+              <div className="p-6 text-center text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-dashed border-slate-200 dark:border-slate-700/80 space-y-2">
+                <Briefcase className="w-8 h-8 text-amber-500/60 mx-auto" />
+                <p className="text-xs font-bold text-slate-800 dark:text-slate-200">No Job Positions Currently Posted for your Business ID.</p>
+                <p className="text-[11px]">Click "+ Post New Job Position" above to create a hiring post.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {myJobs.map((j) => (
+                  <div
+                    key={j.id}
+                    className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 shadow-sm flex flex-col justify-between space-y-3"
+                  >
+                    <div className="space-y-1.5">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <h5 className="font-extrabold text-sm text-slate-900 dark:text-white truncate">{j.title}</h5>
+                          <p className="text-xs text-amber-600 dark:text-amber-400 font-bold">{j.company}</p>
+                        </div>
+                        <span className="px-2 py-0.5 bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 font-extrabold text-[10px] rounded shrink-0">
+                          {j.type}
+                        </span>
+                      </div>
+
+                      <p className="text-xs text-slate-600 dark:text-slate-300 line-clamp-2">{j.description}</p>
+
+                      <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-500 pt-1">
+                        <span>📍 {j.location}</span>
+                        <span>• 💰 {j.salary}</span>
+                        {j.businessId && (
+                          <span className="font-mono text-[10px] text-slate-400">
+                            • ID: {j.businessId}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Action buttons inside his pane */}
+                    <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-200 dark:border-slate-700">
+                      <span className="text-[10px] text-slate-400 font-mono">
+                        Posted: {j.postedDate}
+                      </span>
+
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={() => handleOpenEditJobModal(j)}
+                          className="px-2.5 py-1.5 bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300 hover:bg-amber-200 font-bold text-xs rounded-xl transition-all flex items-center gap-1 cursor-pointer"
+                          title="Edit/Update Job Position Details"
+                        >
+                          <Edit className="w-3.5 h-3.5" />
+                          <span>Edit</span>
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            if (window.confirm(`Are you sure you want to delete the job post "${j.title}"?`)) {
+                              deleteJob(j.id);
+                            }
+                          }}
+                          className="px-2.5 py-1.5 bg-red-100 text-red-700 dark:bg-red-950/80 dark:text-red-300 hover:bg-red-200 font-bold text-xs rounded-xl transition-all flex items-center gap-1 cursor-pointer"
+                          title="Delete Job Post from your pane"
+                        >
+                          <Trash2 className="w-3.5 h-3.5 text-red-600 dark:text-red-400" />
+                          <span>Delete</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Search, Category Filter & View Mode Controls */}
       <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-3">
@@ -383,89 +808,29 @@ export const BusinessSection: React.FC = () => {
         </div>
       </div>
 
-      {/* GOOGLE MAP VIEW */}
+      {/* INTERACTIVE COMMERCIAL MAP VIEW */}
       {viewMode === 'map' && (
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-4 shadow-xl space-y-4">
-          <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
-            <div className="flex items-center gap-2">
-              <MapPin className="w-5 h-5 text-amber-500" />
-              <h3 className="font-extrabold text-sm text-slate-900 dark:text-white">
-                Interactive Google Map Directory ({filtered.length} Locations)
-              </h3>
-            </div>
-            <span className="text-xs text-slate-500 italic">Click any location pin or business card for directions</span>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            {/* Embedded Google Map Frame */}
-            <div className="lg:col-span-2 rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-md h-[450px] relative bg-slate-100 dark:bg-slate-950">
-              <iframe
-                title="Google Maps Business Directory"
-                width="100%"
-                height="100%"
-                style={{ border: 0 }}
-                loading="lazy"
-                allowFullScreen
-                src={`https://maps.google.com/maps?q=${encodeURIComponent(
-                  filtered.length > 0
-                    ? `${filtered[0].businessName}, ${filtered[0].address}, ${filtered[0].city}`
-                    : 'Mumbai, India'
-                )}&t=&z=12&ie=UTF8&iwloc=&output=embed`}
-              />
-              <div className="absolute top-3 left-3 bg-slate-900/90 backdrop-blur-md text-amber-300 px-3 py-1.5 rounded-xl border border-amber-500/40 text-[11px] font-bold shadow flex items-center gap-1.5">
-                <Navigation className="w-3.5 h-3.5 text-amber-400" />
-                <span>Showing locations in {selectedCategory === 'All' ? 'All Categories' : selectedCategory}</span>
-              </div>
-            </div>
-
-            {/* Side List of Mapped Businesses */}
-            <div className="space-y-3 max-h-[450px] overflow-y-auto pr-1">
-              {filtered.map((b) => (
-                <div
-                  key={b.id}
-                  className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 hover:border-amber-500 transition-all space-y-2 text-xs"
-                >
-                  <div className="flex items-start gap-2.5">
-                    <img src={b.logoUrl} alt={b.businessName} className="w-10 h-10 rounded-lg object-cover border shrink-0" />
-                    <div className="min-w-0 flex-1">
-                      <h4 className="font-bold text-slate-900 dark:text-white truncate">{b.businessName}</h4>
-                      <p className="text-[11px] text-amber-600 dark:text-amber-400 font-semibold">{b.category}</p>
-                      <p className="text-[10px] text-slate-500 truncate">{b.address}, {b.city}</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-1.5 pt-1 border-t border-slate-200 dark:border-slate-700/60">
-                    <a
-                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${b.businessName} ${b.address} ${b.city}`)}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="flex-1 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold text-center text-[10px] flex items-center justify-center gap-1"
-                    >
-                      <Navigation className="w-3 h-3" />
-                      <span>Directions</span>
-                    </a>
-                    <button
-                      onClick={() => {
-                        setVisitingCardBusiness(b);
-                        setCardDesignIndex(0);
-                      }}
-                      className="px-2.5 py-1.5 bg-slate-900 dark:bg-slate-700 text-amber-300 rounded-lg font-bold text-[10px] flex items-center gap-1"
-                    >
-                      <QrCode className="w-3 h-3" />
-                      <span>Card</span>
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
+        <BusinessMapView
+          businesses={businesses}
+          selectedCategory={selectedCategory}
+          onSelectCategory={setSelectedCategory}
+          openGmailModal={openGmailModal}
+          setVisitingCardBusiness={setVisitingCardBusiness}
+          setQrModalBusiness={setQrModalBusiness}
+          isOwnerOfBusiness={isOwnerOfBusiness}
+          currentUser={currentUser}
+          setIsAuthModalOpen={setIsAuthModalOpen}
+          showToast={showToast}
+        />
       )}
 
-      {/* Business Cards Grid View */}
+      {/* Business Cards Grid View or Skeleton Loading State */}
       {viewMode === 'grid' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filtered.map((b) => (
+        isLoadingData ? (
+          <BusinessSkeleton />
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filtered.map((b) => (
             <div
               key={b.id}
               className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-lg hover:border-amber-500/50 transition-all flex flex-col justify-between"
@@ -555,77 +920,137 @@ export const BusinessSection: React.FC = () => {
               </div>
 
               {/* Actions */}
-              <div className="bg-slate-50 dark:bg-slate-800/60 p-3 border-t border-slate-200 dark:border-slate-800 grid grid-cols-4 gap-1.5 text-xs font-bold">
-                <button
-                  onClick={() => {
-                    if (!currentUser) {
-                      showToast('Sign In Required', 'Please sign in or register to view digital visiting cards & QR codes.', 'info');
-                      setIsAuthModalOpen(true);
-                      return;
-                    }
-                    setVisitingCardBusiness(b);
-                    setCardDesignIndex(0);
-                  }}
-                  className="py-2.5 min-h-[44px] bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 rounded-lg hover:bg-slate-100 flex items-center justify-center gap-1 cursor-pointer"
-                  title="Digital Visiting Card Studio"
-                >
-                  <QrCode className="w-3.5 h-3.5 text-amber-500" />
-                  <span className="hidden sm:inline">Card</span>
-                </button>
+              {(() => {
+                const canManageCard = isOwnerOfBusiness(b);
+                return (
+                  <div className="bg-slate-50 dark:bg-slate-800/60 p-3 border-t border-slate-200 dark:border-slate-800 grid grid-cols-4 gap-1.5 text-xs font-bold">
+                    {canManageCard ? (
+                      <button
+                        onClick={() => {
+                          if (!currentUser) {
+                            showToast('Sign In Required', 'Please sign in or register to view digital visiting cards.', 'info');
+                            setIsAuthModalOpen(true);
+                            return;
+                          }
+                          setVisitingCardBusiness(b);
+                          setCardDesignIndex(0);
+                        }}
+                        className="py-2.5 min-h-[44px] bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 rounded-lg hover:bg-slate-100 flex items-center justify-center gap-1 cursor-pointer"
+                        title="Digital Visiting Card Studio (Owner Only)"
+                      >
+                        <QrCode className="w-3.5 h-3.5 text-amber-500" />
+                        <span className="hidden sm:inline">Card</span>
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => {
+                          setQrModalBusiness(b);
+                          setQrPayloadType('profile');
+                          setQrTheme('gold');
+                        }}
+                        className="py-2.5 min-h-[44px] bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30 rounded-lg flex items-center justify-center gap-1 cursor-pointer"
+                        title="Generate & Download Unique QR Code for Business"
+                      >
+                        <QrCode className="w-3.5 h-3.5 text-amber-500" />
+                        <span className="hidden sm:inline">QR Code</span>
+                      </button>
+                    )}
 
-                <button
-                  onClick={() => {
-                    if (!currentUser) {
-                      showToast('Sign In Required', 'Please sign in or register to connect via WhatsApp.', 'info');
-                      setIsAuthModalOpen(true);
-                      return;
-                    }
-                    handleWhatsAppChat(b.whatsapp, b.businessName);
-                  }}
-                  className="py-2.5 min-h-[44px] bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg flex items-center justify-center gap-1 shadow-sm cursor-pointer"
-                >
-                  <MessageSquare className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">WhatsApp</span>
-                </button>
+                    {canManageCard && (
+                      <button
+                        onClick={() => {
+                          setQrModalBusiness(b);
+                          setQrPayloadType('profile');
+                          setQrTheme('gold');
+                        }}
+                        className="py-2.5 min-h-[44px] bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30 rounded-lg flex items-center justify-center gap-1 cursor-pointer"
+                        title="Generate & Download Unique QR Poster"
+                      >
+                        <Printer className="w-3.5 h-3.5 text-amber-500" />
+                        <span className="hidden sm:inline">QR Poster</span>
+                      </button>
+                    )}
 
-                <button
-                  onClick={() => {
-                    if (!currentUser) {
-                      showToast('Sign In Required', 'Please sign in or register to send emails via Gmail.', 'info');
-                      setIsAuthModalOpen(true);
-                      return;
-                    }
-                    openGmailModal(b.email, `Inquiry regarding ${b.businessName}`, `Respected ${b.contactPerson || 'Vendor'},\n\nI found your business listing on Jain Connect Global.`);
-                  }}
-                  className="py-2.5 min-h-[44px] bg-sky-600 hover:bg-sky-700 text-white rounded-lg flex items-center justify-center gap-1 shadow-sm cursor-pointer"
-                  title="Send Gmail"
-                >
-                  <Mail className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Gmail</span>
-                </button>
+                    <button
+                      onClick={() => {
+                        if (!currentUser) {
+                          showToast('Sign In Required', 'Please sign in or register to connect via WhatsApp.', 'info');
+                          setIsAuthModalOpen(true);
+                          return;
+                        }
+                        handleWhatsAppChat(b.whatsapp, b.businessName);
+                      }}
+                      className="py-2.5 min-h-[44px] bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg flex items-center justify-center gap-1 shadow-sm cursor-pointer"
+                    >
+                      <MessageSquare className="w-3.5 h-3.5" />
+                      <span className="hidden sm:inline">WhatsApp</span>
+                    </button>
 
-                <button
-                  onClick={() => {
-                    if (!currentUser) {
-                      showToast('Sign In Required', 'Please sign in or register to make direct phone calls.', 'info');
-                      setIsAuthModalOpen(true);
-                      return;
-                    }
-                    window.location.href = `tel:${b.mobile}`;
-                  }}
-                  className="py-2.5 min-h-[44px] bg-amber-600 hover:bg-amber-700 text-white rounded-lg flex items-center justify-center gap-1 shadow-sm cursor-pointer"
-                >
-                  <Phone className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Call</span>
-                </button>
-              </div>
-            </div>
-          ))}
+                    {!canManageCard ? (
+                      <button
+                        onClick={() => {
+                          if (!currentUser) {
+                            showToast('Sign In Required', 'Please sign in or register to send emails via Gmail.', 'info');
+                            setIsAuthModalOpen(true);
+                            return;
+                          }
+                          openGmailModal(b.email, `Inquiry regarding ${b.businessName}`, `Respected ${b.contactPerson || 'Vendor'},\n\nI found your business listing on Jain Connect Global.`);
+                        }}
+                        className="py-2.5 min-h-[44px] bg-sky-600 hover:bg-sky-700 text-white rounded-lg flex items-center justify-center gap-1 shadow-sm cursor-pointer"
+                        title="Send Gmail"
+                      >
+                        <Mail className="w-3.5 h-3.5" />
+                        <span className="hidden sm:inline">Gmail</span>
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => {
+                          if (!currentUser) {
+                            showToast('Sign In Required', 'Please sign in or register to make direct phone calls.', 'info');
+                            setIsAuthModalOpen(true);
+                            return;
+                          }
+                          window.location.href = `tel:${b.mobile}`;
+                        }}
+                        className="py-2.5 min-h-[44px] bg-amber-600 hover:bg-amber-700 text-white rounded-lg flex items-center justify-center gap-1 shadow-sm cursor-pointer"
+                      >
+                        <Phone className="w-3.5 h-3.5" />
+                        <span className="hidden sm:inline">Call</span>
+                      </button>
+                    )}
+                  </div>
+                );
+              })()}
         </div>
+      ))}
+        </div>
+        )
       )}
 
       {/* DIGITAL VISITING CARD STUDIO MODAL WITH REGENERATE DESIGN & JPG DOWNLOAD */}
       {visitingCardBusiness && (() => {
+        if (!isOwnerOfBusiness(visitingCardBusiness)) {
+          return (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md">
+              <div className="bg-white dark:bg-slate-900 border border-red-500/50 rounded-3xl p-6 text-center max-w-md space-y-4 shadow-2xl">
+                <div className="w-12 h-12 bg-red-100 text-red-600 dark:bg-red-950 dark:text-red-400 rounded-full flex items-center justify-center mx-auto">
+                  <X className="w-6 h-6" />
+                </div>
+                <h3 className="font-extrabold text-lg text-slate-900 dark:text-white">Access Restricted</h3>
+                <p className="text-xs text-slate-600 dark:text-slate-300">
+                  The Digital Visiting Card option is only accessible to the verified owner of Business ID <span className="font-mono font-bold text-amber-600">{visitingCardBusiness.id}</span>.
+                </p>
+                <button
+                  onClick={() => setVisitingCardBusiness(null)}
+                  className="px-5 py-2.5 bg-slate-900 dark:bg-slate-700 text-white rounded-xl text-xs font-extrabold cursor-pointer"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          );
+        }
+
         const currentStyle = CARD_DESIGN_STYLES[cardDesignIndex];
         const locationMapUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
           `${visitingCardBusiness.businessName} ${visitingCardBusiness.address} ${visitingCardBusiness.city}`
@@ -660,17 +1085,39 @@ export const BusinessSection: React.FC = () => {
                 id="visiting-card-studio-node"
                 className={`p-6 rounded-3xl shadow-2xl space-y-4 transition-all duration-300 relative overflow-hidden ${currentStyle.cardBg} ${currentStyle.accentBorder} ${currentStyle.textColor}`}
               >
+                {/* Background Cover Image Banner if set */}
+                {visitingCardBusiness.coverImageUrl && (
+                  <div
+                    className="absolute inset-x-0 top-0 h-28 bg-cover bg-center opacity-30 mix-blend-overlay pointer-events-none"
+                    style={{ backgroundImage: `url(${visitingCardBusiness.coverImageUrl})` }}
+                  />
+                )}
+
                 {/* Background Pattern */}
                 <div className="absolute inset-0 bg-[radial-gradient(#ffffff_1px,transparent_1px)] [background-size:16px_16px] opacity-10 pointer-events-none" />
 
                 {/* Top Header of Card */}
                 <div className="flex items-start justify-between gap-3 relative z-10 border-b border-white/20 pb-3">
                   <div className="flex items-center gap-3">
-                    <img
-                      src={visitingCardBusiness.logoUrl}
-                      alt="Business Logo"
-                      className="w-14 h-14 rounded-2xl object-cover border-2 border-white/40 shadow-lg shrink-0 bg-white"
-                    />
+                    {/* Interactive Logo Picture with Camera Hover Overlay */}
+                    <div className="relative group shrink-0" title="Click to update business logo from camera/gallery">
+                      <img
+                        src={visitingCardBusiness.logoUrl}
+                        alt="Business Logo"
+                        className="w-16 h-16 rounded-2xl object-cover border-2 border-white/60 shadow-lg bg-white"
+                      />
+                      <label className="absolute inset-0 bg-slate-950/70 rounded-2xl flex flex-col items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+                        <Camera className="w-4 h-4 text-amber-300" />
+                        <span className="text-[9px] font-black uppercase">Upload</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => handleLogoUpload(e, visitingCardBusiness)}
+                          className="hidden"
+                        />
+                      </label>
+                    </div>
+
                     <div>
                       <h4 className={`text-lg font-extrabold font-serif ${currentStyle.titleColor} leading-tight`}>
                         {visitingCardBusiness.businessName}
@@ -736,22 +1183,139 @@ export const BusinessSection: React.FC = () => {
                 </div>
               </div>
 
-              {/* CONTROLS: REGENERATE DESIGN & DOWNLOAD JPG */}
-              <div className="grid grid-cols-2 gap-3 pt-2">
+              {/* BRANDING & MEDIA UPLOAD CONTROL STUDIO (OWNER ONLY) */}
+              <div className="bg-slate-50 dark:bg-slate-800/80 p-3.5 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-extrabold text-xs text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-1.5">
+                    <Camera className="w-4 h-4 text-amber-500" />
+                    <span>Card Branding & Media Upload</span>
+                  </h4>
+                  <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-extrabold bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/30">
+                    Camera & Gallery Active
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  {/* LOGO UPLOADER */}
+                  <div className="p-2.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 space-y-2">
+                    <div className="flex items-center justify-between text-[11px] font-bold text-slate-800 dark:text-slate-200">
+                      <span>1. Logo Photo</span>
+                      <span className="text-[10px] text-slate-500 font-normal">Avatar</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <label className="flex-1 py-2 px-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-500/30 rounded-xl text-[10px] font-extrabold flex items-center justify-center gap-1 cursor-pointer transition-all shadow-sm">
+                        <Camera className="w-3.5 h-3.5 text-amber-500" />
+                        <span>Camera</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          capture="environment"
+                          onChange={(e) => handleLogoUpload(e, visitingCardBusiness)}
+                          className="hidden"
+                        />
+                      </label>
+                      <label className="flex-1 py-2 px-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-700 rounded-xl text-[10px] font-extrabold flex items-center justify-center gap-1 cursor-pointer transition-all shadow-sm">
+                        <Upload className="w-3.5 h-3.5 text-slate-500" />
+                        <span>Gallery File</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => handleLogoUpload(e, visitingCardBusiness)}
+                          className="hidden"
+                        />
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* COVER BANNER UPLOADER */}
+                  <div className="p-2.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 space-y-2">
+                    <div className="flex items-center justify-between text-[11px] font-bold text-slate-800 dark:text-slate-200">
+                      <span>2. Card Cover Banner</span>
+                      <span className="text-[10px] text-slate-500 font-normal">Header Background</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <label className="flex-1 py-2 px-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-500/30 rounded-xl text-[10px] font-extrabold flex items-center justify-center gap-1 cursor-pointer transition-all shadow-sm">
+                        <Camera className="w-3.5 h-3.5 text-amber-500" />
+                        <span>Camera Banner</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          capture="environment"
+                          onChange={(e) => handleCoverUpload(e, visitingCardBusiness)}
+                          className="hidden"
+                        />
+                      </label>
+                      <label className="flex-1 py-2 px-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-700 rounded-xl text-[10px] font-extrabold flex items-center justify-center gap-1 cursor-pointer transition-all shadow-sm">
+                        <Upload className="w-3.5 h-3.5 text-slate-500" />
+                        <span>Gallery Banner</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => handleCoverUpload(e, visitingCardBusiness)}
+                          className="hidden"
+                        />
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                {/* LUXURY COVER BANNER PRESETS */}
+                <div className="pt-1 space-y-1">
+                  <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 block">
+                    Or select a curated Luxury Cover Banner Preset:
+                  </span>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                    {BRANDING_COVER_PRESETS.map((p, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => {
+                          updateBusinessListing(visitingCardBusiness.id, { coverImageUrl: p.url });
+                          setVisitingCardBusiness({ ...visitingCardBusiness, coverImageUrl: p.url });
+                          showToast('Preset Applied', `Applied "${p.name}" cover banner.`, 'info');
+                        }}
+                        className="p-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:border-amber-500 text-[10px] font-extrabold text-slate-800 dark:text-slate-200 truncate cursor-pointer flex items-center gap-1.5 shadow-sm transition-all"
+                      >
+                        <span
+                          className="w-3.5 h-3.5 rounded-md bg-cover shrink-0 border border-white"
+                          style={{ backgroundImage: `url(${p.url})` }}
+                        />
+                        <span className="truncate">{p.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* CONTROLS: REGENERATE DESIGN, QR POSTER & DOWNLOAD JPG */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-2">
                 <button
                   onClick={() => setCardDesignIndex((prev) => (prev + 1) % CARD_DESIGN_STYLES.length)}
-                  className="py-3 px-4 min-h-[44px] bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-100 font-extrabold text-xs rounded-2xl shadow border border-slate-300 dark:border-slate-700 flex items-center justify-center gap-2 transition-all cursor-pointer"
+                  className="py-3 px-3 min-h-[44px] bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-100 font-extrabold text-xs rounded-2xl shadow border border-slate-300 dark:border-slate-700 flex items-center justify-center gap-1.5 transition-all cursor-pointer"
                 >
                   <RefreshCw className="w-4 h-4 text-amber-500" />
-                  <span>Regenerate Design</span>
+                  <span>Cycle Theme</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    if (visitingCardBusiness) {
+                      setQrModalBusiness(visitingCardBusiness);
+                      setQrPayloadType('profile');
+                      setQrTheme('gold');
+                    }
+                  }}
+                  className="py-3 px-3 min-h-[44px] bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 font-extrabold text-xs rounded-2xl shadow border border-amber-500/30 flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                >
+                  <Printer className="w-4 h-4 text-amber-500" />
+                  <span>QR Poster</span>
                 </button>
 
                 <button
                   onClick={handleDownloadVisitingCardJpg}
-                  className="py-3 px-4 min-h-[44px] bg-gradient-to-r from-amber-500 to-amber-700 text-amber-950 font-extrabold text-xs rounded-2xl shadow-lg hover:from-amber-600 hover:to-amber-800 flex items-center justify-center gap-2 transition-all cursor-pointer"
+                  className="py-3 px-3 min-h-[44px] bg-gradient-to-r from-amber-500 to-amber-700 text-amber-950 font-extrabold text-xs rounded-2xl shadow-lg hover:from-amber-600 hover:to-amber-800 flex items-center justify-center gap-1.5 transition-all cursor-pointer"
                 >
                   <Download className="w-4 h-4" />
-                  <span>Download Card (JPG)</span>
+                  <span>Card (JPG)</span>
                 </button>
               </div>
             </div>
@@ -778,7 +1342,7 @@ export const BusinessSection: React.FC = () => {
                 <span>BUSINESS RECRUITMENT PORTAL</span>
               </div>
               <h3 className="text-xl font-bold font-serif text-slate-900 dark:text-white">
-                Post a New Job Opening
+                {editingJob ? 'Edit & Update Job Position' : 'Post a New Job Opening'}
               </h3>
               <p className="text-xs text-slate-500">
                 Data will be listed on Jain Services & saved to the Supabase database.
@@ -873,7 +1437,7 @@ export const BusinessSection: React.FC = () => {
                 type="submit"
                 className="w-full py-3 min-h-[44px] bg-gradient-to-r from-amber-500 to-amber-700 text-amber-950 font-extrabold text-xs rounded-2xl shadow-lg hover:from-amber-600 hover:to-amber-800 transition-all cursor-pointer pt-2"
               >
-                Save & Send Job Opening to Supabase
+                {editingJob ? 'Update Position in Database' : 'Save & Send Job Opening to Supabase'}
               </button>
             </form>
           </div>
@@ -985,6 +1549,275 @@ export const BusinessSection: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* UNIQUE BUSINESS QR CODE STANDEE / POSTER MODAL */}
+      {qrModalBusiness && (() => {
+        const payload = getQrValueForBusiness(qrModalBusiness, qrPayloadType);
+
+        const themeStyles = {
+          gold: {
+            name: 'Royal Gold & Obsidian',
+            cardBg: 'bg-gradient-to-br from-slate-950 via-slate-900 to-amber-950 text-amber-100',
+            borderColor: 'border-2 border-amber-400/80',
+            titleColor: 'text-amber-300',
+            subTextColor: 'text-amber-100/90',
+            qrBgColor: '#FFFFFF',
+            qrFgColor: '#0F172A',
+            badgeClass: 'bg-amber-500/20 text-amber-300 border border-amber-500/40',
+            accentText: 'text-amber-400',
+          },
+          emerald: {
+            name: 'Emerald Trade Network',
+            cardBg: 'bg-gradient-to-br from-emerald-950 via-slate-900 to-emerald-900 text-emerald-100',
+            borderColor: 'border-2 border-emerald-400/80',
+            titleColor: 'text-emerald-300',
+            subTextColor: 'text-emerald-100/90',
+            qrBgColor: '#FFFFFF',
+            qrFgColor: '#064E3B',
+            badgeClass: 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40',
+            accentText: 'text-emerald-400',
+          },
+          saffron: {
+            name: 'Jain Heritage Saffron',
+            cardBg: 'bg-gradient-to-br from-amber-600 via-amber-700 to-amber-900 text-white',
+            borderColor: 'border-2 border-amber-300',
+            titleColor: 'text-amber-100',
+            subTextColor: 'text-white/90',
+            qrBgColor: '#FFFFFF',
+            qrFgColor: '#78350F',
+            badgeClass: 'bg-amber-900/40 text-amber-100 border border-amber-300/40',
+            accentText: 'text-amber-200',
+          },
+          minimal: {
+            name: 'Storefront Print White',
+            cardBg: 'bg-white text-slate-900',
+            borderColor: 'border-2 border-slate-900',
+            titleColor: 'text-slate-900',
+            subTextColor: 'text-slate-600',
+            qrBgColor: '#FFFFFF',
+            qrFgColor: '#000000',
+            badgeClass: 'bg-amber-100 text-amber-900 border border-amber-300',
+            accentText: 'text-amber-800',
+          },
+        };
+
+        const currentTheme = themeStyles[qrTheme];
+
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md overflow-y-auto">
+            <div className="bg-white dark:bg-slate-900 border border-amber-500/50 rounded-3xl w-full max-w-xl p-5 sm:p-6 shadow-2xl relative text-slate-800 dark:text-slate-100 space-y-4 my-auto max-h-[90vh] overflow-y-auto">
+              
+              {/* Close Button */}
+              <button
+                onClick={() => setQrModalBusiness(null)}
+                className="absolute top-4 right-4 text-slate-400 hover:text-slate-700 dark:hover:text-white p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800 transition-colors z-20 cursor-pointer"
+                title="Close Modal"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              <div className="text-center space-y-1 pr-8">
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-500/20 text-amber-700 dark:text-amber-300 font-extrabold text-[11px] rounded-full border border-amber-500/30 uppercase tracking-wider">
+                  <QrCode className="w-3.5 h-3.5 text-amber-500" />
+                  <span>UNIQUE BUSINESS QR CODE GENERATOR</span>
+                </div>
+                <h3 className="text-xl font-bold font-serif text-slate-900 dark:text-white">
+                  {qrModalBusiness.businessName}
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Custom printable QR code poster for physical storefronts, desks & marketing materials.
+                </p>
+              </div>
+
+              {/* CONTROLS: PAYLOAD TYPE & THEME SELECTOR */}
+              <div className="space-y-3 bg-slate-50 dark:bg-slate-800/60 p-3.5 rounded-2xl border border-slate-200 dark:border-slate-700/80 text-xs">
+                <div>
+                  <label className="block font-extrabold text-slate-700 dark:text-slate-200 mb-1.5 flex items-center gap-1">
+                    <Smartphone className="w-3.5 h-3.5 text-amber-500" />
+                    <span>Scan Target / QR Payload Destination:</span>
+                  </label>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                    {[
+                      { id: 'profile', label: '🌐 Digital Profile', desc: 'Web Card' },
+                      { id: 'vcard', label: '📇 Phone vCard', desc: 'Save Contact' },
+                      { id: 'whatsapp', label: '💬 WhatsApp', desc: 'Direct Chat' },
+                      { id: 'maps', label: '🗺️ Google Maps', desc: 'Directions' },
+                    ].map((item) => (
+                      <button
+                        key={item.id}
+                        onClick={() => setQrPayloadType(item.id as any)}
+                        className={`p-2 rounded-xl text-center border font-bold transition-all cursor-pointer ${
+                          qrPayloadType === item.id
+                            ? 'bg-amber-500 text-slate-950 border-amber-600 shadow-md scale-[1.02]'
+                            : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-700 hover:border-amber-400'
+                        }`}
+                      >
+                        <div className="text-[11px] leading-tight">{item.label}</div>
+                        <div className="text-[9px] opacity-75">{item.desc}</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block font-extrabold text-slate-700 dark:text-slate-200 mb-1.5 flex items-center gap-1">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                    <span>Poster Theme Preset:</span>
+                  </label>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                    {[
+                      { id: 'gold', label: '👑 Royal Gold' },
+                      { id: 'emerald', label: '🌿 Emerald' },
+                      { id: 'saffron', label: '🌅 Heritage Saffron' },
+                      { id: 'minimal', label: '📄 Storefront White' },
+                    ].map((theme) => (
+                      <button
+                        key={theme.id}
+                        onClick={() => setQrTheme(theme.id as any)}
+                        className={`p-2 rounded-xl text-center border text-[11px] font-extrabold transition-all cursor-pointer ${
+                          qrTheme === theme.id
+                            ? 'bg-slate-950 text-amber-300 dark:bg-amber-500 dark:text-slate-950 border-amber-500 shadow-md scale-[1.02]'
+                            : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-700 hover:border-amber-400'
+                        }`}
+                      >
+                        {theme.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* PRINTABLE QR POSTER NODE */}
+              <div
+                id="business-qr-poster-node"
+                className={`p-6 sm:p-8 rounded-3xl shadow-2xl space-y-5 transition-all duration-300 relative overflow-hidden ${currentTheme.cardBg} ${currentTheme.borderColor}`}
+              >
+                {/* Header Banner */}
+                <div className="flex items-center justify-between gap-3 border-b border-white/20 pb-4">
+                  <div className="flex items-center gap-3">
+                    <img
+                      src={qrModalBusiness.logoUrl}
+                      alt={qrModalBusiness.businessName}
+                      className="w-14 h-14 rounded-2xl object-cover border-2 border-white/40 shadow-lg shrink-0 bg-white"
+                    />
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <h4 className={`text-lg font-black font-serif ${currentTheme.titleColor} truncate`}>
+                          {qrModalBusiness.businessName}
+                        </h4>
+                        {qrModalBusiness.isVerified && (
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${currentTheme.badgeClass}`}>
+                            ✓ Verified Jain Business
+                          </span>
+                        )}
+                      </div>
+                      <p className={`text-xs font-semibold ${currentTheme.subTextColor}`}>
+                        {qrModalBusiness.category} • ID: {qrModalBusiness.id}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* QR CODE DISPLAY BOX */}
+                <div className="bg-white/95 backdrop-blur-md p-6 rounded-3xl shadow-2xl border border-white text-slate-900 text-center space-y-3 mx-auto max-w-sm">
+                  <p className="text-xs font-black uppercase tracking-wider text-amber-800 flex items-center justify-center gap-1.5">
+                    <QrCode className="w-4 h-4 text-amber-600" />
+                    <span>SCAN WITH SMARTPHONE CAMERA</span>
+                  </p>
+
+                  <div className="bg-white p-3 rounded-2xl border-2 border-slate-900 inline-block shadow-inner">
+                    <QRCodeSVG
+                      id="business-qr-code-svg"
+                      value={payload}
+                      size={180}
+                      level="H"
+                      bgColor={currentTheme.qrBgColor}
+                      fgColor={currentTheme.qrFgColor}
+                      includeMargin={true}
+                    />
+                  </div>
+
+                  <p className="text-[11px] font-bold text-slate-700 leading-snug px-2">
+                    {qrPayloadType === 'profile' && 'Scans directly to view verified digital profile & catalog.'}
+                    {qrPayloadType === 'vcard' && 'Scans to save complete contact card to phone contacts.'}
+                    {qrPayloadType === 'whatsapp' && 'Scans to start direct WhatsApp conversation.'}
+                    {qrPayloadType === 'maps' && 'Scans to open Google Maps directions to location.'}
+                  </p>
+                </div>
+
+                {/* Business Details Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs pt-1 border-t border-white/20">
+                  <div className="space-y-1">
+                    <p className="flex items-center gap-1.5">
+                      <Phone className={`w-3.5 h-3.5 ${currentTheme.accentText}`} />
+                      <span className="font-bold">{qrModalBusiness.mobile}</span>
+                    </p>
+                    <p className="flex items-center gap-1.5">
+                      <MessageSquare className={`w-3.5 h-3.5 ${currentTheme.accentText}`} />
+                      <span>{qrModalBusiness.whatsapp}</span>
+                    </p>
+                  </div>
+
+                  <div className="space-y-1">
+                    <p className="flex items-start gap-1.5">
+                      <MapPin className={`w-3.5 h-3.5 ${currentTheme.accentText} shrink-0 mt-0.5`} />
+                      <span className="text-[11px] leading-tight">
+                        {qrModalBusiness.address}, {qrModalBusiness.city}, {qrModalBusiness.state}
+                      </span>
+                    </p>
+                    {qrModalBusiness.gstNumber && (
+                      <p className="text-[10px] font-mono opacity-90">
+                        GSTIN: <strong>{qrModalBusiness.gstNumber}</strong>
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Footer Tagline */}
+                <div className="text-center pt-2 border-t border-white/10 text-[10px] uppercase font-bold tracking-widest opacity-80">
+                  Jain Connect Global • Verified Commercial Network
+                </div>
+              </div>
+
+              {/* ACTION TOOLBAR */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-2">
+                <button
+                  onClick={handleDownloadQrPosterPng}
+                  className="py-3 px-3 min-h-[44px] bg-gradient-to-r from-amber-500 to-amber-700 text-amber-950 font-extrabold text-xs rounded-2xl shadow-lg hover:from-amber-600 hover:to-amber-800 flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>Download Poster (PNG)</span>
+                </button>
+
+                <button
+                  onClick={handleDownloadQrCodeOnly}
+                  className="py-3 px-3 min-h-[44px] bg-slate-900 text-amber-300 dark:bg-amber-500 dark:text-slate-950 font-extrabold text-xs rounded-2xl shadow hover:opacity-90 flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                >
+                  <QrCode className="w-4 h-4" />
+                  <span>QR Code Only (PNG)</span>
+                </button>
+
+                <button
+                  onClick={() => handleCopyQrPayload(payload)}
+                  className="py-3 px-3 min-h-[44px] bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-100 font-extrabold text-xs rounded-2xl shadow border border-slate-300 dark:border-slate-700 flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                >
+                  {isCopiedLink ? (
+                    <>
+                      <Check className="w-4 h-4 text-emerald-500" />
+                      <span>Copied!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-4 h-4 text-amber-500" />
+                      <span>Copy Payload</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 };

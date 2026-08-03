@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { NAV_TRANSLATIONS } from '../utils/translations';
 import { useTypingPlaceholder } from '../hooks/useTypingPlaceholder';
+import { LanguageSwitcher } from './LanguageSwitcher';
 import {
   Search,
   Sparkles,
@@ -37,7 +38,6 @@ import {
 } from 'lucide-react';
 
 export const Header: React.FC = () => {
-  const [isLangDropdownOpen, setIsLangDropdownOpen] = useState(false);
   const {
     currentUser,
     isMatrimonialOnlyUser,
@@ -241,60 +241,7 @@ export const Header: React.FC = () => {
             </div>
 
             {/* Language Switcher Dropdown */}
-            <div className="relative">
-              <button
-                onClick={() => setIsLangDropdownOpen(!isLangDropdownOpen)}
-                className="flex items-center gap-0.5 sm:gap-1 px-1.5 sm:px-2 py-0.5 rounded-full bg-amber-900/50 hover:bg-amber-800 text-amber-200 hover:text-white text-[10px] sm:text-[11px] font-semibold border border-amber-500/30 transition-all shadow-sm"
-                title="Select Interface Language"
-              >
-                <Globe className="w-3 h-3 text-amber-400 shrink-0" />
-                <span className="font-medium truncate max-w-[55px] sm:max-w-none">{currentLangObj.native}</span>
-                <ChevronDown className="w-2.5 h-2.5 opacity-60 shrink-0" />
-              </button>
-
-              {isLangDropdownOpen && (
-                <div className="absolute right-0 mt-1.5 bg-slate-900 text-white rounded-2xl shadow-2xl border border-amber-500/30 py-2 w-48 z-50 animate-fade-in">
-                  <div className="px-3.5 py-1 text-[10px] font-bold uppercase tracking-wider text-amber-400/80 border-b border-slate-800 flex items-center justify-between">
-                    <span>Select Language / भाषा</span>
-                    <button
-                      onClick={() => setIsLangDropdownOpen(false)}
-                      className="text-slate-400 hover:text-white"
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
-                  </div>
-
-                  <div className="max-h-60 overflow-y-auto no-scrollbar py-1">
-                    {LANGUAGE_OPTIONS.map((lang) => {
-                      const isSelected = language === lang.code;
-                      return (
-                        <button
-                          key={lang.code}
-                          onClick={() => {
-                            setLanguage(lang.code as any);
-                            setIsLangDropdownOpen(false);
-                            showToast(
-                              `Language Changed: ${lang.native}`,
-                              `Interface language set to ${lang.label} (${lang.native}).`,
-                              'success'
-                            );
-                          }}
-                          className={`w-full text-left px-3.5 py-2 text-xs flex items-center justify-between hover:bg-amber-600/30 transition-colors ${
-                            isSelected ? 'text-amber-300 font-bold bg-amber-900/50' : 'text-slate-200'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2">
-                            <span className="font-serif">{lang.native}</span>
-                            <span className="text-[10px] text-slate-400">({lang.label})</span>
-                          </div>
-                          {isSelected && <Check className="w-3.5 h-3.5 text-amber-400 shrink-0" />}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-            </div>
+            <LanguageSwitcher variant="topbar" />
 
             {/* Theme Selector Dropdown */}
             <div className="relative">
@@ -443,33 +390,57 @@ export const Header: React.FC = () => {
               <span>Membership</span>
             </button>
 
-            {/* Persistent UI Theme Selector */}
-            <div className="relative hidden sm:block">
-              <button
-                onClick={() => setIsThemeMenuOpen(!isThemeMenuOpen)}
-                className={`px-2 py-1.5 sm:px-2.5 sm:py-1.5 rounded-full transition-all flex items-center gap-1.5 border shadow-sm ${
+            {/* Persistent Global Theme Selector (Light / Dark / Auspicious Gold) */}
+            <div className="relative flex items-center">
+              <div
+                className={`flex items-center rounded-full p-0.5 border shadow-sm transition-all ${
                   themeMode === 'auspicious'
-                    ? 'bg-amber-100 border-amber-400 text-amber-900 dark:bg-amber-950/80 dark:border-amber-600 dark:text-amber-200'
+                    ? 'bg-amber-100 border-amber-400 text-amber-950 dark:bg-amber-950/80 dark:border-amber-600 dark:text-amber-200'
                     : themeMode === 'dark'
-                    ? 'bg-slate-800 border-slate-700 text-slate-200 hover:bg-slate-700'
+                    ? 'bg-slate-800/90 border-slate-700 text-slate-200 hover:bg-slate-800'
                     : 'bg-slate-100 border-slate-200 text-slate-700 hover:bg-slate-200'
                 }`}
-                title={`Current Theme: ${themeMode.charAt(0).toUpperCase() + themeMode.slice(1)}`}
               >
-                {themeMode === 'light' && <Sun className="w-4 h-4 text-amber-500" />}
-                {themeMode === 'dark' && <Moon className="w-4 h-4 text-sky-400" />}
-                {themeMode === 'auspicious' && <Sparkles className="w-4 h-4 text-amber-600 dark:text-amber-300 animate-pulse" />}
-                <span className="text-[11px] font-bold hidden md:inline capitalize">
-                  {themeMode === 'auspicious' ? 'Auspicious' : themeMode}
-                </span>
-                <ChevronDown className="w-3 h-3 text-slate-400" />
-              </button>
+                {/* Single Click Cycle Button */}
+                <button
+                  onClick={() => {
+                    const next = themeMode === 'light' ? 'dark' : themeMode === 'dark' ? 'auspicious' : 'light';
+                    setThemeMode(next);
+                    const toastMsgs = {
+                      light: 'Light theme enabled.',
+                      dark: 'Dark theme enabled.',
+                      auspicious: 'Auspicious Gold theme enabled.',
+                    };
+                    showToast('Theme Updated', toastMsgs[next], next === 'auspicious' ? 'success' : 'info');
+                  }}
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-extrabold cursor-pointer hover:opacity-80 transition-opacity"
+                  title="Click to cycle theme (Light -> Dark -> Auspicious Gold)"
+                >
+                  {themeMode === 'light' && <Sun className="w-4 h-4 text-amber-500" />}
+                  {themeMode === 'dark' && <Moon className="w-4 h-4 text-sky-400" />}
+                  {themeMode === 'auspicious' && (
+                    <Sparkles className="w-4 h-4 text-amber-600 dark:text-amber-300 animate-pulse" />
+                  )}
+                  <span className="text-[11px] font-bold hidden sm:inline capitalize">
+                    {themeMode === 'auspicious' ? 'Auspicious' : themeMode}
+                  </span>
+                </button>
+
+                {/* Dropdown Chevron for explicit pick */}
+                <button
+                  onClick={() => setIsThemeMenuOpen(!isThemeMenuOpen)}
+                  className="px-1 py-1 hover:bg-black/10 dark:hover:bg-white/10 rounded-full transition-colors cursor-pointer"
+                  title="Choose Theme Mode"
+                >
+                  <ChevronDown className="w-3.5 h-3.5 text-slate-400 dark:text-slate-300" />
+                </button>
+              </div>
 
               {/* Theme Popover Selector */}
               {isThemeMenuOpen && (
-                <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-amber-500/30 dark:border-amber-700/50 p-2 z-50">
+                <div className="absolute right-0 top-full mt-2 w-52 bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-amber-500/30 dark:border-amber-700/50 p-2 z-50 animate-fade-in">
                   <div className="px-2.5 py-1.5 mb-1 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">UI Theme Mode</p>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Site Theme Mode</p>
                     <span className="text-[9px] bg-amber-500/20 text-amber-700 dark:text-amber-300 px-1.5 py-0.5 rounded-full font-bold">
                       PERSISTENT
                     </span>
@@ -480,9 +451,9 @@ export const Header: React.FC = () => {
                       onClick={() => {
                         setThemeMode('light');
                         setIsThemeMenuOpen(false);
-                        showToast('Theme Updated', 'Switched to Light theme mode.', 'info');
+                        showToast('Theme Updated', 'Light theme enabled.', 'info');
                       }}
-                      className={`w-full text-left px-3 py-2 rounded-xl text-xs font-semibold flex items-center justify-between transition-colors ${
+                      className={`w-full text-left px-3 py-2 rounded-xl text-xs font-semibold flex items-center justify-between transition-colors cursor-pointer ${
                         themeMode === 'light'
                           ? 'bg-amber-50 dark:bg-slate-800 text-amber-900 dark:text-amber-300 font-bold border border-amber-200 dark:border-slate-700'
                           : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
@@ -499,9 +470,9 @@ export const Header: React.FC = () => {
                       onClick={() => {
                         setThemeMode('dark');
                         setIsThemeMenuOpen(false);
-                        showToast('Theme Updated', 'Switched to Dark theme mode.', 'info');
+                        showToast('Theme Updated', 'Dark theme enabled.', 'info');
                       }}
-                      className={`w-full text-left px-3 py-2 rounded-xl text-xs font-semibold flex items-center justify-between transition-colors ${
+                      className={`w-full text-left px-3 py-2 rounded-xl text-xs font-semibold flex items-center justify-between transition-colors cursor-pointer ${
                         themeMode === 'dark'
                           ? 'bg-slate-800 text-sky-300 font-bold border border-slate-700'
                           : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
@@ -518,16 +489,16 @@ export const Header: React.FC = () => {
                       onClick={() => {
                         setThemeMode('auspicious');
                         setIsThemeMenuOpen(false);
-                        showToast('Auspicious Gold Theme', 'Switched to Divine Gold & Amber theme.', 'success');
+                        showToast('Auspicious Gold Theme', 'Auspicious Gold theme enabled.', 'success');
                       }}
-                      className={`w-full text-left px-3 py-2 rounded-xl text-xs font-semibold flex items-center justify-between transition-colors ${
+                      className={`w-full text-left px-3 py-2 rounded-xl text-xs font-semibold flex items-center justify-between transition-colors cursor-pointer ${
                         themeMode === 'auspicious'
                           ? 'bg-amber-100 dark:bg-amber-950/80 text-amber-900 dark:text-amber-200 font-bold border border-amber-300 dark:border-amber-700'
                           : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
                       }`}
                     >
                       <div className="flex items-center gap-2">
-                        <Sparkles className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                        <Sparkles className="w-4 h-4 text-amber-600 dark:text-amber-400 animate-pulse" />
                         <span>Auspicious Gold</span>
                       </div>
                       {themeMode === 'auspicious' && <Check className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />}
@@ -931,6 +902,9 @@ export const Header: React.FC = () => {
                 <span>AI Search</span>
               </button>
             </div>
+
+            {/* Mobile Language Switcher */}
+            <LanguageSwitcher variant="mobile" className="pt-2 border-t border-slate-800" />
 
             {/* Mobile Theme Switcher */}
             <div className="pt-2 border-t border-slate-800 space-y-1.5">

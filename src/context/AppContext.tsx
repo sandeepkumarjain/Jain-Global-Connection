@@ -18,7 +18,8 @@ import {
   BhajanSong,
   SystemSettings,
   CustomPage,
-  MatrimonialMessage
+  MatrimonialMessage,
+  MatrimonialSuccessStory
 } from '../types';
 import {
   INITIAL_SYSTEM_SETTINGS,
@@ -35,7 +36,8 @@ import {
   INITIAL_JOBS,
   INITIAL_NOTIFICATIONS,
   INITIAL_BHAJANS,
-  INITIAL_CUSTOM_PAGES
+  INITIAL_CUSTOM_PAGES,
+  INITIAL_SUCCESS_STORIES
 } from '../data/initialData';
 import { playNavkarMantraAudio, stopNavkarMantraAudio } from '../utils/navkarAudio';
 import { applyLanguageChange, LanguageCode } from '../utils/translations';
@@ -52,6 +54,8 @@ interface AppContextType {
   currentUser: User | null;
   isMatrimonialOnlyUser: boolean;
   isBusinessOnlyUser: boolean;
+  isLoadingData: boolean;
+  setIsLoadingData: (loading: boolean) => void;
   users: User[];
   matrimonials: MatrimonialProfile[];
   businesses: BusinessListing[];
@@ -130,6 +134,7 @@ interface AppContextType {
   approveCommunityMember: (memId: string) => void;
   deleteCommunityMember: (memId: string) => void;
   addBusiness: (biz: Partial<BusinessListing>) => BusinessListing;
+  updateBusinessListing: (bizId: string, updates: Partial<BusinessListing>) => void;
   approveBusiness: (bizId: string) => void;
   deleteBusiness: (bizId: string) => void;
   addTemple: (tpl: Partial<TempleListing>) => TempleListing;
@@ -151,6 +156,7 @@ interface AppContextType {
   addBloodDonor: (donor: Partial<BloodDonor>) => void;
   deleteBloodDonor: (donorId: string) => void;
   addJob: (job: Partial<JobItem>) => void;
+  updateJob: (jobId: string, updated: Partial<JobItem>) => void;
   deleteJob: (jobId: string) => void;
   addAdBanner: (ad: Partial<AdBanner>) => void;
   deleteAdBanner: (adId: string) => void;
@@ -176,6 +182,16 @@ interface AppContextType {
   updateCustomPage: (id: string, updated: Partial<CustomPage>) => void;
   deleteCustomPage: (id: string) => void;
   togglePublishPage: (id: string) => void;
+
+  // Vivah Success Stories & Matrimonial Deactivation
+  successStories: MatrimonialSuccessStory[];
+  submitSuccessStory: (storyData: Omit<MatrimonialSuccessStory, 'id' | 'createdAt'>, deactivateProfileId?: string) => Promise<void>;
+  deactivateMatrimonialProfile: (profileId: string, reason?: string) => Promise<void>;
+  registerMatrimonialFromDirectory: (
+    memberId: string,
+    familyMemberIndex: number,
+    matrimonialData: Partial<MatrimonialProfile>
+  ) => Promise<void>;
 
   // Backend Database Direct Sync Operations (Supabase & Cloud)
   syncAllDataToFirestore: () => Promise<{ success: boolean; count: number; error?: string }>;
@@ -217,6 +233,7 @@ const STORAGE_KEYS = {
   BLOOD_DONORS: 'jcg_blood_donors_v1',
   BHAJANS: 'jcg_bhajans_v1',
   MATRIMONIAL_MESSAGES: 'jcg_matrimonial_messages_v1',
+  SUCCESS_STORIES: 'jcg_success_stories_v1',
 };
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -291,6 +308,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return saved ? JSON.parse(saved) : INITIAL_CUSTOM_PAGES;
   });
 
+  const [successStories, setSuccessStories] = useState<MatrimonialSuccessStory[]>(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.SUCCESS_STORIES);
+    return saved ? JSON.parse(saved) : INITIAL_SUCCESS_STORIES;
+  });
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.SUCCESS_STORIES, JSON.stringify(successStories));
+  }, [successStories]);
+
   useEffect(() => {
     localStorage.setItem('jcg_custom_pages_v1', JSON.stringify(customPages));
   }, [customPages]);
@@ -327,6 +353,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (savedLang && savedLang !== 'English') {
       applyLanguageChange(savedLang);
     }
+  }, []);
+
+  const [isLoadingData, setIsLoadingData] = useState<boolean>(true);
+
+  // Simulate initial dynamic database load
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsLoadingData(false);
+    }, 600);
+    return () => clearTimeout(timer);
   }, []);
 
   const [themeMode, setThemeMode] = useState<'light' | 'dark' | 'auspicious'>(() => {
@@ -884,6 +920,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setCurrentUser(updatedUser);
     setUsers((prev) => prev.map((u) => (u.id === updatedUser.id ? updatedUser : u)));
 
+    try {
+      setDoc(doc(db, 'users', updatedUser.id), updatedUser, { merge: true });
+      syncToSupabaseTable('users', updatedUser);
+    } catch (e) {
+      console.warn('Firestore/Supabase user update error:', e);
+    }
+
     // Sync user with emergency Blood Donor directory
     if (donorSettings) {
       if (donorSettings.isBloodDonor) {
@@ -940,11 +983,33 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       } catch (e) {
         console.warn('Firestore user update error:', e);
       }
+
+      // Automatically approve and sync any associated business listing
+      setBusinesses((prev) =>
+        prev.map((b) => {
+          if (b.ownerId === targetUser?.id || (targetUser?.email && b.email?.toLowerCase() === targetUser.email.toLowerCase()) || b.applicationId === targetUser?.applicationId) {
+            const updatedBiz = { ...b, status: 'Approved' as const, isVerified: true };
+            try {
+              setDoc(doc(db, 'businesses', updatedBiz.id), updatedBiz, { merge: true });
+              syncToSupabaseTable('businesses', updatedBiz);
+            } catch (e) {}
+            return updatedBiz;
+          }
+          return b;
+        })
+      );
+
       dispatchApprovalEmail(
         targetUser.fullName,
         targetUser.email,
         targetUser.applicationId || targetUser.id,
         targetUser.registrationType || 'Jain Member Account'
+      );
+
+      showToast(
+        'Manual Verification Approved',
+        `User "${targetUser.fullName}" verified and action processed in database!`,
+        'success'
       );
     }
   };
@@ -953,7 +1018,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setUsers((prev) =>
       prev.map((u) => {
         if (u.id === userId) {
-          return { ...u, status: 'Rejected' };
+          const updated = { ...u, status: 'Rejected' as const };
+          try {
+            setDoc(doc(db, 'users', u.id), updated, { merge: true });
+            syncToSupabaseTable('users', updated);
+          } catch (e) {}
+          return updated;
         }
         return u;
       })
@@ -965,7 +1035,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setUsers((prev) =>
       prev.map((u) => {
         if (u.id === userId) {
-          return { ...u, status: 'Suspended' };
+          const updated = { ...u, status: 'Suspended' as const };
+          try {
+            setDoc(doc(db, 'users', u.id), updated, { merge: true });
+            syncToSupabaseTable('users', updated);
+          } catch (e) {}
+          return updated;
         }
         return u;
       })
@@ -977,6 +1052,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setUsers((prev) => prev.filter((u) => u.id !== userId && u.applicationId !== userId));
     try {
       deleteDoc(doc(db, 'users', userId));
+      deleteFromSupabaseTable('users', userId);
     } catch (e) {
       console.warn('Firestore delete user error:', e);
     }
@@ -984,14 +1060,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const verifyUserBadge = (userId: string) => {
+    let targetUser: User | undefined;
     setUsers((prev) =>
       prev.map((u) => {
-        if (u.id === userId) {
-          return { ...u, isVerified: !u.isVerified };
+        if (u.id === userId || u.applicationId === userId) {
+          targetUser = { ...u, isVerified: !u.isVerified };
+          return targetUser;
         }
         return u;
       })
     );
+
+    if (targetUser) {
+      try {
+        setDoc(doc(db, 'users', targetUser.id), targetUser, { merge: true });
+        syncToSupabaseTable('users', targetUser);
+      } catch (e) {
+        console.warn('Firestore user verify badge error:', e);
+      }
+    }
     showToast('Verification Updated', 'Verification badge status toggled.', 'success');
   };
 
@@ -1052,6 +1139,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         targetMem.applicationId || targetMem.id,
         'Family & Community Directory'
       );
+      showToast(
+        'Manual Verification Approved',
+        `Member "${targetMem.name}" verified and action processed in database!`,
+        'success'
+      );
     }
   };
 
@@ -1059,6 +1151,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setMembers((prev) => prev.filter((m) => m.id !== memId && m.applicationId !== memId));
     try {
       deleteDoc(doc(db, 'members', memId));
+      deleteFromSupabaseTable('members', memId);
     } catch (e) {
       console.warn('Firestore delete member error:', e);
     }
@@ -1126,11 +1219,35 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       } catch (e) {
         console.warn('Firestore business update error:', e);
       }
+
+      // Automatically sync and approve the matching User profile if present
+      if (targetBiz.ownerId || targetBiz.email) {
+        setUsers((prev) =>
+          prev.map((u) => {
+            if (u.id === targetBiz?.ownerId || (targetBiz?.email && u.email?.toLowerCase() === targetBiz.email.toLowerCase())) {
+              const updatedUsr = { ...u, status: 'Approved' as const, isVerified: true };
+              try {
+                setDoc(doc(db, 'users', updatedUsr.id), updatedUsr, { merge: true });
+                syncToSupabaseTable('users', updatedUsr);
+              } catch (e) {}
+              return updatedUsr;
+            }
+            return u;
+          })
+        );
+      }
+
       dispatchApprovalEmail(
         targetBiz.businessName,
         targetBiz.email,
         targetBiz.applicationId || targetBiz.id,
         'Business Directory Listing'
+      );
+
+      showToast(
+        'Manual Verification Approved',
+        `Business "${targetBiz.businessName}" verified and action processed in database!`,
+        'success'
       );
     }
   };
@@ -1139,10 +1256,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setBusinesses((prev) => prev.filter((b) => b.id !== bizId && b.applicationId !== bizId));
     try {
       deleteDoc(doc(db, 'businesses', bizId));
+      deleteFromSupabaseTable('businesses', bizId);
     } catch (e) {
       console.warn('Firestore delete business error:', e);
     }
     showToast('Listing Deleted', 'Business listing removed from database.', 'info');
+  };
+
+  const updateBusinessListing = (bizId: string, updates: Partial<BusinessListing>) => {
+    let updatedBiz: BusinessListing | undefined;
+    setBusinesses((prev) =>
+      prev.map((b) => {
+        if (b.id === bizId || b.applicationId === bizId) {
+          updatedBiz = { ...b, ...updates };
+          return updatedBiz;
+        }
+        return b;
+      })
+    );
+
+    if (updatedBiz) {
+      try {
+        setDoc(doc(db, 'businesses', updatedBiz.id), updatedBiz, { merge: true });
+        syncToSupabaseTable('businesses', updatedBiz);
+      } catch (e) {
+        console.warn('Firestore business update error:', e);
+      }
+      showToast('Card Updated', 'Your business card branding has been saved successfully.', 'success');
+    }
   };
 
   const addTemple = (tpl: Partial<TempleListing>): TempleListing => {
@@ -1213,9 +1354,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           targetTemple.applicationId || targetTemple.id,
           'Holy Temple Directory Listing'
         );
-      } else {
-        showToast('Temple Listing Approved!', 'Temple status updated to verified.', 'success');
       }
+      showToast(
+        'Manual Verification Approved',
+        `Temple "${targetTemple.templeName}" verified and action processed in database!`,
+        'success'
+      );
     }
   };
 
@@ -1223,6 +1367,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setTemples((prev) => prev.filter((t) => t.id !== tplId && t.applicationId !== tplId));
     try {
       deleteDoc(doc(db, 'temples', tplId));
+      deleteFromSupabaseTable('temples', tplId);
     } catch (e) {
       console.warn('Firestore delete temple error:', e);
     }
@@ -1319,6 +1464,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         targetMat.applicationId || targetMat.id,
         'Matrimonial Bureau Candidate Profile'
       );
+      showToast(
+        'Manual Verification Approved',
+        `Candidate "${targetMat.fullName}" verified and action processed in database!`,
+        'success'
+      );
     }
   };
 
@@ -1326,6 +1476,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setMatrimonials((prev) => prev.filter((m) => m.id !== matId && m.applicationId !== matId));
     try {
       deleteDoc(doc(db, 'matrimonials', matId));
+      deleteFromSupabaseTable('matrimonials', matId);
     } catch (e) {
       console.warn('Firestore delete matrimonial error:', e);
     }
@@ -1333,10 +1484,116 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const updateMatrimonialProfile = (matId: string, updated: Partial<MatrimonialProfile>) => {
+    let targetMat: MatrimonialProfile | undefined;
     setMatrimonials((prev) =>
-      prev.map((m) => (m.id === matId ? { ...m, ...updated } : m))
+      prev.map((m) => {
+        if (m.id === matId || m.applicationId === matId) {
+          targetMat = { ...m, ...updated };
+          return targetMat;
+        }
+        return m;
+      })
     );
+    if (targetMat) {
+      try {
+        setDoc(doc(db, 'matrimonials', (targetMat as MatrimonialProfile).id), targetMat, { merge: true });
+        syncToSupabaseTable('matrimonials', targetMat);
+      } catch (e) {}
+    }
     showToast('Profile Updated', 'Matrimonial profile and photos updated successfully.', 'success');
+  };
+
+  const deactivateMatrimonialProfile = async (profileId: string, reason: string = 'Married') => {
+    let targetMat: MatrimonialProfile | undefined;
+    setMatrimonials((prev) =>
+      prev.map((m) => {
+        if (m.id === profileId || m.applicationId === profileId) {
+          targetMat = {
+            ...m,
+            maritalStatus: 'Married',
+            isVerified: false,
+            aboutMe: `[Married - Deactivated] ${m.aboutMe || ''}`,
+          };
+          return targetMat;
+        }
+        return m;
+      })
+    );
+    if (targetMat) {
+      try {
+        setDoc(doc(db, 'matrimonials', (targetMat as MatrimonialProfile).id), targetMat, { merge: true });
+        syncToSupabaseTable('matrimonials', targetMat);
+      } catch (e) {}
+    }
+  };
+
+  const submitSuccessStory = async (
+    storyData: Omit<MatrimonialSuccessStory, 'id' | 'createdAt'>,
+    deactivateProfileId?: string
+  ) => {
+    const newStory: MatrimonialSuccessStory = {
+      ...storyData,
+      id: `story_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+      createdAt: new Date().toISOString().split('T')[0],
+      isApproved: true,
+    };
+
+    setSuccessStories((prev) => [newStory, ...prev]);
+
+    // Automatically sync to Supabase
+    try {
+      await syncToSupabaseTable('success_stories', newStory);
+    } catch (e) {
+      console.warn('Supabase sync for success story error:', e);
+    }
+
+    const targetId = deactivateProfileId || storyData.profileId;
+    if (targetId) {
+      await deactivateMatrimonialProfile(targetId, `Married (${storyData.matchSource})`);
+    }
+
+    triggerCelebrationConfetti();
+    showToast(
+      '💐 Congratulations on Your Wedding!',
+      'Success story feedback saved, profile deactivated, and automatically synced to Supabase!',
+      'success'
+    );
+  };
+
+  const registerMatrimonialFromDirectory = async (
+    memberId: string,
+    familyMemberIndex: number,
+    matrimonialData: Partial<MatrimonialProfile>
+  ) => {
+    const newMat = addMatrimonial(matrimonialData);
+
+    setMembers((prev) =>
+      prev.map((m) => {
+        if (m.id === memberId || m.applicationId === memberId) {
+          const updatedFamily = [...(m.familyMembers || [])];
+          if (updatedFamily[familyMemberIndex]) {
+            updatedFamily[familyMemberIndex] = {
+              ...updatedFamily[familyMemberIndex],
+              matrimonialProfileCreated: true,
+              matrimonialProfileId: newMat.id,
+            };
+          }
+          const updatedMem = { ...m, familyMembers: updatedFamily };
+          try {
+            syncToSupabaseTable('members', updatedMem);
+          } catch (e) {}
+          return updatedMem;
+        }
+        return m;
+      })
+    );
+
+    triggerCelebrationConfetti();
+    showToast(
+      '💍 Matrimonial Registration Complete!',
+      `Candidate ${newMat.fullName} is now registered in Jain Matrimonial Bureau from Jain Directory.`,
+      'success'
+    );
   };
 
   const [isSyncingFirestore, setIsSyncingFirestore] = useState(false);
@@ -1369,6 +1626,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         { name: 'jobs', data: jobs },
         { name: 'bhajans', data: bhajans },
         { name: 'pages', data: customPages },
+        { name: 'success_stories', data: successStories },
         { name: 'settings', data: { id: 'global', ...systemSettings } },
       ];
 
@@ -1589,6 +1847,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           };
           try {
             setDoc(doc(db, 'posts', p.id), updated, { merge: true });
+            syncToSupabaseTable('posts', updated);
           } catch (e) {}
           return updated;
         }
@@ -1612,6 +1871,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           };
           try {
             setDoc(doc(db, 'posts', p.id), updated, { merge: true });
+            syncToSupabaseTable('posts', updated);
           } catch (e) {}
           return updated;
         }
@@ -1634,6 +1894,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           };
           try {
             setDoc(doc(db, 'matrimonials', m.id), updated, { merge: true });
+            syncToSupabaseTable('matrimonials', updated);
           } catch (e) {}
           return updated;
         }
@@ -1658,6 +1919,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           };
           try {
             setDoc(doc(db, 'matrimonials', m.id), updated, { merge: true });
+            syncToSupabaseTable('matrimonials', updated);
           } catch (e) {}
           return updated;
         }
@@ -1669,6 +1931,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           };
           try {
             setDoc(doc(db, 'matrimonials', m.id), updated, { merge: true });
+            syncToSupabaseTable('matrimonials', updated);
           } catch (e) {}
           return updated;
         }
@@ -1718,7 +1981,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const addJob = (job: Partial<JobItem>) => {
     const newJob: JobItem = {
-      id: `job_${Date.now()}`,
+      id: job.id || `job_${Date.now()}`,
+      businessId: job.businessId,
+      postedByUserId: job.postedByUserId || currentUser?.id,
       title: job.title || 'Job Opening',
       company: job.company || 'Jain Enterprise',
       location: job.location || 'Mumbai',
@@ -1726,7 +1991,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       salary: job.salary || 'Negotiable',
       contactEmail: job.contactEmail || currentUser?.email || 'hr@jainenterprise.com',
       description: job.description || '',
-      postedDate: new Date().toISOString().split('T')[0],
+      postedDate: job.postedDate || new Date().toISOString().split('T')[0],
     };
     setJobs((prev) => [newJob, ...prev]);
     try {
@@ -1737,10 +2002,31 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showToast('Job Opportunity Posted!', 'Job saved to Supabase & listed on Jain Career Portal.', 'success');
   };
 
+  const updateJob = (jobId: string, updated: Partial<JobItem>) => {
+    let targetJob: JobItem | undefined;
+    setJobs((prev) =>
+      prev.map((j) => {
+        if (j.id === jobId) {
+          targetJob = { ...j, ...updated };
+          return targetJob;
+        }
+        return j;
+      })
+    );
+    if (targetJob) {
+      try {
+        setDoc(doc(db, 'jobs', targetJob.id), targetJob, { merge: true });
+        syncToSupabaseTable('jobs', targetJob);
+      } catch (e) {}
+    }
+    showToast('Job Post Updated', 'Job position details updated successfully.', 'success');
+  };
+
   const deletePost = (postId: string) => {
     setPosts((prev) => prev.filter((p) => p.id !== postId));
     try {
       deleteDoc(doc(db, 'posts', postId));
+      deleteFromSupabaseTable('posts', postId);
     } catch (e) {}
     showToast('Post Deleted', 'Community post removed by Super Admin.', 'info');
   };
@@ -1749,6 +2035,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setBloodDonors((prev) => prev.filter((d) => d.id !== donorId));
     try {
       deleteDoc(doc(db, 'blood_donors', donorId));
+      deleteFromSupabaseTable('blood_donors', donorId);
     } catch (e) {}
     showToast('Donor Record Removed', 'Blood donor profile removed.', 'info');
   };
@@ -1757,6 +2044,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setJobs((prev) => prev.filter((j) => j.id !== jobId));
     try {
       deleteDoc(doc(db, 'jobs', jobId));
+      deleteFromSupabaseTable('jobs', jobId);
     } catch (e) {}
     showToast('Job Listing Removed', 'Career opening removed.', 'info');
   };
@@ -1765,7 +2053,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setPanchang((prev) => {
       const merged = { ...prev, ...updated };
       try {
-        setDoc(doc(db, 'panchang', 'today'), { ...merged, updatedAt: new Date().toISOString() }, { merge: true });
+        const panchangPayload = { id: 'today', ...merged, updatedAt: new Date().toISOString() };
+        setDoc(doc(db, 'panchang', 'today'), panchangPayload, { merge: true });
+        syncToSupabaseTable('panchang', panchangPayload);
       } catch (e) {}
       return merged;
     });
@@ -1791,6 +2081,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setAds((prev) => [newAd, ...prev]);
     try {
       setDoc(doc(db, 'ads', newAd.id), newAd, { merge: true });
+      syncToSupabaseTable('ads', newAd);
     } catch (e) {}
 
     // Send Notification & Reminder to linked business owner
@@ -1815,6 +2106,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setAds((prev) => prev.filter((a) => a.id !== adId));
     try {
       deleteDoc(doc(db, 'ads', adId));
+      deleteFromSupabaseTable('ads', adId);
     } catch (e) {}
     showToast('Ad Removed', 'Banner removed from system.', 'info');
   };
@@ -1834,6 +2126,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setNews((prev) => [newNews, ...prev]);
     try {
       setDoc(doc(db, 'news', newNews.id), newNews, { merge: true });
+      syncToSupabaseTable('news', newNews);
     } catch (e) {}
     triggerConfetti();
     showToast('News Announcement Published!', 'Broadcasted to all users.', 'success');
@@ -1844,7 +2137,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const updated = { ...prev, ...settings };
       localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(updated));
       try {
-        setDoc(doc(db, 'settings', 'global'), { ...updated, updatedAt: new Date().toISOString() }, { merge: true });
+        const payload = { id: 'global', ...updated, updatedAt: new Date().toISOString() };
+        setDoc(doc(db, 'settings', 'global'), payload, { merge: true });
+        syncToSupabaseTable('settings', payload);
       } catch (e) {}
       return updated;
     });
@@ -1867,6 +2162,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setCustomPages((prev) => [newPage, ...prev]);
     try {
       setDoc(doc(db, 'pages', newPage.id), newPage, { merge: true });
+      syncToSupabaseTable('pages', newPage);
     } catch (e) {}
     showToast('Dynamic Page Published', `Page "${newPage.title}" is now active!`, 'success');
   };
@@ -1882,6 +2178,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           };
           try {
             setDoc(doc(db, 'pages', id), updated, { merge: true });
+            syncToSupabaseTable('pages', updated);
           } catch (e) {}
           return updated;
         }
@@ -1895,17 +2192,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setCustomPages((prev) => prev.filter((p) => p.id !== id));
     try {
       deleteDoc(doc(db, 'pages', id));
+      deleteFromSupabaseTable('pages', id);
     } catch (e) {}
     showToast('Page Deleted', 'Dynamic page removed from website.', 'info');
   };
 
   const togglePublishPage = (id: string) => {
     setCustomPages((prev) =>
-      prev.map((p) =>
-        p.id === id
-          ? { ...p, isPublished: !p.isPublished, updatedAt: new Date().toISOString().split('T')[0] }
-          : p
-      )
+      prev.map((p) => {
+        if (p.id === id) {
+          const updated = { ...p, isPublished: !p.isPublished, updatedAt: new Date().toISOString().split('T')[0] };
+          try {
+            setDoc(doc(db, 'pages', id), updated, { merge: true });
+            syncToSupabaseTable('pages', updated);
+          } catch (e) {}
+          return updated;
+        }
+        return p;
+      })
     );
   };
 
@@ -1998,6 +2302,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         currentUser,
         isMatrimonialOnlyUser,
         isBusinessOnlyUser,
+        isLoadingData,
+        setIsLoadingData,
         users,
         matrimonials,
         businesses,
@@ -2059,6 +2365,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         approveCommunityMember,
         deleteCommunityMember,
         addBusiness,
+        updateBusinessListing,
         approveBusiness,
         deleteBusiness,
         addTemple,
@@ -2080,6 +2387,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         addBloodDonor,
         deleteBloodDonor,
         addJob,
+        updateJob,
         deleteJob,
         addAdBanner,
         deleteAdBanner,
@@ -2101,6 +2409,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         updateCustomPage,
         deleteCustomPage,
         togglePublishPage,
+        successStories,
+        submitSuccessStory,
+        deactivateMatrimonialProfile,
+        registerMatrimonialFromDirectory,
         syncAllDataToFirestore,
         isSyncingFirestore,
         lastFirestoreSyncTime,

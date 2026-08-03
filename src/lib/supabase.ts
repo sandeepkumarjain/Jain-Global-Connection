@@ -47,23 +47,24 @@ const TABLE_COLUMNS: Record<string, string[]> = {
     'bloodGroup', 'qrCodeUrl', 'themePreference', 'extraData'
   ],
   matrimonials: [
-    'id', 'userId', 'fullName', 'gender', 'age', 'birthDate', 'height', 'education', 'occupation',
-    'income', 'city', 'state', 'gotra', 'sect', 'diet', 'bio', 'photos', 'contactNumber',
-    'interestsReceived', 'interestsAccepted', 'isApproved', 'createdAt', 'extraData'
+    'id', 'applicationId', 'userId', 'fullName', 'gender', 'age', 'birthDate', 'height', 'education', 'occupation',
+    'income', 'city', 'state', 'country', 'pincode', 'gotra', 'sect', 'subSect', 'diet', 'bio', 'photos', 'contactNumber',
+    'contactEmail', 'whatsapp', 'interestsReceived', 'interestsAccepted', 'isApproved', 'isVerified', 'status', 'createdAt',
+    'extraData'
   ],
   businesses: [
-    'id', 'ownerUserId', 'ownerId', 'businessName', 'category', 'description', 'city', 'state',
-    'address', 'mobile', 'email', 'website', 'logoUrl', 'isVerified', 'status', 'createdAt',
+    'id', 'applicationId', 'ownerUserId', 'ownerId', 'businessName', 'category', 'description', 'city', 'state', 'country', 'pincode',
+    'address', 'mobile', 'whatsapp', 'email', 'website', 'googleMapUrl', 'logoUrl', 'gstNumber', 'isVerified', 'status', 'createdAt',
     'productsAndServices', 'galleryUrls', 'isSponsored', 'rating', 'reviewCount', 'extraData'
   ],
   temples: [
-    'id', 'templeName', 'sect', 'city', 'state', 'address', 'pincode', 'trustContact',
-    'imageUrls', 'description', 'timings', 'isVerified', 'createdAt', 'dharamshalaAvailable',
+    'id', 'applicationId', 'templeName', 'sect', 'mainDeity', 'city', 'state', 'country', 'pincode', 'address', 'trustContact',
+    'images', 'imageUrls', 'description', 'timings', 'isVerified', 'status', 'createdAt', 'dharamshalaAvailable',
     'bhojanalayaAvailable', 'googleMapUrl', 'extraData'
   ],
   members: [
-    'id', 'name', 'city', 'state', 'mobile', 'email', 'gotra', 'sect', 'profession',
-    'bloodGroup', 'createdAt', 'extraData'
+    'id', 'applicationId', 'userId', 'name', 'surname', 'city', 'state', 'country', 'address', 'mobile', 'email', 'gotra',
+    'sect', 'profession', 'bloodGroup', 'photoUrl', 'isVerified', 'createdAt', 'extraData'
   ],
   posts: [
     'id', 'authorId', 'authorName', 'authorAvatar', 'authorRole', 'content', 'imageUrl',
@@ -100,6 +101,10 @@ const TABLE_COLUMNS: Record<string, string[]> = {
   settings: [
     'id', 'appName', 'tagline', 'contactPhone', 'contactEmail', 'address', 'primaryColor',
     'secondaryColor', 'enableMatrimonialApproval', 'enableBusinessApproval', 'updatedAt', 'extraData'
+  ],
+  success_stories: [
+    'id', 'profileId', 'brideName', 'groomName', 'marriageDate', 'matchSource',
+    'feedback', 'rating', 'couplePhotoUrl', 'city', 'submittedBy', 'createdAt', 'isApproved', 'extraData'
   ],
 };
 

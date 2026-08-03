@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { motion } from 'motion/react';
 import { useApp } from '../context/AppContext';
+import { AnimatedCounter } from './AnimatedCounter';
 import {
   Sparkles,
   Heart,
@@ -96,7 +98,12 @@ export const HeroBanner: React.FC = () => {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
           
           {/* Main Headline & Slide Info */}
-          <div className="lg:col-span-8 space-y-5">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="lg:col-span-8 space-y-5"
+          >
             
             {/* Tag Badge */}
             <div className="inline-flex items-center gap-2 px-3.5 py-1 bg-gradient-to-r from-amber-500/20 to-amber-700/20 border border-amber-500/40 rounded-full text-amber-300 text-xs font-bold uppercase tracking-widest shadow-lg backdrop-blur-sm">
@@ -147,10 +154,15 @@ export const HeroBanner: React.FC = () => {
                 ))}
               </div>
             )}
-          </div>
+          </motion.div>
 
           {/* Quick Action Navigation Grid Card */}
-          <div className="lg:col-span-4 bg-slate-900/80 backdrop-blur-md border border-amber-500/30 rounded-2xl p-5 shadow-2xl space-y-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.2 }}
+            className="lg:col-span-4 bg-slate-900/80 backdrop-blur-md border border-amber-500/30 rounded-2xl p-5 shadow-2xl space-y-4"
+          >
             <div className="flex items-center justify-between pb-3 border-b border-slate-800">
               <h3 className="text-sm font-bold text-amber-400 uppercase tracking-wider font-serif">
                 Quick Directory Actions
@@ -195,7 +207,7 @@ export const HeroBanner: React.FC = () => {
                 <p className="text-[10px] text-slate-400">Choghadiya & Tithis</p>
               </button>
             </div>
-          </div>
+          </motion.div>
         </div>
 
         {/* Real-time Ticker & Graphical Live Data Dashboard */}
@@ -266,13 +278,21 @@ export const HeroBanner: React.FC = () => {
                 
                 <div className="mt-3">
                   <p className="text-xl font-black font-serif text-amber-400 tracking-tight">
-                    10M+
+                    <AnimatedCounter
+                      end={10000000}
+                      formatter={(val) =>
+                        val >= 1000000
+                          ? `${(val / 1000000).toFixed(0)}M+`
+                          : `${val.toLocaleString()}+`
+                      }
+                    />
                   </p>
                   <p className="text-xs font-bold text-white mt-0.5">
                     Global Community
                   </p>
-                  <p className="text-[10px] text-slate-400 font-medium">
-                    {realMembersCount} Active Directory Profiles
+                  <p className="text-[10px] text-slate-400 font-medium flex items-center gap-1">
+                    <AnimatedCounter end={realMembersCount} />
+                    <span>Active Directory Profiles</span>
                   </p>
                 </div>
 
@@ -309,7 +329,7 @@ export const HeroBanner: React.FC = () => {
 
                 <div className="mt-3">
                   <p className="text-xl font-black font-serif text-emerald-400 tracking-tight">
-                    {realBusinessesCount}+
+                    <AnimatedCounter end={realBusinessesCount} suffix="+" />
                   </p>
                   <p className="text-xs font-bold text-white mt-0.5">
                     Verified Businesses
@@ -343,10 +363,10 @@ export const HeroBanner: React.FC = () => {
 
                 <div className="mt-3">
                   <p className="text-xl font-black font-serif text-sky-400 tracking-tight">
-                    {realTemplesCount}+
+                    <AnimatedCounter end={realTemplesCount} suffix="+" />
                   </p>
                   <p className="text-xs font-bold text-white mt-0.5">
-                    Holy Jain Shrines
+                    Global Temples & Shrines
                   </p>
                   <p className="text-[10px] text-slate-400 font-medium">
                     Live GPS Routes & Pooja
@@ -378,7 +398,7 @@ export const HeroBanner: React.FC = () => {
 
                 <div className="mt-3">
                   <p className="text-xl font-black font-serif text-rose-400 tracking-tight">
-                    {realMatrimonialsCount}+
+                    <AnimatedCounter end={realMatrimonialsCount} suffix="+" />
                   </p>
                   <p className="text-xs font-bold text-white mt-0.5">
                     Matrimonial Candidates
@@ -413,7 +433,7 @@ export const HeroBanner: React.FC = () => {
 
                 <div className="mt-3">
                   <p className="text-xl font-black font-serif text-red-400 tracking-tight">
-                    {realBloodDonorsCount}+
+                    <AnimatedCounter end={realBloodDonorsCount} suffix="+" />
                   </p>
                   <p className="text-xs font-bold text-white mt-0.5">
                     Ready Blood Donors
@@ -452,7 +472,7 @@ export const HeroBanner: React.FC = () => {
 
                 <div className="mt-3">
                   <p className="text-xl font-black font-serif text-violet-400 tracking-tight">
-                    {realBhajansCount}+
+                    <AnimatedCounter end={realBhajansCount} suffix="+" />
                   </p>
                   <p className="text-xs font-bold text-white mt-0.5">
                     Bhajans & Audio
@@ -483,8 +503,18 @@ export const HeroBanner: React.FC = () => {
                   <TrendingUp className="w-4 h-4" />
                   Platform Directory Capacity & Real Records Distribution
                 </h4>
-                <span className="text-[11px] font-bold text-slate-400">
-                  Total Managed Records: {(realMembersCount + realBusinessesCount + realTemplesCount + realMatrimonialsCount + realBloodDonorsCount + realBhajansCount).toLocaleString()}
+                <span className="text-[11px] font-bold text-slate-400 flex items-center gap-1">
+                  <span>Total Managed Records:</span>
+                  <AnimatedCounter
+                    end={
+                      realMembersCount +
+                      realBusinessesCount +
+                      realTemplesCount +
+                      realMatrimonialsCount +
+                      realBloodDonorsCount +
+                      realBhajansCount
+                    }
+                  />
                 </span>
               </div>
 
@@ -496,7 +526,10 @@ export const HeroBanner: React.FC = () => {
                       <Building2 className="w-3.5 h-3.5" />
                       Business Enterprise Directory
                     </span>
-                    <span className="text-white font-mono">{realBusinessesCount} Records</span>
+                    <span className="text-white font-mono flex items-center gap-1">
+                      <AnimatedCounter end={realBusinessesCount} />
+                      <span>Records</span>
+                    </span>
                   </div>
                   <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
                     <div className="bg-gradient-to-r from-emerald-500 to-teal-400 h-full rounded-full" style={{ width: `${Math.min(100, (realBusinessesCount / 20) * 100)}%` }} />
@@ -511,7 +544,10 @@ export const HeroBanner: React.FC = () => {
                       <Landmark className="w-3.5 h-3.5" />
                       Jain Temples & Holy Shrines
                     </span>
-                    <span className="text-white font-mono">{realTemplesCount} Records</span>
+                    <span className="text-white font-mono flex items-center gap-1">
+                      <AnimatedCounter end={realTemplesCount} />
+                      <span>Records</span>
+                    </span>
                   </div>
                   <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
                     <div className="bg-gradient-to-r from-sky-500 to-blue-400 h-full rounded-full" style={{ width: `${Math.min(100, (realTemplesCount / 10) * 100)}%` }} />
@@ -526,7 +562,10 @@ export const HeroBanner: React.FC = () => {
                       <Heart className="w-3.5 h-3.5" />
                       Matrimonial Candidates
                     </span>
-                    <span className="text-white font-mono">{realMatrimonialsCount} Records</span>
+                    <span className="text-white font-mono flex items-center gap-1">
+                      <AnimatedCounter end={realMatrimonialsCount} />
+                      <span>Records</span>
+                    </span>
                   </div>
                   <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
                     <div className="bg-gradient-to-r from-rose-500 to-pink-400 h-full rounded-full" style={{ width: `${Math.min(100, (realMatrimonialsCount / 10) * 100)}%` }} />
@@ -541,7 +580,10 @@ export const HeroBanner: React.FC = () => {
                       <Droplet className="w-3.5 h-3.5" />
                       Emergency Blood Donors
                     </span>
-                    <span className="text-white font-mono">{realBloodDonorsCount} Donors</span>
+                    <span className="text-white font-mono flex items-center gap-1">
+                      <AnimatedCounter end={realBloodDonorsCount} />
+                      <span>Donors</span>
+                    </span>
                   </div>
                   <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
                     <div className="bg-gradient-to-r from-red-500 to-rose-400 h-full rounded-full" style={{ width: `${Math.min(100, (realBloodDonorsCount / 10) * 100)}%` }} />
@@ -556,7 +598,10 @@ export const HeroBanner: React.FC = () => {
                       <Music className="w-3.5 h-3.5" />
                       Bhajan & Stavan Songs
                     </span>
-                    <span className="text-white font-mono">{realBhajansCount} Audio Tracks</span>
+                    <span className="text-white font-mono flex items-center gap-1">
+                      <AnimatedCounter end={realBhajansCount} />
+                      <span>Audio Tracks</span>
+                    </span>
                   </div>
                   <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
                     <div className="bg-gradient-to-r from-violet-500 to-purple-400 h-full rounded-full" style={{ width: `${Math.min(100, (realBhajansCount / 10) * 100)}%` }} />
@@ -571,7 +616,10 @@ export const HeroBanner: React.FC = () => {
                       <Users className="w-3.5 h-3.5" />
                       Family Directory Members
                     </span>
-                    <span className="text-white font-mono">{realMembersCount} Profiles</span>
+                    <span className="text-white font-mono flex items-center gap-1">
+                      <AnimatedCounter end={realMembersCount} />
+                      <span>Profiles</span>
+                    </span>
                   </div>
                   <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
                     <div className="bg-gradient-to-r from-amber-500 to-yellow-400 h-full rounded-full" style={{ width: `${Math.min(100, (realMembersCount / 10) * 100)}%` }} />

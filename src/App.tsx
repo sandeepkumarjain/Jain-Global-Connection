@@ -1,7 +1,9 @@
 import React from 'react';
+import { motion } from 'motion/react';
 import { Helmet, HelmetProvider } from 'react-helmet-async';
 import { AppProvider, useApp } from './context/AppContext';
 import { Header } from './components/Header';
+import { BreadcrumbNav } from './components/BreadcrumbNav';
 import { Footer } from './components/Footer';
 import { HeroBanner } from './components/HeroBanner';
 import { PanchangWidget } from './components/PanchangWidget';
@@ -24,6 +26,7 @@ import { AudioPlayer } from './components/AudioPlayer';
 import { LoginRequiredView } from './components/LoginRequiredView';
 import { DailyJainWisdom } from './components/DailyJainWisdom';
 import { JainPrinciplesSection } from './components/JainPrinciplesSection';
+import { VivahSuccessStoriesSection } from './components/VivahSuccessStoriesSection';
 import {
   CheckCircle2,
   AlertCircle,
@@ -140,7 +143,11 @@ const MainContent: React.FC = () => {
   return (
     <div
       className={`min-h-screen flex flex-col font-sans transition-colors duration-300 w-full max-w-full overflow-x-hidden ${
-        themeMode === 'dark' ? 'dark bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'
+        themeMode === 'dark'
+          ? 'dark bg-slate-950 text-slate-100'
+          : themeMode === 'auspicious'
+          ? 'auspicious bg-amber-50 text-amber-950'
+          : 'bg-slate-50 text-slate-900'
       }`}
     >
       <Helmet>
@@ -150,6 +157,9 @@ const MainContent: React.FC = () => {
 
       {/* Top Header */}
       <Header />
+
+      {/* Dynamic Breadcrumb Navigation */}
+      <BreadcrumbNav />
 
       {/* Main Body */}
       <main className="flex-1 max-w-7xl w-full max-w-full mx-auto px-2.5 sm:px-6 pt-4 sm:pt-6 pb-12 space-y-6 sm:space-y-8 overflow-x-hidden">
@@ -176,7 +186,13 @@ const MainContent: React.FC = () => {
               <div className="space-y-12">
                 
                 {/* Website Overview Banner */}
-                <div className="bg-gradient-to-r from-amber-900 via-amber-950 to-slate-950 text-white rounded-3xl p-6 sm:p-10 shadow-2xl border border-amber-800/50 relative overflow-hidden space-y-4">
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true, margin: '-50px' }}
+                  transition={{ duration: 0.5 }}
+                  className="bg-gradient-to-r from-amber-900 via-amber-950 to-slate-950 text-white rounded-3xl p-6 sm:p-10 shadow-2xl border border-amber-800/50 relative overflow-hidden space-y-4"
+                >
                   <div className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-amber-500/20 border border-amber-500/40 rounded-full text-amber-300 text-xs font-bold uppercase tracking-widest">
                     <Globe className="w-3.5 h-3.5 text-amber-400" />
                     <span>Welcome to Jain Connect Global</span>
@@ -207,11 +223,17 @@ const MainContent: React.FC = () => {
                       <span>Register New Listing</span>
                     </button>
                   </div>
-                </div>
+                </motion.div>
 
                 {/* Portal Category Overview Cards (Logged Out) */}
                 <div className="space-y-6">
-                  <div className="text-center space-y-2 max-w-2xl mx-auto">
+                  <motion.div
+                    initial={{ opacity: 0, y: 15 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ duration: 0.4 }}
+                    className="text-center space-y-2 max-w-2xl mx-auto"
+                  >
                     <span className="text-xs font-bold uppercase text-amber-600 dark:text-amber-400 tracking-wider">
                       Explore Our Directory Portals
                     </span>
@@ -221,12 +243,18 @@ const MainContent: React.FC = () => {
                     <p className="text-xs text-slate-500 dark:text-slate-400">
                       Sign in or register to unlock direct contact numbers, candidate biodatas, and interactive searches.
                     </p>
-                  </div>
+                  </motion.div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     
                     {/* Portal 1: Matrimonial */}
-                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-lg space-y-4 hover:border-red-500/50 hover:scale-[1.02] hover:-translate-y-1 hover:shadow-2xl transition-all duration-300 group">
+                    <motion.div
+                      initial={{ opacity: 0, y: 25 }}
+                      whileInView={{ opacity: 1, y: 0 }}
+                      viewport={{ once: true, margin: '-40px' }}
+                      transition={{ duration: 0.5, delay: 0.1 }}
+                      className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-lg space-y-4 hover:border-red-500/50 hover:scale-[1.02] hover:-translate-y-1 hover:shadow-2xl transition-all duration-300 group"
+                    >
                       <div className="flex items-center justify-between">
                         <div className="p-3 bg-red-500/10 rounded-2xl border border-red-500/20 text-red-500 group-hover:scale-110 transition-transform duration-300">
                           <Heart className="w-7 h-7 fill-red-500" />
@@ -253,10 +281,16 @@ const MainContent: React.FC = () => {
                         <LogIn className="w-3.5 h-3.5" />
                         <span>Sign In to Search Matrimonial Profiles</span>
                       </button>
-                    </div>
+                    </motion.div>
 
                     {/* Portal 2: Business Directory */}
-                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-lg space-y-4 hover:border-amber-500/50 hover:scale-[1.02] hover:-translate-y-1 hover:shadow-2xl transition-all duration-300 group">
+                    <motion.div
+                      initial={{ opacity: 0, y: 25 }}
+                      whileInView={{ opacity: 1, y: 0 }}
+                      viewport={{ once: true, margin: '-40px' }}
+                      transition={{ duration: 0.5, delay: 0.2 }}
+                      className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-lg space-y-4 hover:border-amber-500/50 hover:scale-[1.02] hover:-translate-y-1 hover:shadow-2xl transition-all duration-300 group"
+                    >
                       <div className="flex items-center justify-between">
                         <div className="p-3 bg-amber-500/10 rounded-2xl border border-amber-500/20 text-amber-500 group-hover:scale-110 transition-transform duration-300">
                           <Building2 className="w-7 h-7" />
@@ -283,10 +317,16 @@ const MainContent: React.FC = () => {
                         <LogIn className="w-3.5 h-3.5" />
                         <span>Sign In to Access Business Directory</span>
                       </button>
-                    </div>
+                    </motion.div>
 
                     {/* Portal 3: Temple Directory */}
-                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-lg space-y-4 hover:border-emerald-500/50 hover:scale-[1.02] hover:-translate-y-1 hover:shadow-2xl transition-all duration-300 group">
+                    <motion.div
+                      initial={{ opacity: 0, y: 25 }}
+                      whileInView={{ opacity: 1, y: 0 }}
+                      viewport={{ once: true, margin: '-40px' }}
+                      transition={{ duration: 0.5, delay: 0.3 }}
+                      className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-lg space-y-4 hover:border-emerald-500/50 hover:scale-[1.02] hover:-translate-y-1 hover:shadow-2xl transition-all duration-300 group"
+                    >
                       <div className="flex items-center justify-between">
                         <div className="p-3 bg-emerald-500/10 rounded-2xl border border-emerald-500/20 text-emerald-500 group-hover:scale-110 transition-transform duration-300">
                           <MapPin className="w-7 h-7" />
@@ -313,10 +353,16 @@ const MainContent: React.FC = () => {
                         <LogIn className="w-3.5 h-3.5" />
                         <span>Sign In to Browse Holy Temples</span>
                       </button>
-                    </div>
+                    </motion.div>
 
                     {/* Portal 4: Jain Directory Census */}
-                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-lg space-y-4 hover:border-blue-500/50 hover:scale-[1.02] hover:-translate-y-1 hover:shadow-2xl transition-all duration-300 group">
+                    <motion.div
+                      initial={{ opacity: 0, y: 25 }}
+                      whileInView={{ opacity: 1, y: 0 }}
+                      viewport={{ once: true, margin: '-40px' }}
+                      transition={{ duration: 0.5, delay: 0.4 }}
+                      className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-lg space-y-4 hover:border-blue-500/50 hover:scale-[1.02] hover:-translate-y-1 hover:shadow-2xl transition-all duration-300 group"
+                    >
                       <div className="flex items-center justify-between">
                         <div className="p-3 bg-blue-500/10 rounded-2xl border border-blue-500/20 text-blue-500 group-hover:scale-110 transition-transform duration-300">
                           <Users className="w-7 h-7" />
@@ -343,7 +389,7 @@ const MainContent: React.FC = () => {
                         <LogIn className="w-3.5 h-3.5" />
                         <span>Sign In to Access Jain Directory</span>
                       </button>
-                    </div>
+                    </motion.div>
                   </div>
                 </div>
 
@@ -407,6 +453,9 @@ const MainContent: React.FC = () => {
                   </div>
                   <MatrimonialSection />
                 </section>
+
+                {/* Vivah Success Stories & Marriage Feedback Section */}
+                <VivahSuccessStoriesSection />
 
                 {/* Business Directory Section */}
                 <section className="space-y-4 pt-4">

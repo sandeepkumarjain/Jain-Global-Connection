@@ -177,6 +177,7 @@ export interface BusinessListing {
   businessName: string;
   category: string; // Industrial, Wholesale, Retail, Doctor, CA, IT, Jewellery, Real Estate, etc.
   logoUrl: string;
+  coverImageUrl?: string;
   galleryUrls: string[];
   description: string;
   productsAndServices: string[];
@@ -235,11 +236,32 @@ export interface TempleListing {
 }
 
 export interface FamilyMember {
+  id?: string;
   name: string;
   relation: string;
   age: number;
+  gender?: 'Male' | 'Female';
   occupation: string;
   mobile?: string;
+  registerForMatrimonial?: boolean;
+  matrimonialProfileCreated?: boolean;
+  matrimonialProfileId?: string;
+}
+
+export interface MatrimonialSuccessStory {
+  id: string;
+  profileId?: string;
+  brideName: string;
+  groomName: string;
+  marriageDate: string;
+  matchSource: 'JainConnect Global' | 'Other Portal / Offline Match';
+  feedback?: string;
+  rating?: number;
+  couplePhotoUrl?: string;
+  city?: string;
+  submittedBy: string;
+  createdAt: string;
+  isApproved?: boolean;
 }
 
 export interface CommunityMemberProfile {
@@ -330,6 +352,8 @@ export interface BloodDonor {
 
 export interface JobItem {
   id: string;
+  businessId?: string;
+  postedByUserId?: string;
   title: string;
   company: string;
   location: string;
