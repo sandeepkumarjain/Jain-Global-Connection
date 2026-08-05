@@ -28,6 +28,7 @@ import {
 import { MatrimonialProfile } from '../types';
 import { generateBiodataPDF } from '../utils/pdfGenerator';
 import { MatrimonialSkeleton } from './Skeletons';
+import { VivahSuccessStoriesSection } from './VivahSuccessStoriesSection';
 
 export const MatrimonialSection: React.FC = () => {
   const {
@@ -41,7 +42,8 @@ export const MatrimonialSection: React.FC = () => {
     addMatrimonial,
     matrimonialMessages,
     sendMatrimonialMessage,
-    isLoadingData
+    isLoadingData,
+    initiateCall
   } = useApp();
 
   const [genderFilter, setGenderFilter] = useState<'All' | 'Bride' | 'Groom'>('All');
@@ -864,12 +866,12 @@ export const MatrimonialSection: React.FC = () => {
                       <Phone className="w-3.5 h-3.5 text-amber-600" />
                       <span className="font-bold text-slate-700 dark:text-slate-300">Contact:</span>
                       {unlocked ? (
-                        <a
-                          href={`tel:${p.contactMobile}`}
-                          className="font-black text-amber-900 dark:text-amber-300 underline hover:text-amber-600"
+                        <button
+                          onClick={() => initiateCall(p.contactMobile, p.fullName)}
+                          className="font-black text-amber-900 dark:text-amber-300 underline hover:text-amber-600 inline-flex items-center gap-1 cursor-pointer"
                         >
                           {p.contactMobile}
-                        </a>
+                        </button>
                       ) : (
                         <span className="font-extrabold text-slate-400 filter blur-[3px] select-none">
                           +91 98*** ****77
@@ -921,6 +923,27 @@ export const MatrimonialSection: React.FC = () => {
                     <Download className={`w-3.5 h-3.5 text-amber-600 dark:text-amber-400 ${downloadingPdfId === p.id ? 'animate-bounce' : ''}`} />
                     <span>{downloadingPdfId === p.id ? 'Generating...' : 'PDF'}</span>
                   </button>
+
+                  {/* CLICK-TO-CALL BUTTON */}
+                  {unlocked ? (
+                    <button
+                      onClick={() => initiateCall(p.contactMobile, p.fullName)}
+                      className="px-3 py-2 min-h-[44px] bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl transition-colors flex items-center justify-center gap-1.5 shrink-0 shadow-sm cursor-pointer"
+                      title="Click to call via verified phone dialer"
+                    >
+                      <Phone className="w-3.5 h-3.5 fill-current" />
+                      <span>Call Now</span>
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => initiateCall(p.contactMobile || '+919800000000', p.fullName)}
+                      className="px-2.5 py-2 min-h-[44px] bg-amber-100 dark:bg-amber-950/60 hover:bg-amber-200 text-amber-900 dark:text-amber-200 text-xs font-bold rounded-xl transition-colors flex items-center justify-center gap-1 shrink-0 cursor-pointer"
+                      title="Verify phone & initiate contact"
+                    >
+                      <Phone className="w-3.5 h-3.5 text-amber-600" />
+                      <span>Click to Call</span>
+                    </button>
+                  )}
 
                   {/* DIRECT CHAT BUTTON (If interest is accepted) */}
                   {unlocked && (
@@ -1129,9 +1152,13 @@ export const MatrimonialSection: React.FC = () => {
                     <div>
                       <span className="text-slate-500 block">Mobile Phone:</span>
                       {isContactUnlocked(selectedProfile) ? (
-                        <a href={`tel:${selectedProfile.contactMobile}`} className="font-black text-amber-800 dark:text-amber-300 underline">
-                          {selectedProfile.contactMobile}
-                        </a>
+                        <button
+                          onClick={() => initiateCall(selectedProfile.contactMobile, selectedProfile.fullName)}
+                          className="font-black text-amber-800 dark:text-amber-300 underline hover:text-amber-600 inline-flex items-center gap-1 cursor-pointer"
+                        >
+                          <Phone className="w-3.5 h-3.5 text-amber-600 fill-current" />
+                          <span>{selectedProfile.contactMobile}</span>
+                        </button>
                       ) : (
                         <div className="flex items-center gap-1">
                           <span className="font-bold text-slate-400 filter blur-[3px] select-none">
@@ -2691,6 +2718,10 @@ export const MatrimonialSection: React.FC = () => {
           </div>
         </div>
       )}
+      {/* Vivah Success Stories & Deactivate Marriage Profile Option (Exclusive to Matrimonial Section) */}
+      <div className="pt-8 border-t border-slate-200 dark:border-slate-800 mt-8">
+        <VivahSuccessStoriesSection showDeactivateButton={true} />
+      </div>
     </div>
   );
 };

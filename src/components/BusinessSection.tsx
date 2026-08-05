@@ -124,7 +124,8 @@ export const BusinessSection: React.FC = () => {
     updateJob,
     deleteJob,
     updateBusinessListing,
-    isLoadingData
+    isLoadingData,
+    initiateCall
   } = useApp();
 
   // Logo & Cover Image Upload Handlers (Device Camera or System File)
@@ -1004,18 +1005,12 @@ END:VCARD`;
                       </button>
                     ) : (
                       <button
-                        onClick={() => {
-                          if (!currentUser) {
-                            showToast('Sign In Required', 'Please sign in or register to make direct phone calls.', 'info');
-                            setIsAuthModalOpen(true);
-                            return;
-                          }
-                          window.location.href = `tel:${b.mobile}`;
-                        }}
-                        className="py-2.5 min-h-[44px] bg-amber-600 hover:bg-amber-700 text-white rounded-lg flex items-center justify-center gap-1 shadow-sm cursor-pointer"
+                        onClick={() => initiateCall(b.mobile, b.businessName)}
+                        className="py-2.5 min-h-[44px] bg-amber-600 hover:bg-amber-700 text-white rounded-lg flex items-center justify-center gap-1 shadow-sm cursor-pointer font-bold"
+                        title="Click to call via verified phone dialer"
                       >
-                        <Phone className="w-3.5 h-3.5" />
-                        <span className="hidden sm:inline">Call</span>
+                        <Phone className="w-3.5 h-3.5 fill-current" />
+                        <span>Call</span>
                       </button>
                     )}
                   </div>

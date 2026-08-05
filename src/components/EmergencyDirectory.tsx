@@ -28,7 +28,8 @@ export const EmergencyDirectory: React.FC = () => {
     currentUser,
     setIsUserProfileModalOpen,
     setIsAuthModalOpen,
-    showToast
+    showToast,
+    initiateCall
   } = useApp();
 
   const [selectedBloodGroup, setSelectedBloodGroup] = useState('All');
@@ -441,13 +442,14 @@ export const EmergencyDirectory: React.FC = () => {
 
                 {/* Communication Action Buttons */}
                 <div className="grid grid-cols-2 gap-2 pt-3 border-t border-slate-200 dark:border-slate-700/60">
-                  <a
-                    href={`tel:${d.mobile}`}
-                    className="py-2.5 min-h-[44px] bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold flex items-center justify-center gap-1 shadow-sm text-[11px]"
+                  <button
+                    onClick={() => initiateCall(d.mobile, d.name)}
+                    className="py-2.5 min-h-[44px] bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold flex items-center justify-center gap-1 shadow-sm text-[11px] cursor-pointer"
+                    title="Click to call emergency blood donor"
                   >
-                    <Phone className="w-3.5 h-3.5" />
+                    <Phone className="w-3.5 h-3.5 fill-current" />
                     <span>Call</span>
-                  </a>
+                  </button>
 
                   <a
                     href={`https://wa.me/${d.mobile.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`Jai Jinendra ${d.name}, contacting you via Jain Connect Global Emergency Blood Network.`)}`}

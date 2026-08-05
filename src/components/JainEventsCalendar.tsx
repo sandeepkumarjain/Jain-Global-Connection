@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { createGoogleCalendarEvent, getGoogleCalendarWebUrl } from '../lib/googleCalendar';
 import { getAccessToken, googleSignIn } from '../lib/googleAuth';
@@ -19,7 +19,16 @@ import {
   CalendarCheck,
   CalendarPlus,
   ExternalLink,
-  Check
+  Check,
+  Flame,
+  Share2,
+  Heart,
+  ChevronLeft,
+  Landmark,
+  Crown,
+  Moon,
+  BookOpen,
+  Sun
 } from 'lucide-react';
 
 export type EventCategory = 'all' | 'parv' | 'kalyanak' | 'tithi' | 'vrata';
@@ -36,6 +45,45 @@ export interface JainEvent {
   significance: string;
   dietaryRule?: string;  // e.g. "Chouvihar & No Green Vegetables (Kandmool)"
   isMajor: boolean;
+  bannerColor?: string;
+}
+
+export interface CountdownTime {
+  days: number;
+  hours: number;
+  minutes: number;
+  seconds: number;
+  isPast: boolean;
+  totalSeconds: number;
+}
+
+export function calculateCountdown(targetDateStr: string): CountdownTime {
+  const now = new Date().getTime();
+  if (!targetDateStr || targetDateStr.includes('Recurring')) {
+    return { days: 0, hours: 0, minutes: 0, seconds: 0, isPast: false, totalSeconds: 0 };
+  }
+
+  let target = new Date(targetDateStr + 'T00:00:00').getTime();
+
+  // If target has passed by more than 1 day, roll over to next year for live countdown demo
+  if (target < now - 86400000) {
+    const d = new Date(targetDateStr + 'T00:00:00');
+    d.setFullYear(d.getFullYear() + 1);
+    target = d.getTime();
+  }
+
+  const diff = target - now;
+
+  if (diff <= 0) {
+    return { days: 0, hours: 0, minutes: 0, seconds: 0, isPast: true, totalSeconds: 0 };
+  }
+
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+  const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+  const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+  const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+  return { days, hours, minutes, seconds, isPast: false, totalSeconds: Math.floor(diff / 1000) };
 }
 
 const JAIN_EVENTS_DATA: JainEvent[] = [
@@ -50,7 +98,8 @@ const JAIN_EVENTS_DATA: JainEvent[] = [
     sect: 'Swetambar',
     significance: '8-day holy festival of self-purification, forgiveness, intense tapasya, and reading of Kalpa Sutra.',
     dietaryRule: 'Pure Sattvic food before sunset; strict avoidance of onions, garlic, potatoes, and green leafy vegetables.',
-    isMajor: true
+    isMajor: true,
+    bannerColor: 'from-amber-600 via-rose-600 to-amber-700'
   },
   {
     id: 'samvatsari-2026',
@@ -63,7 +112,8 @@ const JAIN_EVENTS_DATA: JainEvent[] = [
     sect: 'Swetambar',
     significance: 'Supreme Day of Forgiveness. Asking "Michhami Dukkadam" to all living beings in the universe.',
     dietaryRule: 'Strict Fasting (Upvas / Ekashana) & Chouvihar.',
-    isMajor: true
+    isMajor: true,
+    bannerColor: 'from-rose-700 via-amber-600 to-rose-900'
   },
   {
     id: 'das-lakshana-2026',
@@ -76,7 +126,8 @@ const JAIN_EVENTS_DATA: JainEvent[] = [
     sect: 'Digambar',
     significance: '10 days celebrating Uttama Kshama, Mardava, Arjava, Satya, Shaucha, Sanyama, Tapa, Tyaga, Akinchanya, and Brahmacharya.',
     dietaryRule: 'Ekashana / Upvas with boil-water intake before sunset.',
-    isMajor: true
+    isMajor: true,
+    bannerColor: 'from-amber-700 via-orange-600 to-amber-800'
   },
   {
     id: 'kshamavani-dig-2026',
@@ -89,7 +140,8 @@ const JAIN_EVENTS_DATA: JainEvent[] = [
     sect: 'Digambar',
     significance: 'Culmination of Das Lakshana Mahaparv & Universal Forgiveness seeking.',
     dietaryRule: 'Chouvihar Fasting & Siddha Bhakti.',
-    isMajor: true
+    isMajor: true,
+    bannerColor: 'from-orange-700 via-amber-700 to-rose-800'
   },
   {
     id: 'mahavir-jayanti-2026',
@@ -102,7 +154,8 @@ const JAIN_EVENTS_DATA: JainEvent[] = [
     sect: 'All Jains',
     significance: 'Birth Kalyanak of 24th Tirthankara Bhagwan Mahavira. Rath Yatra and Ahimsa processions worldwide.',
     dietaryRule: 'Sattvic Bhojan & Snatra Puja.',
-    isMajor: true
+    isMajor: true,
+    bannerColor: 'from-amber-500 via-amber-600 to-orange-600'
   },
   {
     id: 'diwali-mahavir-nirvana-2026',
@@ -115,7 +168,8 @@ const JAIN_EVENTS_DATA: JainEvent[] = [
     sect: 'All Jains',
     significance: 'Moksha Kalyanak of Bhagwan Mahavira at Pawapuri Jal Mandir and attainment of Kevaljnana by Gautam Swami.',
     dietaryRule: 'Chouvihar, Jaap & Ladoo offerings.',
-    isMajor: true
+    isMajor: true,
+    bannerColor: 'from-yellow-600 via-amber-600 to-red-700'
   },
   {
     id: 'akshaya-tritiya-2026',
@@ -128,7 +182,8 @@ const JAIN_EVENTS_DATA: JainEvent[] = [
     sect: 'All Jains',
     significance: 'First Tirthankara Lord Rishabhdev broke his 400-day fast with Sugarcane Juice (Ikshu Rasa) from King Shreyansa.',
     dietaryRule: 'Sugarcane Juice Parna for Varshitap Sadhaks.',
-    isMajor: true
+    isMajor: true,
+    bannerColor: 'from-emerald-700 via-amber-600 to-amber-700'
   },
   {
     id: 'oli-chaitra-2026',
@@ -141,7 +196,8 @@ const JAIN_EVENTS_DATA: JainEvent[] = [
     sect: 'Swetambar',
     significance: '9-day Ayambil Tap honoring Navpad: Arihant, Siddha, Acharya, Upadhyay, Sadhu, Samyak Darshan, Jnana, Charitra, Tapa.',
     dietaryRule: 'Boiled single-grain food once a day without salt, ghee, milk, oil, or sugar (Ayambil).',
-    isMajor: true
+    isMajor: true,
+    bannerColor: 'from-amber-600 via-orange-500 to-amber-700'
   },
   {
     id: 'oli-kartik-2026',
@@ -154,7 +210,8 @@ const JAIN_EVENTS_DATA: JainEvent[] = [
     sect: 'Swetambar',
     significance: 'Autumn Siddhachakra Aradhana and Ayambil Tapasya.',
     dietaryRule: 'Ayambil Tap Sadhana.',
-    isMajor: true
+    isMajor: true,
+    bannerColor: 'from-orange-600 via-amber-600 to-rose-700'
   },
   {
     id: 'gyan-panchami-2026',
@@ -180,7 +237,8 @@ const JAIN_EVENTS_DATA: JainEvent[] = [
     sect: 'All Jains',
     significance: 'Day of silent contemplation (Maun Fasting). 150 Kalyanaks of past, present, and future Tirthankaras honored.',
     dietaryRule: 'Complete silence (Maun), Upvas / Paushadh.',
-    isMajor: true
+    isMajor: true,
+    bannerColor: 'from-purple-800 via-indigo-700 to-slate-900'
   },
   {
     id: 'adinath-janma-2026',
@@ -245,9 +303,170 @@ const JAIN_EVENTS_DATA: JainEvent[] = [
     sect: 'All Jains',
     significance: 'End of Chaturmas. Shatrunjaya Palitana Yatra opens for lakhs of devotees.',
     dietaryRule: 'Chouvihar & Special Sangh Puja.',
-    isMajor: true
+    isMajor: true,
+    bannerColor: 'from-amber-700 via-rose-700 to-amber-900'
   }
 ];
+
+export function getFestivalCategoryIcon(event: JainEvent) {
+  const titleLower = (event.title + ' ' + event.hindiTitle + ' ' + event.id + ' ' + event.jainTithi + ' ' + event.significance).toLowerCase();
+
+  if (titleLower.includes('diwali') || titleLower.includes('deepawali') || titleLower.includes('nirvana') || titleLower.includes('दीपावली') || titleLower.includes('दीपक')) {
+    return <Flame className="w-4 h-4 text-amber-500 fill-amber-400 shrink-0" />;
+  }
+  if (titleLower.includes('tirth') || titleLower.includes('temple') || titleLower.includes('shikharji') || titleLower.includes('girnar') || titleLower.includes('palitana') || titleLower.includes('shatrunjaya') || titleLower.includes('teerth')) {
+    return <Landmark className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />;
+  }
+  if (titleLower.includes('jayanti') || titleLower.includes('janma') || titleLower.includes('kalyanak') || titleLower.includes('bhagwan') || titleLower.includes('mahavir') || titleLower.includes('parshvanath') || titleLower.includes('rishabhdev')) {
+    return <Crown className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />;
+  }
+  if (titleLower.includes('samvatsari') || titleLower.includes('kshamavani') || titleLower.includes('forgiveness') || titleLower.includes('paryushan') || titleLower.includes('das lakshana')) {
+    return <Heart className="w-4 h-4 text-rose-500 fill-rose-100 dark:fill-rose-900/40 shrink-0" />;
+  }
+  if (titleLower.includes('oli') || titleLower.includes('ayambil') || titleLower.includes('fast') || titleLower.includes('vrata') || titleLower.includes('tapasya') || titleLower.includes('parna') || titleLower.includes('diet')) {
+    return <Utensils className="w-4 h-4 text-orange-500 shrink-0" />;
+  }
+  if (titleLower.includes('shrut') || titleLower.includes('gyan') || titleLower.includes('pustak') || titleLower.includes('sutra') || titleLower.includes('kalpa')) {
+    return <BookOpen className="w-4 h-4 text-indigo-500 shrink-0" />;
+  }
+  if (event.category === 'tithi' || titleLower.includes('ashtami') || titleLower.includes('chaturdashi') || titleLower.includes('poornima') || titleLower.includes('purnima') || titleLower.includes('amavasya')) {
+    return <Moon className="w-4 h-4 text-sky-500 shrink-0" />;
+  }
+  if (event.category === 'parv') {
+    return <Sparkles className="w-4 h-4 text-amber-500 shrink-0" />;
+  }
+  if (event.category === 'kalyanak') {
+    return <Award className="w-4 h-4 text-amber-500 shrink-0" />;
+  }
+  return <Sparkles className="w-4 h-4 text-amber-500 shrink-0" />;
+}
+
+export function getFestivalCardStyle(event: JainEvent) {
+  const titleLower = (event.title + ' ' + event.hindiTitle + ' ' + event.id + ' ' + event.category).toLowerCase();
+
+  // 1. Samvatsari / Kshamavani / Forgiveness -> Sacred Rose / Crimson Accent
+  if (titleLower.includes('samvatsari') || titleLower.includes('kshamavani') || titleLower.includes('paryushan')) {
+    return {
+      cardBg: 'bg-gradient-to-br from-rose-50/90 via-amber-50/50 to-white dark:from-rose-950/40 dark:via-slate-800 dark:to-slate-900',
+      borderColor: 'border-rose-300 dark:border-rose-700/80 shadow-sm shadow-rose-100/50 dark:shadow-none',
+      dateBadge: 'bg-rose-100 dark:bg-rose-950 text-rose-900 dark:text-rose-200 border border-rose-200 dark:border-rose-800',
+      tagBadge: 'bg-rose-500 text-white',
+      categoryTag: 'text-rose-800 dark:text-rose-300',
+      iconBg: 'bg-rose-100/80 dark:bg-rose-950/80 border-rose-200/80 dark:border-rose-800/80',
+    };
+  }
+
+  // 2. Parv & Major Festivals -> Radiant Warm Amber / Saffron Gold
+  if (event.category === 'parv' || event.isMajor) {
+    return {
+      cardBg: 'bg-gradient-to-br from-amber-50/90 via-orange-50/40 to-white dark:from-slate-800/90 dark:via-amber-950/30 dark:to-slate-900',
+      borderColor: 'border-amber-300 dark:border-amber-700/80 shadow-sm shadow-amber-100/50 dark:shadow-none',
+      dateBadge: 'bg-amber-100 dark:bg-amber-950 text-amber-950 dark:text-amber-200 border border-amber-200 dark:border-amber-800',
+      tagBadge: 'bg-amber-500 text-white',
+      categoryTag: 'text-amber-800 dark:text-amber-300',
+      iconBg: 'bg-amber-100/80 dark:bg-amber-950/80 border-amber-200/80 dark:border-amber-800/80',
+    };
+  }
+
+  // 3. Kalyanak (Tirthankar Jayanti/Kalyanaks) -> Royal Purple / Violet soft tint
+  if (event.category === 'kalyanak') {
+    return {
+      cardBg: 'bg-gradient-to-br from-purple-50/80 via-slate-50 to-white dark:from-slate-800 dark:via-purple-950/20 dark:to-slate-900',
+      borderColor: 'border-purple-200 dark:border-purple-800/70',
+      dateBadge: 'bg-purple-100 dark:bg-purple-950 text-purple-950 dark:text-purple-200 border border-purple-200 dark:border-purple-800',
+      tagBadge: 'bg-purple-600 text-white',
+      categoryTag: 'text-purple-800 dark:text-purple-300',
+      iconBg: 'bg-purple-100/80 dark:bg-purple-950/80 border-purple-200/80 dark:border-purple-800/80',
+    };
+  }
+
+  // 4. Tapasya / Fasting / Ayambil Vratas -> Soft Terracotta / Sunset Orange
+  if (event.category === 'vrata' || titleLower.includes('oli') || titleLower.includes('fast')) {
+    return {
+      cardBg: 'bg-gradient-to-br from-orange-50/80 via-amber-50/30 to-white dark:from-slate-800 dark:via-orange-950/20 dark:to-slate-900',
+      borderColor: 'border-orange-200 dark:border-orange-800/70',
+      dateBadge: 'bg-orange-100 dark:bg-orange-950 text-orange-950 dark:text-orange-200 border border-orange-200 dark:border-orange-800',
+      tagBadge: 'bg-orange-500 text-white',
+      categoryTag: 'text-orange-800 dark:text-orange-300',
+      iconBg: 'bg-orange-100/80 dark:bg-orange-950/80 border-orange-200/80 dark:border-orange-800/80',
+    };
+  }
+
+  // 5. Sacred Tithis & Fasting Days (Ashtami, Chaturdashi, Poornima) -> Celestial Sky Blue / Indigo
+  if (event.category === 'tithi') {
+    return {
+      cardBg: 'bg-gradient-to-br from-sky-50/80 via-slate-50 to-white dark:from-slate-800 dark:via-sky-950/20 dark:to-slate-900',
+      borderColor: 'border-sky-200 dark:border-sky-800/70',
+      dateBadge: 'bg-sky-100 dark:bg-sky-950 text-sky-950 dark:text-sky-200 border border-sky-200 dark:border-sky-800',
+      tagBadge: 'bg-sky-500 text-white',
+      categoryTag: 'text-sky-800 dark:text-sky-300',
+      iconBg: 'bg-sky-100/80 dark:bg-sky-950/80 border-sky-200/80 dark:border-sky-800/80',
+    };
+  }
+
+  // Default fallback -> Clean Warm Slate
+  return {
+    cardBg: 'bg-white dark:bg-slate-800/80',
+    borderColor: 'border-slate-200 dark:border-slate-700',
+    dateBadge: 'bg-amber-100 dark:bg-amber-950 text-amber-900 dark:text-amber-200 border border-amber-200 dark:border-amber-800',
+    tagBadge: 'bg-slate-500 text-white',
+    categoryTag: 'text-slate-700 dark:text-slate-300',
+    iconBg: 'bg-amber-100/80 dark:bg-amber-950/80 border-amber-200/80 dark:border-amber-800/80',
+  };
+}
+
+export function getUpcoming1YearJainEvents(nowDate: Date = new Date()): JainEvent[] {
+  const currentYear = nowDate.getFullYear();
+  const startOfToday = new Date(nowDate.getFullYear(), nowDate.getMonth(), nowDate.getDate(), 0, 0, 0);
+
+  const processedEvents: (JainEvent & { sortTimestamp: number })[] = [];
+
+  for (const event of JAIN_EVENTS_DATA) {
+    if (event.gregorianDate === 'Recurring Monthly') {
+      processedEvents.push({
+        ...event,
+        sortTimestamp: Number.MAX_SAFE_INTEGER,
+      });
+      continue;
+    }
+
+    const parts = event.gregorianDate.split('-');
+    if (parts.length !== 3) continue;
+
+    const monthIndex = parseInt(parts[1], 10) - 1;
+    const day = parseInt(parts[2], 10);
+
+    let targetYear = currentYear;
+    const eventThisYearEnd = new Date(currentYear, monthIndex, day, 23, 59, 59);
+
+    if (eventThisYearEnd.getTime() < startOfToday.getTime()) {
+      targetYear = currentYear + 1;
+    }
+
+    const calculatedEventDate = new Date(targetYear, monthIndex, day);
+    const calculatedDateStr = `${targetYear}-${String(monthIndex + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    let updatedDisplayDate = event.displayDate;
+
+    if (event.displayDate.includes('-')) {
+      updatedDisplayDate = event.displayDate.replace(/\d{4}/, targetYear.toString());
+    } else {
+      updatedDisplayDate = `${String(day).padStart(2, '0')} ${monthNames[monthIndex]} ${targetYear}`;
+    }
+
+    processedEvents.push({
+      ...event,
+      gregorianDate: calculatedDateStr,
+      displayDate: updatedDisplayDate,
+      sortTimestamp: calculatedEventDate.getTime(),
+    });
+  }
+
+  processedEvents.sort((a, b) => a.sortTimestamp - b.sortTimestamp);
+
+  return processedEvents.map(({ sortTimestamp, ...rest }) => rest);
+}
 
 export const JainEventsCalendar: React.FC = () => {
   const { showToast } = useApp();
@@ -259,6 +478,31 @@ export const JainEventsCalendar: React.FC = () => {
   const [isSyncingId, setIsSyncingId] = useState<string | null>(null);
   const [showAllEvents, setShowAllEvents] = useState(false);
   const [viewMode, setViewMode] = useState<'compact' | 'cards'>('compact');
+
+  // Real-time tick state for live countdowns
+  const [, setTick] = useState(0);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTick((prev) => prev + 1);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Compute 1-Year Rolling Upcoming Festivals (Excludes past/completed events; auto-rolls to next year)
+  const upcoming1YearEvents = useMemo(() => {
+    return getUpcoming1YearJainEvents(new Date());
+  }, []);
+
+  // Major Festivals for Hero Countdown Carousel
+  const majorFestivals = useMemo(() => {
+    return upcoming1YearEvents.filter((e) => e.isMajor && e.gregorianDate !== 'Recurring Monthly');
+  }, [upcoming1YearEvents]);
+
+  const [activeHeroIndex, setActiveHeroIndex] = useState(0);
+
+  const currentHeroEvent = majorFestivals[activeHeroIndex] || majorFestivals[0];
+  const heroCountdown = calculateCountdown(currentHeroEvent.gregorianDate);
 
   const handleSyncToCalendar = async (event: JainEvent) => {
     let token = getAccessToken();
@@ -303,7 +547,7 @@ export const JainEventsCalendar: React.FC = () => {
     }
   };
 
-  const filteredEvents = JAIN_EVENTS_DATA.filter((event) => {
+  const filteredEvents = upcoming1YearEvents.filter((event) => {
     const matchesCategory = selectedCategory === 'all' || event.category === selectedCategory;
     const matchesSearch =
       event.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -313,7 +557,7 @@ export const JainEventsCalendar: React.FC = () => {
     return matchesCategory && matchesSearch;
   });
 
-  const displayedEvents = showAllEvents ? filteredEvents : filteredEvents.slice(0, 4);
+  const displayedEvents = showAllEvents ? filteredEvents : filteredEvents.slice(0, 5);
 
   const handleCopyEvent = (event: JainEvent) => {
     const details = `🙏 JAIN EVENT REMINDER:\n📌 ${event.title} (${event.hindiTitle})\n📅 Date: ${event.displayDate}\n📿 Tithi: ${event.jainTithi}\n✨ Significance: ${event.significance}\n🍽️ Dietary Rule: ${event.dietaryRule || 'Sattvic Chouvihar'}\n\nShared via Jain Connect Global`;
@@ -324,17 +568,142 @@ export const JainEventsCalendar: React.FC = () => {
   };
 
   return (
-    <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 sm:p-5 shadow-lg border border-amber-300/60 dark:border-amber-900/60 transition-all">
-      {/* Header Banner - Compact */}
+    <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 sm:p-6 shadow-xl border border-amber-300/60 dark:border-amber-900/60 transition-all space-y-6">
+      
+      {/* SECTION 1: HERO FESTIVAL LIVE COUNTDOWN BANNER */}
+      <div className={`bg-gradient-to-r ${currentHeroEvent.bannerColor || 'from-amber-700 via-rose-700 to-slate-900'} text-white rounded-3xl p-5 sm:p-7 shadow-2xl relative overflow-hidden border border-amber-400/30`}>
+        {/* Decorative Background Accents */}
+        <div className="absolute top-0 right-0 w-72 h-72 bg-white/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-0 left-0 w-72 h-72 bg-amber-500/20 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+          
+          {/* Left Side: Event Details & Fasting Info */}
+          <div className="space-y-3 max-w-xl">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-400/20 backdrop-blur-md border border-amber-300/40 rounded-full text-amber-200 text-xs font-bold uppercase tracking-wider">
+                <Flame className="w-3.5 h-3.5 text-amber-300 animate-pulse" />
+                <span>UPCOMING JAIN FESTIVAL COUNTDOWN</span>
+              </span>
+              <span className="px-2.5 py-0.5 bg-white/20 backdrop-blur-md rounded-full text-[11px] font-bold text-white">
+                {currentHeroEvent.sect}
+              </span>
+            </div>
+
+            <div>
+              <h2 className="text-2xl sm:text-3xl font-extrabold font-serif text-white tracking-tight leading-tight flex items-center gap-2.5">
+                <span className="p-1.5 rounded-xl bg-amber-400/20 backdrop-blur-md border border-amber-300/40 text-amber-200 shrink-0">
+                  {getFestivalCategoryIcon(currentHeroEvent)}
+                </span>
+                <span>{currentHeroEvent.title}</span>
+              </h2>
+              <p className="text-sm font-serif text-amber-200 font-semibold mt-1">
+                {currentHeroEvent.hindiTitle} • <span className="underline decoration-amber-400/60">{currentHeroEvent.jainTithi}</span>
+              </p>
+            </div>
+
+            <p className="text-xs sm:text-sm text-amber-100/90 leading-relaxed line-clamp-2">
+              {currentHeroEvent.significance}
+            </p>
+
+            {currentHeroEvent.dietaryRule && (
+              <div className="p-2.5 rounded-xl bg-black/20 backdrop-blur-md border border-white/10 text-xs text-amber-100 flex items-center gap-2">
+                <Utensils className="w-4 h-4 text-amber-300 shrink-0" />
+                <span><strong>Aahar Niyam:</strong> {currentHeroEvent.dietaryRule}</span>
+              </div>
+            )}
+
+            {/* Quick Action Buttons */}
+            <div className="pt-1 flex flex-wrap items-center gap-2">
+              <button
+                onClick={() => handleSyncToCalendar(currentHeroEvent)}
+                disabled={isSyncingId === currentHeroEvent.id}
+                className="px-4 py-2 bg-amber-400 hover:bg-amber-300 text-slate-950 font-extrabold text-xs rounded-xl shadow-lg transition-all flex items-center gap-1.5 active:scale-95"
+              >
+                <CalendarPlus className={`w-3.5 h-3.5 ${isSyncingId === currentHeroEvent.id ? 'animate-spin' : ''}`} />
+                <span>{syncedEvents[currentHeroEvent.id] ? 'Synced to Calendar' : 'Sync Festival to Google Calendar'}</span>
+              </button>
+
+              <button
+                onClick={() => handleCopyEvent(currentHeroEvent)}
+                className="px-3.5 py-2 bg-white/15 hover:bg-white/25 text-white font-bold text-xs rounded-xl border border-white/20 transition-all flex items-center gap-1.5"
+              >
+                <Share2 className="w-3.5 h-3.5" />
+                <span>Share Festival Info</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Right Side: LIVE COUNTDOWN DISPLAY */}
+          <div className="bg-black/30 backdrop-blur-md p-5 rounded-2xl border border-white/15 flex flex-col items-center justify-center gap-3 shrink-0 shadow-xl">
+            <div className="text-[11px] font-extrabold text-amber-300 uppercase tracking-widest flex items-center gap-1.5">
+              <Clock className="w-3.5 h-3.5 text-amber-400 animate-spin-slow" />
+              <span>LIVE TIME REMAINING</span>
+            </div>
+
+            {/* Countdown Digits */}
+            <div className="grid grid-cols-4 gap-2 text-center">
+              <div className="p-2 sm:p-3 bg-white/10 rounded-xl border border-white/10 min-w-[58px] sm:min-w-[68px]">
+                <span className="text-2xl sm:text-3xl font-black font-mono text-white block">
+                  {String(heroCountdown.days).padStart(2, '0')}
+                </span>
+                <span className="text-[9px] font-bold uppercase text-amber-200 tracking-wider">Days</span>
+              </div>
+
+              <div className="p-2 sm:p-3 bg-white/10 rounded-xl border border-white/10 min-w-[58px] sm:min-w-[68px]">
+                <span className="text-2xl sm:text-3xl font-black font-mono text-white block">
+                  {String(heroCountdown.hours).padStart(2, '0')}
+                </span>
+                <span className="text-[9px] font-bold uppercase text-amber-200 tracking-wider">Hours</span>
+              </div>
+
+              <div className="p-2 sm:p-3 bg-white/10 rounded-xl border border-white/10 min-w-[58px] sm:min-w-[68px]">
+                <span className="text-2xl sm:text-3xl font-black font-mono text-white block">
+                  {String(heroCountdown.minutes).padStart(2, '0')}
+                </span>
+                <span className="text-[9px] font-bold uppercase text-amber-200 tracking-wider">Mins</span>
+              </div>
+
+              <div className="p-2 sm:p-3 bg-white/10 rounded-xl border border-white/10 min-w-[58px] sm:min-w-[68px]">
+                <span className="text-2xl sm:text-3xl font-black font-mono text-amber-300 block">
+                  {String(heroCountdown.seconds).padStart(2, '0')}
+                </span>
+                <span className="text-[9px] font-bold uppercase text-amber-300 tracking-wider">Secs</span>
+              </div>
+            </div>
+
+            <div className="text-center text-[11px] font-bold text-amber-200">
+              📅 Date: {currentHeroEvent.displayDate}
+            </div>
+
+            {/* Hero Carousel Navigator Dots */}
+            <div className="flex items-center gap-1.5 pt-1">
+              {majorFestivals.map((fest, idx) => (
+                <button
+                  key={fest.id}
+                  onClick={() => setActiveHeroIndex(idx)}
+                  className={`h-2 rounded-full transition-all ${
+                    idx === activeHeroIndex ? 'w-6 bg-amber-400' : 'w-2 bg-white/30 hover:bg-white/60'
+                  }`}
+                  title={fest.title}
+                />
+              ))}
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      {/* SECTION 2: FESTIVAL & EVENTS CALENDAR HEADER & FILTERS */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-amber-100 dark:border-slate-800">
         <div>
           <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400 font-bold text-[11px] uppercase tracking-wider">
             <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-            <span>Sacred Jain Panchang Events 2026</span>
+            <span>Sacred Jain Panchang • Rolling 1-Year Upcoming Festivals</span>
           </div>
-          <h2 className="text-lg sm:text-xl font-serif font-bold text-slate-900 dark:text-white flex items-center gap-2">
-            Jain Festivals & Tithi Calendar
-          </h2>
+          <h3 className="text-lg sm:text-xl font-serif font-bold text-slate-900 dark:text-white flex items-center gap-2">
+            Jain Festivals, Kalyanaks & Fasting Tithis
+          </h3>
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
@@ -373,8 +742,8 @@ export const JainEventsCalendar: React.FC = () => {
         </div>
       </div>
 
-      {/* Filter Tabs & Search Bar - Compact */}
-      <div className="mt-3 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2">
+      {/* Filter Tabs & Search Bar */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2">
         {/* Category Filter Pills */}
         <div className="flex items-center gap-1 overflow-x-auto pb-1 sm:pb-0 no-scrollbar">
           <button
@@ -385,7 +754,7 @@ export const JainEventsCalendar: React.FC = () => {
                 : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-amber-100'
             }`}
           >
-            All ({JAIN_EVENTS_DATA.length})
+            All ({upcoming1YearEvents.length})
           </button>
 
           <button
@@ -396,7 +765,7 @@ export const JainEventsCalendar: React.FC = () => {
                 : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-amber-100'
             }`}
           >
-            Parv
+            Parv & Mahaparv
           </button>
 
           <button
@@ -434,157 +803,184 @@ export const JainEventsCalendar: React.FC = () => {
         </div>
 
         {/* Search Bar */}
-        <div className="relative w-full sm:w-52 shrink-0">
+        <div className="relative w-full sm:w-56 shrink-0">
           <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
-            placeholder="Search event..."
+            placeholder="Search festival or tithi..."
             value={searchTerm}
             onChange={(e) => { setSearchTerm(e.target.value); setShowAllEvents(true); }}
-            className="w-full pl-8 pr-2.5 py-1 text-xs rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-amber-500"
+            className="w-full pl-8 pr-2.5 py-1 text-xs rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-amber-500 font-medium"
           />
         </div>
       </div>
 
       {/* Events Display */}
       {viewMode === 'compact' ? (
-        /* COMPACT LIST VIEW - Super Sleek & Space Saving */
-        <div className="mt-3 divide-y divide-slate-100 dark:divide-slate-800 border-t border-slate-100 dark:border-slate-800">
-          {displayedEvents.map((event) => (
-            <div
-              key={event.id}
-              className="py-2.5 px-2 hover:bg-amber-50/50 dark:hover:bg-slate-800/60 rounded-xl transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-2"
-            >
-              <div className="flex items-start sm:items-center gap-2.5 min-w-0">
-                <span className="px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-amber-100 dark:bg-amber-950 text-amber-900 dark:text-amber-200 shrink-0">
-                  {event.displayDate}
-                </span>
-
-                <div className="min-w-0">
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <h3 className="text-xs font-bold text-slate-900 dark:text-white truncate">
-                      {event.title}
-                    </h3>
-                    <span className="text-[10px] font-serif text-amber-800 dark:text-amber-400 font-semibold shrink-0">
-                      ({event.hindiTitle})
-                    </span>
-                    {event.isMajor && (
-                      <span className="text-[9px] px-1.5 py-0.2 rounded font-bold bg-amber-500 text-white shrink-0">
-                        Major
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5">
-                    📿 {event.jainTithi} • {event.sect} {event.dietaryRule ? `• 🍽️ ${event.dietaryRule}` : ''}
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-center">
-                <button
-                  onClick={() => handleSyncToCalendar(event)}
-                  disabled={isSyncingId === event.id}
-                  className={`px-2.5 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1 transition-all shadow-2xs ${
-                    syncedEvents[event.id]
-                      ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300'
-                      : 'bg-amber-600 hover:bg-amber-700 text-white'
-                  }`}
-                  title="Save to Google Calendar"
-                >
-                  <CalendarPlus className={`w-3 h-3 ${isSyncingId === event.id ? 'animate-spin' : ''}`} />
-                  <span>{syncedEvents[event.id] ? 'Synced' : 'Calendar'}</span>
-                </button>
-
-                <button
-                  onClick={() => handleCopyEvent(event)}
-                  className="p-1 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-amber-100 dark:hover:bg-amber-900/60 text-slate-600 dark:text-slate-300"
-                  title="Copy Event Info"
-                >
-                  {copiedId === event.id ? <CheckCircle className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : (
-        /* CARD GRID VIEW */
-        <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
-          {displayedEvents.map((event) => (
-            <div
-              key={event.id}
-              className={`p-3.5 rounded-xl border transition-all duration-200 flex flex-col justify-between ${
-                event.isMajor
-                  ? 'bg-gradient-to-br from-amber-50/90 via-orange-50/40 to-white dark:from-slate-800/90 dark:via-amber-950/20 dark:to-slate-900 border-amber-300 dark:border-amber-700/60'
-                  : 'bg-white dark:bg-slate-800/80 border-slate-200 dark:border-slate-700'
-              }`}
-            >
-              <div>
-                <div className="flex items-center justify-between gap-1.5 mb-1.5">
-                  <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-100 dark:bg-amber-950 text-amber-900 dark:text-amber-200">
+        /* COMPACT LIST VIEW - Super Sleek with Live Mini Countdown */
+        <div className="divide-y divide-slate-100 dark:divide-slate-800 border-t border-slate-100 dark:border-slate-800">
+          {displayedEvents.map((event) => {
+            const cd = calculateCountdown(event.gregorianDate);
+            const cardStyle = getFestivalCardStyle(event);
+            return (
+              <div
+                key={event.id}
+                className="py-3 px-2 hover:bg-amber-50/50 dark:hover:bg-slate-800/60 rounded-xl transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-2"
+              >
+                <div className="flex items-start sm:items-center gap-2.5 min-w-0">
+                  <span className={`px-2.5 py-1 rounded-lg text-[10px] font-extrabold shrink-0 text-center ${cardStyle.dateBadge}`}>
                     {event.displayDate}
                   </span>
-                  <span className="text-[10px] px-1.5 py-0.5 rounded font-bold bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300">
-                    {event.sect}
-                  </span>
+
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className={`p-1 rounded-md shrink-0 flex items-center justify-center ${cardStyle.iconBg}`}>
+                        {getFestivalCategoryIcon(event)}
+                      </span>
+                      <h4 className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                        {event.title}
+                      </h4>
+                      <span className="text-[10px] font-serif text-amber-800 dark:text-amber-400 font-semibold shrink-0">
+                        ({event.hindiTitle})
+                      </span>
+                      {event.isMajor && (
+                        <span className="text-[9px] px-1.5 py-0.2 rounded font-bold bg-amber-500 text-white shrink-0">
+                          Major
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5">
+                      📿 {event.jainTithi} • {event.sect} {event.dietaryRule ? `• 🍽️ ${event.dietaryRule}` : ''}
+                    </p>
+                  </div>
                 </div>
 
-                <h3 className="text-sm font-serif font-bold text-slate-900 dark:text-white leading-tight">
-                  {event.title} <span className="text-amber-800 dark:text-amber-400 font-normal">({event.hindiTitle})</span>
-                </h3>
+                <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                  {/* Live Mini Countdown Badge */}
+                  {!cd.isPast && cd.days > 0 && (
+                    <span className="px-2 py-0.5 bg-amber-500/10 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800 rounded-md text-[10px] font-bold font-mono">
+                      ⏳ in {cd.days}d {cd.hours}h
+                    </span>
+                  )}
 
-                <div className="text-[11px] font-medium text-slate-700 dark:text-slate-300 mt-1 flex items-center gap-1">
-                  <CalendarIcon className="w-3 h-3 text-amber-600 shrink-0" />
-                  <span>{event.jainTithi}</span>
-                </div>
-
-                <p className="text-[11px] text-slate-600 dark:text-slate-300 mt-1.5 line-clamp-2">
-                  {event.significance}
-                </p>
-              </div>
-
-              <div className="mt-3 pt-2 border-t border-slate-100 dark:border-slate-700/60 flex items-center justify-between gap-2">
-                <span className="text-[9px] text-slate-400 font-semibold uppercase">
-                  {event.category}
-                </span>
-
-                <div className="flex items-center gap-1.5">
                   <button
                     onClick={() => handleSyncToCalendar(event)}
                     disabled={isSyncingId === event.id}
-                    className={`px-2 py-1 rounded-lg text-[10px] font-bold flex items-center gap-1 transition-all ${
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1 transition-all shadow-2xs ${
                       syncedEvents[event.id]
-                        ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+                        ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300'
                         : 'bg-amber-600 hover:bg-amber-700 text-white'
                     }`}
+                    title="Save to Google Calendar"
                   >
-                    <CalendarPlus className="w-3 h-3" />
+                    <CalendarPlus className={`w-3 h-3 ${isSyncingId === event.id ? 'animate-spin' : ''}`} />
                     <span>{syncedEvents[event.id] ? 'Synced' : 'Calendar'}</span>
                   </button>
 
                   <button
                     onClick={() => handleCopyEvent(event)}
-                    className="p-1 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300"
+                    className="p-1 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-amber-100 dark:hover:bg-amber-900/60 text-slate-600 dark:text-slate-300"
+                    title="Copy Event Details"
                   >
-                    {copiedId === event.id ? <CheckCircle className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
+                    {copiedId === event.id ? <CheckCircle className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
                   </button>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
+        </div>
+      ) : (
+        /* CARD GRID VIEW */
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {displayedEvents.map((event) => {
+            const cd = calculateCountdown(event.gregorianDate);
+            const cardStyle = getFestivalCardStyle(event);
+            return (
+              <div
+                key={event.id}
+                className={`p-4 rounded-2xl border transition-all duration-200 flex flex-col justify-between ${cardStyle.cardBg} ${cardStyle.borderColor}`}
+              >
+                <div>
+                  <div className="flex items-center justify-between gap-1.5 mb-2">
+                    <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${cardStyle.dateBadge}`}>
+                      {event.displayDate}
+                    </span>
+
+                    {!cd.isPast && cd.days > 0 && (
+                      <span className="px-2 py-0.5 bg-amber-500/10 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800 rounded-md text-[10px] font-bold font-mono">
+                        ⏳ {cd.days}d {cd.hours}h remaining
+                      </span>
+                    )}
+
+                    <span className="text-[10px] px-1.5 py-0.5 rounded font-bold bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300">
+                      {event.sect}
+                    </span>
+                  </div>
+
+                  <h4 className="text-sm font-serif font-bold text-slate-900 dark:text-white leading-tight flex items-center gap-2">
+                    <span className={`p-1.5 rounded-md shrink-0 flex items-center justify-center ${cardStyle.iconBg}`}>
+                      {getFestivalCategoryIcon(event)}
+                    </span>
+                    <span>
+                      {event.title} <span className="text-amber-800 dark:text-amber-400 font-normal">({event.hindiTitle})</span>
+                    </span>
+                  </h4>
+
+                  <div className="text-[11px] font-medium text-slate-700 dark:text-slate-300 mt-1 flex items-center gap-1">
+                    <CalendarIcon className="w-3 h-3 text-amber-600 shrink-0" />
+                    <span>{event.jainTithi}</span>
+                  </div>
+
+                  <p className="text-[11px] text-slate-600 dark:text-slate-300 mt-1.5 line-clamp-2">
+                    {event.significance}
+                  </p>
+                </div>
+
+                <div className="mt-3 pt-2 border-t border-slate-100 dark:border-slate-700/60 flex items-center justify-between gap-2">
+                  <span className={`text-[10px] font-bold uppercase flex items-center gap-1 ${cardStyle.categoryTag}`}>
+                    {getFestivalCategoryIcon(event)}
+                    <span>{event.category}</span>
+                  </span>
+
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={() => handleSyncToCalendar(event)}
+                      disabled={isSyncingId === event.id}
+                      className={`px-2 py-1 rounded-lg text-[10px] font-bold flex items-center gap-1 transition-all ${
+                        syncedEvents[event.id]
+                          ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+                          : 'bg-amber-600 hover:bg-amber-700 text-white'
+                      }`}
+                    >
+                      <CalendarPlus className="w-3 h-3" />
+                      <span>{syncedEvents[event.id] ? 'Synced' : 'Calendar'}</span>
+                    </button>
+
+                    <button
+                      onClick={() => handleCopyEvent(event)}
+                      className="p-1 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300"
+                    >
+                      {copiedId === event.id ? <CheckCircle className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
 
       {/* Show More / Show Less Toggle Button */}
-      {filteredEvents.length > 4 && (
-        <div className="mt-3 text-center border-t border-slate-100 dark:border-slate-800 pt-3">
+      {filteredEvents.length > 5 && (
+        <div className="text-center border-t border-slate-100 dark:border-slate-800 pt-3">
           <button
             onClick={() => setShowAllEvents(!showAllEvents)}
             className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-amber-50 dark:bg-amber-950/60 hover:bg-amber-100 text-amber-900 dark:text-amber-200 text-xs font-bold border border-amber-200 dark:border-amber-800 transition-all"
           >
             {showAllEvents ? (
-              <span>Show Top 4 Events</span>
+              <span>Show Top 5 Events</span>
             ) : (
-              <span>View All {filteredEvents.length} Jain Events & Tithis</span>
+              <span>View All {filteredEvents.length} Jain Festivals & Tithis</span>
             )}
             <ChevronRight className={`w-3.5 h-3.5 transition-transform ${showAllEvents ? '-rotate-90' : 'rotate-90'}`} />
           </button>

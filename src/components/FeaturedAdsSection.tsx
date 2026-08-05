@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 
 export const FeaturedAdsSection: React.FC = () => {
-  const { ads, setIsRegModalOpen, systemSettings } = useApp();
+  const { ads, setIsRegModalOpen, systemSettings, initiateCall } = useApp();
   const [currentPage, setCurrentPage] = useState(0);
 
   const activeAds = ads.filter((ad) => ad.isActive !== false);
@@ -167,13 +167,14 @@ export const FeaturedAdsSection: React.FC = () => {
 
               {/* Action Buttons Footer */}
               <div className="p-4 pt-0 grid grid-cols-2 gap-2 text-xs">
-                <a
-                  href={`tel:${cleanPhone}`}
-                  className="py-2.5 px-3 bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-900/60 text-amber-800 dark:text-amber-300 font-bold rounded-xl border border-amber-200 dark:border-amber-800 flex items-center justify-center gap-1.5 transition-all"
+                <button
+                  onClick={() => initiateCall(cleanPhone, ad.title)}
+                  className="py-2.5 px-3 bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-900/60 text-amber-800 dark:text-amber-300 font-bold rounded-xl border border-amber-200 dark:border-amber-800 flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                  title="Click to call advertiser"
                 >
-                  <Phone className="w-3.5 h-3.5 text-amber-600" />
+                  <Phone className="w-3.5 h-3.5 text-amber-600 fill-current" />
                   <span>Call Now</span>
-                </a>
+                </button>
 
                 <a
                   href={`https://wa.me/${cleanPhone}?text=Hello,%20I%20saw%20your%20advertisement%20on%20Jain%20Connect%20Global.`}

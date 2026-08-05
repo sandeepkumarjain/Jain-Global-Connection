@@ -21,7 +21,7 @@ import {
 import { CommunityMemberProfile, FamilyMember, MatrimonialProfile } from '../types';
 
 export const DirectorySection: React.FC = () => {
-  const { members, openRegistrationModal, showToast, registerMatrimonialFromDirectory, currentUser } = useApp();
+  const { members, openRegistrationModal, showToast, registerMatrimonialFromDirectory, currentUser, initiateCall } = useApp();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedMember, setSelectedMember] = useState<CommunityMemberProfile | null>(null);
   const [showIDModal, setShowIDModal] = useState(false);
@@ -254,13 +254,14 @@ export const DirectorySection: React.FC = () => {
                 <span>Digital ID Card</span>
               </button>
 
-              <a
-                href={`tel:${m.mobile}`}
-                className="px-4 py-2.5 min-h-[44px] bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-lg flex items-center justify-center gap-1.5 shadow-sm"
+              <button
+                onClick={() => initiateCall(m.mobile, m.fullName)}
+                className="px-4 py-2.5 min-h-[44px] bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-lg flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
+                title="Click to call via verified phone dialer"
               >
-                <Phone className="w-4 h-4" />
+                <Phone className="w-4 h-4 fill-current" />
                 <span>Contact Member</span>
-              </a>
+              </button>
             </div>
           </div>
         ))}

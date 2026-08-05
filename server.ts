@@ -144,10 +144,10 @@ app.post("/api/otp/verify", async (req, res) => {
   }
 });
 
-// GST Verification API (uses user's GST API Key)
+// GST Verification API (uses GST Common API / commonapi/v1.3/search and fallback services)
 app.post("/api/gst/verify", async (req, res) => {
   try {
-    const { gstin } = req.body;
+    const { gstin, customDomain, customUrl } = req.body;
     if (!gstin) {
       return res.status(400).json({ error: "GST Number (GSTIN) is required" });
     }
@@ -163,18 +163,28 @@ app.post("/api/gst/verify", async (req, res) => {
       return res.status(400).json({
         success: false,
         verified: false,
-        error: "Invalid GSTIN format. Please enter a valid 15-character Indian GST Number (e.g. 08AAICH0741G1ZR or 27AAAAA0000A1Z5)."
+        error: "Invalid GSTIN format. Please enter a valid 15-character Indian GST Number (e.g. 05ABNTY3290P8ZA or 27AAAAA0000A1Z5)."
       });
     }
 
-    // Helper to parse GST taxpayer JSON data into standard format
+    // Helper to parse official GST Common API v1.3 JSON data into standard platform format
     const parseGstData = (d: any, sourceName: string) => {
-      const legalName = d.lgnm || d.tradeNam || d.legalName || "Official Taxpayer Entity";
-      const tradeName = d.tradeNam || d.lgnm || d.tradeName || legalName;
+      const legalName = d.lgnm || d.legalName || d.tradeNam || "Official Taxpayer Entity";
+      const tradeName = d.tradeNam || d.tradeName || d.lgnm || legalName;
 
-      // Address & location parsing
+      // Address & location parsing from pradr (Primary Address) or addressObj
       const addrObj = d.pradr?.addr || d.addressObj || {};
-      const fullAddress = d.pradr?.adr || d.address || [addrObj.bno, addrObj.bnm, addrObj.st, addrObj.loc, addrObj.dst, addrObj.stcd].filter(Boolean).join(", ") || "Registered Business Address";
+      const addrParts = [
+        addrObj.flno ? `Flr ${addrObj.flno}` : '',
+        addrObj.bno ? `Bldg ${addrObj.bno}` : '',
+        addrObj.bnm,
+        addrObj.st,
+        addrObj.loc,
+        addrObj.dst,
+        addrObj.stcd
+      ].filter(Boolean);
+
+      const fullAddress = d.pradr?.adr || d.address || (addrParts.length > 0 ? addrParts.join(", ") : "Registered Business Address");
       const city = addrObj.dst || addrObj.loc || addrObj.city || d.city || "Registered City";
       const pincode = addrObj.pncd || d.pincode || "";
       const state = addrObj.stcd || addrObj.state || d.state || "India";
@@ -182,7 +192,7 @@ app.post("/api/gst/verify", async (req, res) => {
       return {
         success: true,
         verified: true,
-        gstin: cleanGstin,
+        gstin: d.gstin || cleanGstin,
         legalName: legalName,
         tradeName: tradeName,
         businessName: tradeName || legalName,
@@ -190,42 +200,58 @@ app.post("/api/gst/verify", async (req, res) => {
         city: city,
         state: state,
         address: fullAddress,
-        status: (d.sts || d.status || "Active").toUpperCase(),
+        status: (d.sts || d.status || "ACTIVE").toUpperCase(),
         taxpayerType: d.dty || d.ctb || d.taxpayerType || "Regular Taxpayer",
         constitution: d.ctb || d.constitution || "Business Enterprise",
         registrationDate: d.rgdt || d.registrationDate || "Verified",
+        einvoiceStatus: d.einvoiceStatus || "N/A",
+        natureOfBusiness: Array.isArray(d.nba) ? d.nba : [],
         jainChamberVerified: true,
-        apiKeyUsed: apiKey.substring(0, 6) + "...",
         source: sourceName
       };
     };
 
-    // 1. Try commonapi/v1.3/search?gstin={GSTIN}&action=TP API
-    const customApiDomain = process.env.GST_API_DOMAIN || process.env.API_DOMAIN;
-    if (customApiDomain) {
+    // 1. Check custom user/environment commonapi/v1.3/search endpoint if configured
+    const activeDomain = customDomain || process.env.GST_API_DOMAIN || process.env.API_DOMAIN;
+    const targetsToTry: string[] = [];
+
+    if (customUrl) {
+      targetsToTry.push(customUrl);
+    }
+    if (activeDomain) {
+      const cleanDomain = activeDomain.replace(/^https?:\/\//, '').replace(/\/$/, '');
+      targetsToTry.push(`https://${cleanDomain}/commonapi/v1.3/search?gstin=${cleanGstin}&action=TP`);
+    }
+
+    for (const apiUrl of targetsToTry) {
       try {
-        const commonApiUrl = `https://${customApiDomain.replace(/^https?:\/\//, '')}/commonapi/v1.3/search?gstin=${cleanGstin}&action=TP`;
-        const commonRes = await fetch(commonApiUrl, {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 4000);
+
+        const commonRes = await fetch(apiUrl, {
           method: 'GET',
           headers: {
             'Accept': 'application/json',
-            'User-Agent': 'Mozilla/5.0'
-          }
+            'Content-Type': 'application/json',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
+          },
+          signal: controller.signal
         });
+        clearTimeout(timeoutId);
 
         if (commonRes.ok) {
           const commonJson = await commonRes.json();
           const targetData = commonJson.data || commonJson.body || commonJson;
           if (targetData && (targetData.lgnm || targetData.tradeNam || targetData.gstin)) {
-            return res.json(parseGstData(targetData, `Official GST Common API (${customApiDomain})`));
+            return res.json(parseGstData(targetData, `GST Common API v1.3 (${new URL(apiUrl).hostname})`));
           }
         }
-      } catch (err) {
-        console.log("Common API fetch note:", err);
+      } catch (_e) {
+        // Silently continue if custom endpoint is unreachable or times out
       }
     }
 
-    // 2. Query official live GST Portal API via sheet.gstincheck.co.in
+    // 2. Query live GST Portal API via sheet.gstincheck.co.in
     try {
       const apiResponse = await fetch(`https://sheet.gstincheck.co.in/check/${apiKey}/${cleanGstin}`, {
         method: 'GET',

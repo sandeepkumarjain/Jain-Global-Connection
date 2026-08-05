@@ -393,6 +393,9 @@ const MainContent: React.FC = () => {
                   </div>
                 </div>
 
+                {/* Vivah Success Stories & Marriage Feedback Section for Guest Visitors */}
+                <VivahSuccessStoriesSection />
+
                 {/* Core Jain Principles & Platform Security */}
                 <JainPrinciplesSection />
 

@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
+import { PhoneVerificationModal } from '../components/PhoneVerificationModal';
 import { getDailyJainPanchang } from '../utils/jainPanchang';
 import {
   User,
@@ -105,6 +106,7 @@ interface AppContextType {
   hideToast: () => void;
   isPlayingNavkar: boolean;
   toggleNavkarAudio: () => void;
+  initiateCall: (phone: string, recipientName?: string) => void;
   
   // Auth & Admin Actions
   login: (email: string, pass: string) => boolean;
@@ -409,6 +411,33 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       playNavkarMantraAudio(() => {
         setIsPlayingNavkar(false);
       });
+    }
+  };
+
+  const [isPhoneModalOpen, setIsPhoneModalOpen] = useState(false);
+  const [phoneCallTarget, setPhoneCallTarget] = useState<{ phone: string; recipientName?: string }>({ phone: '' });
+
+  const initiateCall = (targetPhone: string, recipientName?: string) => {
+    if (!targetPhone) {
+      showToast('Phone Unavailable', 'No valid contact phone number recorded for this profile.', 'info');
+      return;
+    }
+
+    const cleanDigits = targetPhone.replace(/[^0-9+]/g, '');
+    if (!cleanDigits) {
+      showToast('Invalid Phone Number', 'The phone number format is invalid.', 'error');
+      return;
+    }
+
+    const isVerifiedLocal = localStorage.getItem('jcg_phone_verified') === 'true';
+    const isUserPhoneVerified = Boolean(currentUser?.isPhoneVerified || isVerifiedLocal);
+
+    if (isUserPhoneVerified) {
+      showToast('Opening Phone Dialer', `Initiating call to ${recipientName || targetPhone}...`, 'success');
+      window.location.href = `tel:${cleanDigits}`;
+    } else {
+      setPhoneCallTarget({ phone: cleanDigits, recipientName });
+      setIsPhoneModalOpen(true);
     }
   };
 
@@ -2428,9 +2457,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         isSuperAdmin,
         isAdmin,
         isVerifiedBusiness,
+        initiateCall,
       }}
     >
       {children}
+      <PhoneVerificationModal
+        isOpen={isPhoneModalOpen}
+        onClose={() => setIsPhoneModalOpen(false)}
+        targetPhone={phoneCallTarget.phone}
+        recipientName={phoneCallTarget.recipientName}
+        onSuccessDial={(verifiedPhone) => {
+          const cleanDigits = verifiedPhone.replace(/[^0-9+]/g, '');
+          window.location.href = `tel:${cleanDigits}`;
+        }}
+      />
     </AppContext.Provider>
   );
 };

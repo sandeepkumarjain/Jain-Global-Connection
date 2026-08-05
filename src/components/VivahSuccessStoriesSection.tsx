@@ -3,7 +3,13 @@ import { useApp } from '../context/AppContext';
 import { Heart, Star, Sparkles, CheckCircle2, Quote, Plus, X, Upload, MapPin, Calendar, Building, MessageSquare } from 'lucide-react';
 import { MatrimonialSuccessStory } from '../types';
 
-export const VivahSuccessStoriesSection: React.FC = () => {
+export interface VivahSuccessStoriesSectionProps {
+  showDeactivateButton?: boolean;
+}
+
+export const VivahSuccessStoriesSection: React.FC<VivahSuccessStoriesSectionProps> = ({
+  showDeactivateButton = false
+}) => {
   const { successStories, submitSuccessStory, matrimonials, currentUser, showToast } = useApp();
 
   const [showStoryModal, setShowStoryModal] = useState(false);
@@ -117,13 +123,15 @@ export const VivahSuccessStoriesSection: React.FC = () => {
             </p>
           </div>
 
-          <button
-            onClick={() => setShowStoryModal(true)}
-            className="px-5 py-3.5 min-h-[44px] bg-gradient-to-r from-amber-500 via-amber-400 to-amber-600 text-slate-950 font-extrabold text-xs sm:text-sm rounded-2xl shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2 shrink-0 border border-amber-300/60"
-          >
-            <Heart className="w-4 h-4 text-rose-700 fill-rose-700 animate-pulse" />
-            <span>Got Married? Deactivate Profile & Share Story</span>
-          </button>
+          {showDeactivateButton && (
+            <button
+              onClick={() => setShowStoryModal(true)}
+              className="px-5 py-3.5 min-h-[44px] bg-gradient-to-r from-amber-500 via-amber-400 to-amber-600 text-slate-950 font-extrabold text-xs sm:text-sm rounded-2xl shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2 shrink-0 border border-amber-300/60"
+            >
+              <Heart className="w-4 h-4 text-rose-700 fill-rose-700 animate-pulse" />
+              <span>Got Married? Deactivate Profile & Share Story</span>
+            </button>
+          )}
         </div>
       </div>
 

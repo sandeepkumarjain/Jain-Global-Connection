@@ -46,6 +46,7 @@ export interface User {
   profilePhoto: string;
   idProofUrl?: string;
   isVerified: boolean;
+  isPhoneVerified?: boolean;
   membershipTier: 'Free' | 'Premium' | 'Elite';
   createdAt: string;
   bloodGroup?: string;
