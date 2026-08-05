@@ -247,9 +247,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.CURRENT_USER);
-    if (saved) return JSON.parse(saved);
-    // Default to Sandeep Bachhawat (Super Admin) for immediate rich exploration
-    return INITIAL_USERS[0];
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (parsed && parsed.id && parsed.id !== 'usr_admin1') {
+          return parsed;
+        }
+      } catch (e) {
+        console.error('Error parsing stored user:', e);
+      }
+    }
+    // Default logged out (null) so opening the app defaults to public Home view
+    return null;
   });
 
   const [matrimonials, setMatrimonials] = useState<MatrimonialProfile[]>(() => {
@@ -447,7 +456,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [users]);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(currentUser));
+    if (currentUser) {
+      localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(currentUser));
+    } else {
+      localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
+    }
   }, [currentUser]);
 
   const isMatrimonialOnlyUser = useMemo(() => {
