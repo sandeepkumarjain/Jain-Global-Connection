@@ -9,6 +9,8 @@ import {
   useMapsLibrary
 } from '@vis.gl/react-google-maps';
 import { TempleListing } from '../types';
+import { VirtualTourButton } from './VirtualTourButton';
+import { Virtual3DTourModal } from './Virtual3DTourModal';
 import {
   MapPin,
   Navigation,
@@ -513,22 +515,28 @@ export const TempleMapView: React.FC<TempleMapViewProps> = ({
                             )}
 
                             {/* InfoWindow Action Buttons */}
-                            <div className="pt-1 grid grid-cols-2 gap-1 text-[10px] font-bold">
+                            <div className="pt-1 flex items-center gap-1 text-[10px] font-bold">
                               {userLocation && (
                                 <button
                                   onClick={() => setActiveRouteTarget({ lat: temple.lat!, lng: temple.lng! })}
-                                  className="px-2 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded flex items-center justify-center gap-1 shadow cursor-pointer"
+                                  className="px-2 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded flex items-center justify-center gap-1 shadow cursor-pointer text-[10px]"
+                                  title="Show Route on Map"
                                 >
-                                  <RouteIcon className="w-3 h-3" /> Route
+                                  <RouteIcon className="w-3 h-3" /> Map Route
                                 </button>
                               )}
                               <a
-                                href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(temple.templeName + ' ' + temple.city)}`}
+                                href={
+                                  userLocation
+                                    ? `https://www.google.com/maps/dir/?api=1&origin=${userLocation.lat},${userLocation.lng}&destination=${temple.lat},${temple.lng}`
+                                    : `https://www.google.com/maps/dir/?api=1&destination=${temple.lat},${temple.lng}`
+                                }
                                 target="_blank"
                                 rel="noreferrer"
-                                className="px-2 py-1.5 bg-slate-900 hover:bg-black text-white rounded flex items-center justify-center gap-1 cursor-pointer"
+                                className="flex-1 px-2 py-1.5 bg-slate-900 hover:bg-black text-white rounded flex items-center justify-center gap-1 cursor-pointer text-[10px] font-bold shadow"
+                                title="Open directions in Google Maps in a new tab"
                               >
-                                <Compass className="w-3 h-3 text-amber-400" /> Go
+                                <Navigation className="w-3 h-3 text-amber-400" /> Get Directions
                               </a>
                             </div>
 
@@ -587,12 +595,16 @@ export const TempleMapView: React.FC<TempleMapViewProps> = ({
                                 </p>
                               )}
                               <a
-                                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(name + ' ' + (p.formattedAddress || ''))}`}
+                                href={
+                                  userLocation
+                                    ? `https://www.google.com/maps/dir/?api=1&origin=${userLocation.lat},${userLocation.lng}&destination=${pLat},${pLng}`
+                                    : `https://www.google.com/maps/dir/?api=1&destination=${pLat},${pLng}`
+                                }
                                 target="_blank"
                                 rel="noreferrer"
-                                className="mt-1 block py-1 bg-sky-600 text-white text-center rounded text-[10px] font-bold"
+                                className="mt-1 flex items-center justify-center gap-1 py-1.5 bg-sky-700 hover:bg-sky-800 text-white rounded text-[10px] font-bold shadow"
                               >
-                                View on Google Maps
+                                <Navigation className="w-3 h-3 text-amber-300" /> Get Directions
                               </a>
                             </div>
                           </InfoWindow>
@@ -727,15 +739,28 @@ export const TempleMapView: React.FC<TempleMapViewProps> = ({
                       </span>
 
                       <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                        <a
+                          href={
+                            userLocation
+                              ? `https://www.google.com/maps/dir/?api=1&origin=${userLocation.lat},${userLocation.lng}&destination=${temple.lat},${temple.lng}`
+                              : `https://www.google.com/maps/dir/?api=1&destination=${temple.lat},${temple.lng}`
+                          }
+                          target="_blank"
+                          rel="noreferrer"
+                          className="px-2 py-1.5 bg-slate-900 hover:bg-black text-amber-300 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-lg text-[10px] font-bold flex items-center justify-center gap-1 shadow cursor-pointer"
+                          title="Get Directions in Google Maps (new tab)"
+                        >
+                          <Navigation className="w-3 h-3 text-amber-400" /> Directions
+                        </a>
                         <button
                           onClick={() => onOpenLiveDarshan(temple)}
-                          className="px-2.5 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-[10px] font-bold flex items-center justify-center gap-1 shadow cursor-pointer"
+                          className="px-2 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-[10px] font-bold flex items-center justify-center gap-1 shadow cursor-pointer"
                         >
                           <Video className="w-3 h-3" /> Live
                         </button>
                         <button
                           onClick={() => onOpenDonation(temple)}
-                          className="px-2.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-[10px] font-bold flex items-center justify-center gap-1 shadow cursor-pointer"
+                          className="px-2 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-[10px] font-bold flex items-center justify-center gap-1 shadow cursor-pointer"
                         >
                           <Heart className="w-3 h-3" /> Donate
                         </button>

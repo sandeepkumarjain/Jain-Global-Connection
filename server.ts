@@ -339,6 +339,124 @@ app.get("/api/db/health", async (_req, res) => {
   }
 });
 
+// AI Temple Semantic Search API (Gemini 3.6 Flash)
+app.post("/api/ai/temple-search", async (req, res) => {
+  try {
+    const { query, temples } = req.body;
+    if (!query || typeof query !== "string") {
+      return res.status(400).json({ error: "Search query is required" });
+    }
+
+    const ai = getGeminiClient();
+
+    // Smart fallback if Gemini client is unavailable or apiKey not set
+    if (!ai || !Array.isArray(temples) || temples.length === 0) {
+      const q = query.toLowerCase().trim();
+      const keywords = q.split(/\s+/).filter(Boolean);
+      
+      const matched = (temples || []).filter((t: any) => {
+        const fullText = `${t.templeName} ${t.mainDeity} ${t.sect} ${t.city} ${t.state} ${t.address} ${t.history || ''}`.toLowerCase();
+        const facilityText = `${t.hasAccommodation ? 'bhojanashala bhojanalaya dharamshala room accommodation stay lodging' : ''} ${t.hasParking ? 'parking car vehicle' : ''} ${t.liveDarshanUrl ? 'live darshan stream' : ''}`.toLowerCase();
+        
+        return keywords.some(k => fullText.includes(k) || facilityText.includes(k));
+      });
+
+      return res.json({
+        matchedIds: matched.map((m: any) => m.id),
+        summary: `Found ${matched.length} sacred temple(s) matching "${query}".`,
+        suggestedFilters: ["Bhojanashala Available", "Dharamshala Lodging", "Lord Parshvanath", "Car Parking"]
+      });
+    }
+
+    const systemInstruction = `You are the AI Semantic Search Engine for the Jain Connect Global Sacred Temple & Tirth Directory.
+Your job is to match a user search query against a list of Jain temples and tirths.
+
+Analyze the user's search query across multiple semantic dimensions:
+1. Temple Name & Tirth Title (e.g. "Palitana", "Ranakpur", "Shikharji", "Pawapuri", "Lal Mandir", "Walkeshwar")
+2. Main Deity / Tirthankara (e.g. "Adinath", "Rishabhdev", "Parshvanath", "Mahavira", "Neminath", "Chintamani")
+3. Sect & Sub-sect (e.g. "Swetambar", "Digambar", "Murtipujak", "Sthanakvasi", "Terapanthi")
+4. Facilities & Requirements:
+   - "Bhojanashala" / "Bhojanalaya" / "Jain Food" / "Dining" (Temples with accommodation, dharamshala rooms, or meal facilities)
+   - "Dharamshala" / "Stay" / "Lodging" / "Rooms" (hasAccommodation = true or dharamshalaRooms > 0)
+   - "Parking" / "Car Parking" (hasParking = true)
+   - "Live Darshan" (liveDarshanUrl present)
+   - "360 View" / "Virtual Tour" (is360Available = true)
+5. Location & Region (City, State, District e.g. "Gujarat", "Rajasthan", "Bihar", "Jharkhand", "Mumbai", "Delhi")
+6. History & Heritage context.
+
+Return ONLY a valid JSON object with:
+{
+  "matchedIds": string[], // IDs of matching temples sorted by highest relevance first
+  "summary": string, // A short 1-2 sentence Jai Jinendra summary explaining why these temples were matched
+  "suggestedFilters": string[] // 3-4 recommended quick search filter pills
+}`;
+
+    const prompt = `User Query: "${query}"
+
+Available Temples Data:
+${JSON.stringify(
+  temples.map((t: any) => ({
+    id: t.id,
+    templeName: t.templeName,
+    mainDeity: t.mainDeity,
+    sect: t.sect,
+    city: t.city,
+    state: t.state,
+    address: t.address,
+    hasAccommodation: t.hasAccommodation,
+    dharamshalaRooms: t.dharamshalaRooms || 0,
+    hasParking: t.hasParking,
+    is360Available: t.is360Available,
+    liveDarshanUrl: t.liveDarshanUrl ? true : false,
+    history: t.history
+  }))
+)}`;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3.6-flash",
+      contents: prompt,
+      config: {
+        systemInstruction,
+        responseMimeType: "application/json",
+      },
+    });
+
+    const jsonText = response.text || "{}";
+    let parsed: any = {};
+    try {
+      parsed = JSON.parse(jsonText);
+    } catch (_e) {
+      console.warn("Could not parse AI temple search JSON response:", jsonText);
+    }
+
+    const matchedIds = Array.isArray(parsed.matchedIds) ? parsed.matchedIds : [];
+    const summary = parsed.summary || `Found ${matchedIds.length} temple(s) matching "${query}".`;
+    const suggestedFilters = Array.isArray(parsed.suggestedFilters) ? parsed.suggestedFilters : ["Bhojanashala", "Dharamshala", "Lord Parshvanath"];
+
+    return res.json({
+      matchedIds,
+      summary,
+      suggestedFilters,
+    });
+  } catch (err: any) {
+    console.error("Temple AI Search Error:", err);
+    // Robust fallback on server error
+    const { query = "", temples = [] } = req.body;
+    const q = String(query).toLowerCase();
+    const matched = (temples || []).filter((t: any) => {
+      const full = `${t.templeName} ${t.mainDeity} ${t.sect} ${t.city} ${t.state} ${t.address} ${t.history || ''}`.toLowerCase();
+      const facil = `${t.hasAccommodation ? 'bhojanashala bhojanalaya dharamshala stay lodging' : ''} ${t.hasParking ? 'parking' : ''}`.toLowerCase();
+      return q.split(/\s+/).some(k => full.includes(k) || facil.includes(k));
+    });
+
+    return res.json({
+      matchedIds: matched.map((m: any) => m.id),
+      summary: `Found ${matched.length} temple(s) matching "${query}".`,
+      suggestedFilters: ["Bhojanashala", "Dharamshala", "Lord Parshvanath", "Parking"]
+    });
+  }
+});
+
 // AI Search Assistant Route (Gemini 3.6 Flash)
 app.post("/api/ai/assistant", async (req, res) => {
   try {

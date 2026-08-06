@@ -25,6 +25,7 @@ import { GmailCenterModal } from './components/GmailCenterModal';
 import { AudioPlayer } from './components/AudioPlayer';
 import { LoginRequiredView } from './components/LoginRequiredView';
 import { DailyJainWisdom } from './components/DailyJainWisdom';
+import { AuspiciousSanghHighlights } from './components/AuspiciousSanghHighlights';
 import { JainPrinciplesSection } from './components/JainPrinciplesSection';
 import { VivahSuccessStoriesSection } from './components/VivahSuccessStoriesSection';
 import {
@@ -177,6 +178,9 @@ const MainContent: React.FC = () => {
 
             {/* Daily Jain Panchang & Tithi Summary with Agam & Promotions */}
             <PanchangWidget />
+
+            {/* Auspicious Global Sangh Hub & Quick Directory Explorer */}
+            <AuspiciousSanghHighlights />
 
             {/* Daily Jain Wisdom Scriptures & Quotes Carousel */}
             <DailyJainWisdom />

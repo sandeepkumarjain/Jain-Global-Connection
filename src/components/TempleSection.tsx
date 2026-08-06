@@ -4,6 +4,7 @@ import {
   MapPin,
   Clock,
   Compass,
+  Navigation,
   Video,
   Heart,
   ParkingCircle,
@@ -19,11 +20,16 @@ import {
   Map as MapIcon,
   Grid,
   Filter,
-  Columns
+  Columns,
+  Utensils,
+  RotateCcw,
+  Loader2
 } from 'lucide-react';
 import { TempleListing } from '../types';
 import { TempleMapView } from './TempleMapView';
 import { TempleSkeleton } from './Skeletons';
+import { Virtual3DTourModal } from './Virtual3DTourModal';
+import { VirtualTourButton } from './VirtualTourButton';
 
 export const TempleSection: React.FC = () => {
   const { temples, openRegistrationModal, showToast, isLoadingData } = useApp();
@@ -32,23 +38,109 @@ export const TempleSection: React.FC = () => {
   const [selectedSect, setSelectedSect] = useState<string>('All');
   const [viewMode, setViewMode] = useState<'map' | 'cards' | 'both'>('map');
   const [selectedTemple, setSelectedTemple] = useState<TempleListing | null>(null);
+  const [selected360Temple, setSelected360Temple] = useState<TempleListing | null>(null);
   const [showLiveDarshan, setShowLiveDarshan] = useState(false);
   const [showDonationModal, setShowDonationModal] = useState(false);
   const [donationAmount, setDonationAmount] = useState('1100');
 
-  const filtered = temples.filter((t) => {
-    if (
-      searchTerm &&
-      !t.templeName.toLowerCase().includes(searchTerm.toLowerCase()) &&
-      !t.city.toLowerCase().includes(searchTerm.toLowerCase()) &&
-      !t.mainDeity.toLowerCase().includes(searchTerm.toLowerCase()) &&
-      !t.state.toLowerCase().includes(searchTerm.toLowerCase())
-    ) {
-      return false;
+  // AI Semantic Search State
+  const [isAiSearching, setIsAiSearching] = useState(false);
+  const [aiSearchActive, setAiSearchActive] = useState(false);
+  const [aiMatchedIds, setAiMatchedIds] = useState<string[] | null>(null);
+  const [aiSearchResultSummary, setAiSearchResultSummary] = useState('');
+  const [aiSuggestedFilters, setAiSuggestedFilters] = useState<string[]>([]);
+
+  // AI Temple Search Handler
+  const handleAiTempleSearch = async (overrideQuery?: string) => {
+    const q = (overrideQuery !== undefined ? overrideQuery : searchTerm).trim();
+    if (!q) {
+      clearAiSearch();
+      return;
     }
+
+    setIsAiSearching(true);
+    try {
+      const response = await fetch('/api/ai/temple-search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: q,
+          temples,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setAiMatchedIds(data.matchedIds || []);
+        setAiSearchResultSummary(data.summary || `Found temples matching "${q}"`);
+        setAiSuggestedFilters(data.suggestedFilters || []);
+        setAiSearchActive(true);
+      } else {
+        throw new Error('AI search API error');
+      }
+    } catch (err) {
+      console.warn('AI Temple Search Fallback:', err);
+      // Smart client-side fallback
+      const lowerQ = q.toLowerCase();
+      const keywords = lowerQ.split(/\s+/).filter(Boolean);
+
+      const matched = temples.filter((t) => {
+        const fullText = `${t.templeName} ${t.mainDeity} ${t.sect} ${t.city} ${t.state} ${t.address} ${t.history || ''}`.toLowerCase();
+        const facilityText = `${
+          t.hasAccommodation ? 'bhojanashala bhojanalaya dharamshala room accommodation stay lodging dining food' : ''
+        } ${t.hasParking ? 'parking car vehicle' : ''} ${t.liveDarshanUrl ? 'live darshan' : ''}`.toLowerCase();
+
+        return keywords.some((k) => fullText.includes(k) || facilityText.includes(k));
+      });
+
+      setAiMatchedIds(matched.map((m) => m.id));
+      setAiSearchResultSummary(`Found ${matched.length} sacred temple(s) matching "${q}".`);
+      setAiSuggestedFilters(['Bhojanashala Available', 'Dharamshala Lodging', 'Lord Parshvanath']);
+      setAiSearchActive(true);
+    } finally {
+      setIsAiSearching(false);
+    }
+  };
+
+  const clearAiSearch = () => {
+    setSearchTerm('');
+    setAiSearchActive(false);
+    setAiMatchedIds(null);
+    setAiSearchResultSummary('');
+    setAiSuggestedFilters([]);
+  };
+
+  const filtered = temples.filter((t) => {
+    // 1. AI Search filter taking priority
+    if (aiSearchActive && aiMatchedIds !== null) {
+      if (!aiMatchedIds.includes(t.id)) {
+        return false;
+      }
+    } else if (searchTerm) {
+      // Standard search including Bhojanashala / facility keywords
+      const q = searchTerm.toLowerCase().trim();
+      const nameMatch = t.templeName.toLowerCase().includes(q);
+      const cityMatch = t.city.toLowerCase().includes(q);
+      const deityMatch = t.mainDeity.toLowerCase().includes(q);
+      const stateMatch = t.state.toLowerCase().includes(q);
+      
+      const isBhojanashalaQuery = q.includes('bhojana') || q.includes('food') || q.includes('dining') || q.includes('meal');
+      const isDharamshalaQuery = q.includes('dharamshala') || q.includes('stay') || q.includes('lodging') || q.includes('room');
+      const isParkingQuery = q.includes('park') || q.includes('car') || q.includes('vehicle');
+
+      const facilityMatch = (isBhojanashalaQuery || isDharamshalaQuery) && t.hasAccommodation;
+      const parkingMatch = isParkingQuery && t.hasParking;
+
+      if (!nameMatch && !cityMatch && !deityMatch && !stateMatch && !facilityMatch && !parkingMatch) {
+        return false;
+      }
+    }
+
+    // 2. Sect Filter
     if (selectedSect !== 'All' && !t.sect.toLowerCase().includes(selectedSect.toLowerCase())) {
       return false;
     }
+
     return true;
   });
 
@@ -88,25 +180,127 @@ export const TempleSection: React.FC = () => {
         </div>
       </div>
 
-      {/* Search Input, Sect Filters & View Mode Selector */}
-      <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-3">
-        <div className="flex flex-col md:flex-row items-center justify-between gap-3">
-          {/* Search Field */}
-          <div className="relative w-full md:w-1/2">
+      {/* AI-Powered Quick Search Bar & Filters */}
+      <div className="bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-slate-900/10 dark:from-slate-900 dark:via-slate-900 dark:to-amber-950/40 p-4 sm:p-5 rounded-2xl border border-amber-300 dark:border-amber-800/80 shadow-md space-y-3.5">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+          <div className="flex items-center gap-2 text-amber-900 dark:text-amber-300 font-bold text-xs sm:text-sm">
+            <span className="p-1.5 bg-gradient-to-r from-amber-500 to-amber-700 text-amber-950 rounded-lg shadow-sm flex items-center justify-center">
+              <Sparkles className="w-4 h-4 text-white animate-pulse" />
+            </span>
+            <span>AI-Powered Temple & Tirth Semantic Search</span>
+          </div>
+          <span className="text-[10px] font-extrabold uppercase px-2.5 py-1 bg-amber-500/20 text-amber-900 dark:text-amber-300 border border-amber-500/30 rounded-full flex items-center gap-1">
+            <Sparkles className="w-3 h-3 text-amber-500" /> Gemini 3.6 Flash
+          </span>
+        </div>
+
+        {/* Form Input & AI Search Action Button */}
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleAiTempleSearch();
+          }}
+          className="flex flex-col sm:flex-row items-stretch gap-2"
+        >
+          <div className="relative flex-1">
             <input
               type="text"
-              placeholder="Search Temple Name, Main Deity, City, State, or Tirth..."
+              placeholder="Search by deity ('Parshvanath'), facility ('Bhojanashala', 'Dharamshala'), city or region..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 min-h-[44px] text-xs rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-500"
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                if (aiSearchActive && !e.target.value) {
+                  clearAiSearch();
+                }
+              }}
+              className="w-full pl-10 pr-10 py-3 min-h-[44px] text-xs rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-amber-300 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-500 shadow-inner"
             />
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3.5" />
+            <Search className="w-4 h-4 text-amber-600 dark:text-amber-400 absolute left-3 top-3.5" />
+            {searchTerm && (
+              <button
+                type="button"
+                onClick={clearAiSearch}
+                className="absolute right-3 top-3.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
           </div>
 
-          {/* Sect Filter Pills */}
+          <button
+            type="submit"
+            disabled={isAiSearching}
+            className="px-5 py-3 min-h-[44px] bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 shrink-0"
+          >
+            {isAiSearching ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin text-amber-200" />
+                <span>AI Analyzing...</span>
+              </>
+            ) : (
+              <>
+                <Sparkles className="w-4 h-4 text-amber-300" />
+                <span>AI Search</span>
+              </>
+            )}
+          </button>
+        </form>
+
+        {/* Quick Suggestion Chips */}
+        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pt-1">
+          <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 shrink-0 uppercase tracking-wide">
+            Quick AI Search:
+          </span>
+          {[
+            { label: '🍱 Bhojanashala (Dining)', query: 'Bhojanashala dining facility' },
+            { label: '🛏️ Dharamshala Stay', query: 'Dharamshala rooms stay lodging' },
+            { label: '🌸 Lord Parshvanath', query: 'Lord Parshvanath' },
+            { label: '⛰️ Palitana & Girnar', query: 'Palitana Girnar' },
+            { label: '🚗 Parking & Lift', query: 'Car Parking Available' },
+            { label: '📹 Live Darshan Stream', query: 'Live Darshan' },
+          ].map((chip) => (
+            <button
+              key={chip.label}
+              onClick={() => {
+                setSearchTerm(chip.query);
+                handleAiTempleSearch(chip.query);
+              }}
+              className="px-2.5 py-1.5 min-h-[32px] text-[11px] font-bold rounded-xl bg-white dark:bg-slate-800 border border-amber-300/80 dark:border-amber-800/80 text-slate-800 dark:text-amber-200 hover:border-amber-500 hover:bg-amber-50 dark:hover:bg-amber-950/50 transition-all shrink-0 flex items-center gap-1 shadow-2xs cursor-pointer"
+            >
+              <span>{chip.label}</span>
+            </button>
+          ))}
+        </div>
+
+        {/* AI Result Summary Badge */}
+        {aiSearchActive && (
+          <div className="bg-amber-100/90 dark:bg-amber-950/80 border border-amber-300 dark:border-amber-800 p-3 rounded-xl flex items-center justify-between gap-2 text-xs text-amber-950 dark:text-amber-200 shadow-sm animate-fadeIn">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 animate-bounce" />
+              <div>
+                <p className="font-bold">{aiSearchResultSummary}</p>
+                {aiSuggestedFilters.length > 0 && (
+                  <p className="text-[10px] text-amber-800 dark:text-amber-300 mt-0.5">
+                    Suggested tags: {aiSuggestedFilters.join(' • ')}
+                  </p>
+                )}
+              </div>
+            </div>
+            <button
+              onClick={clearAiSearch}
+              className="px-2.5 py-1.5 min-h-[32px] bg-amber-200 dark:bg-amber-900 hover:bg-amber-300 dark:hover:bg-amber-800 text-amber-950 dark:text-amber-100 rounded-lg font-bold text-[10px] flex items-center gap-1 shrink-0 cursor-pointer shadow-2xs"
+            >
+              <RotateCcw className="w-3 h-3" />
+              <span>Clear AI Filter</span>
+            </button>
+          </div>
+        )}
+
+        {/* Sect Filter Pills & View Mode Selector */}
+        <div className="flex flex-col md:flex-row items-center justify-between gap-3 pt-2 border-t border-slate-200/80 dark:border-slate-800">
           <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar w-full md:w-auto">
             <span className="text-[10px] font-bold uppercase text-slate-400 shrink-0 flex items-center gap-1">
-              <Filter className="w-3 h-3" /> Sect:
+              <Filter className="w-3 h-3" /> Sect Filter:
             </span>
             {['All', 'Swetambar', 'Digambar'].map((sect) => (
               <button
@@ -115,58 +309,58 @@ export const TempleSection: React.FC = () => {
                 className={`px-3.5 py-2.5 min-h-[44px] text-xs font-bold rounded-xl border transition-all shrink-0 flex items-center justify-center ${
                   selectedSect === sect
                     ? 'bg-amber-600 text-white border-amber-600 shadow-sm'
-                    : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'
+                    : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'
                 }`}
               >
                 {sect}
               </button>
             ))}
           </div>
-        </div>
 
-        {/* View Mode Switcher */}
-        <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800">
-          <p className="text-xs font-bold text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
-            <MapPin className="w-4 h-4 text-amber-500" />
-            <span>Showing {filtered.length} Sacred Tirths & Temples</span>
-          </p>
+          {/* View Mode Switcher */}
+          <div className="flex items-center justify-between w-full md:w-auto gap-3">
+            <p className="text-xs font-bold text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
+              <MapPin className="w-4 h-4 text-amber-500" />
+              <span>Showing {filtered.length} Sacred Tirths</span>
+            </p>
 
-          <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700">
-            <button
-              onClick={() => setViewMode('map')}
-              className={`px-3.5 py-2 min-h-[44px] rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${
-                viewMode === 'map'
-                  ? 'bg-amber-500 text-slate-950 shadow-sm'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-              }`}
-            >
-              <MapIcon className="w-3.5 h-3.5" />
-              <span>Map & Nearby</span>
-            </button>
+            <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700">
+              <button
+                onClick={() => setViewMode('map')}
+                className={`px-3.5 py-2 min-h-[44px] rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${
+                  viewMode === 'map'
+                    ? 'bg-amber-500 text-slate-950 shadow-sm'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                <MapIcon className="w-3.5 h-3.5" />
+                <span>Map & Nearby</span>
+              </button>
 
-            <button
-              onClick={() => setViewMode('cards')}
-              className={`px-3.5 py-2 min-h-[44px] rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${
-                viewMode === 'cards'
-                  ? 'bg-amber-500 text-slate-950 shadow-sm'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-              }`}
-            >
-              <Grid className="w-3.5 h-3.5" />
-              <span>Directory Cards</span>
-            </button>
+              <button
+                onClick={() => setViewMode('cards')}
+                className={`px-3.5 py-2 min-h-[44px] rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${
+                  viewMode === 'cards'
+                    ? 'bg-amber-500 text-slate-950 shadow-sm'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                <Grid className="w-3.5 h-3.5" />
+                <span>Directory Cards</span>
+              </button>
 
-            <button
-              onClick={() => setViewMode('both')}
-              className={`px-3.5 py-2 min-h-[44px] rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${
-                viewMode === 'both'
-                  ? 'bg-amber-500 text-slate-950 shadow-sm'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-              }`}
-            >
-              <Columns className="w-3.5 h-3.5" />
-              <span>Split View</span>
-            </button>
+              <button
+                onClick={() => setViewMode('both')}
+                className={`px-3.5 py-2 min-h-[44px] rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${
+                  viewMode === 'both'
+                    ? 'bg-amber-500 text-slate-950 shadow-sm'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                <Columns className="w-3.5 h-3.5" />
+                <span>Split View</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -225,6 +419,16 @@ export const TempleSection: React.FC = () => {
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/20 to-transparent" />
                 
+                {/* 3D Virtual Tour Badge Overlay */}
+                <div className="absolute top-3 right-3 z-10">
+                  <VirtualTourButton
+                    temple={t}
+                    onOpenTour={(temp) => setSelected360Temple(temp)}
+                    showToast={showToast}
+                    size="sm"
+                  />
+                </div>
+
                 <div className="absolute bottom-3 left-3 right-3 text-white">
                   <div className="flex items-center gap-2">
                     <span className="px-2 py-0.5 bg-amber-500 text-amber-950 text-[10px] font-black uppercase rounded">
@@ -263,13 +467,18 @@ export const TempleSection: React.FC = () => {
                 {/* Facilities Pills */}
                 <div className="flex flex-wrap items-center gap-2 pt-1">
                   {t.hasAccommodation && (
-                    <span className="px-2 py-1 bg-blue-50 dark:bg-blue-950 text-blue-800 dark:text-blue-300 rounded-lg text-[10px] font-bold flex items-center gap-1">
-                      <Home className="w-3 h-3" /> Dharamshala ({t.dharamshalaRooms} Rooms)
-                    </span>
+                    <>
+                      <span className="px-2 py-1 bg-amber-50 dark:bg-amber-950/70 text-amber-900 dark:text-amber-200 rounded-lg text-[10px] font-bold flex items-center gap-1 border border-amber-200/80 dark:border-amber-800/80">
+                        <Utensils className="w-3 h-3 text-amber-600 dark:text-amber-400" /> Bhojanashala
+                      </span>
+                      <span className="px-2 py-1 bg-blue-50 dark:bg-blue-950 text-blue-800 dark:text-blue-300 rounded-lg text-[10px] font-bold flex items-center gap-1">
+                        <Home className="w-3 h-3" /> Dharamshala ({t.dharamshalaRooms} Rooms)
+                      </span>
+                    </>
                   )}
                   {t.hasParking && (
                     <span className="px-2 py-1 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-lg text-[10px] font-bold flex items-center gap-1">
-                      <ParkingCircle className="w-3 h-3" /> Parking Available
+                      <ParkingCircle className="w-3 h-3" /> Parking
                     </span>
                   )}
                 </div>
@@ -306,13 +515,17 @@ export const TempleSection: React.FC = () => {
               </button>
 
               <a
-                href={`https://maps.google.com/?q=${encodeURIComponent(t.templeName + ' ' + t.city)}`}
+                href={
+                  t.lat && t.lng
+                    ? `https://www.google.com/maps/dir/?api=1&destination=${t.lat},${t.lng}`
+                    : `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(t.templeName + ' ' + t.city)}`
+                }
                 target="_blank"
                 rel="noreferrer"
                 className="py-2.5 min-h-[44px] bg-slate-900 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-white rounded-lg flex items-center justify-center gap-1 hover:bg-slate-800"
               >
-                <Compass className="w-3.5 h-3.5 text-amber-400" />
-                <span>Directions</span>
+                <Navigation className="w-3.5 h-3.5 text-amber-400" />
+                <span>Get Directions</span>
               </a>
             </div>
           </div>
@@ -414,6 +627,15 @@ export const TempleSection: React.FC = () => {
             </button>
           </div>
         </div>
+      )}
+
+      {/* 360-degree Interactive Virtual 3D Tour Modal */}
+      {selected360Temple && (
+        <Virtual3DTourModal
+          temple={selected360Temple}
+          onClose={() => setSelected360Temple(null)}
+          showToast={showToast}
+        />
       )}
     </div>
   );

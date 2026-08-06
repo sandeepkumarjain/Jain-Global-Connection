@@ -501,6 +501,16 @@ export const JainEventsCalendar: React.FC = () => {
 
   const [activeHeroIndex, setActiveHeroIndex] = useState(0);
 
+  // Auto-slide upcoming festival countdown every 10 seconds
+  useEffect(() => {
+    if (!majorFestivals || majorFestivals.length <= 1) return;
+    const interval = setInterval(() => {
+      setActiveHeroIndex((prev) => (prev + 1) % majorFestivals.length);
+    }, 10000);
+
+    return () => clearInterval(interval);
+  }, [majorFestivals]);
+
   const currentHeroEvent = majorFestivals[activeHeroIndex] || majorFestivals[0];
   const heroCountdown = calculateCountdown(currentHeroEvent.gregorianDate);
 
@@ -677,17 +687,39 @@ export const JainEventsCalendar: React.FC = () => {
             </div>
 
             {/* Hero Carousel Navigator Dots */}
-            <div className="flex items-center gap-1.5 pt-1">
-              {majorFestivals.map((fest, idx) => (
-                <button
-                  key={fest.id}
-                  onClick={() => setActiveHeroIndex(idx)}
-                  className={`h-2 rounded-full transition-all ${
-                    idx === activeHeroIndex ? 'w-6 bg-amber-400' : 'w-2 bg-white/30 hover:bg-white/60'
-                  }`}
-                  title={fest.title}
-                />
-              ))}
+            <div className="flex items-center gap-2 pt-1">
+              <button
+                onClick={() =>
+                  setActiveHeroIndex((prev) => (prev === 0 ? majorFestivals.length - 1 : prev - 1))
+                }
+                className="p-1 rounded-full bg-white/10 hover:bg-white/25 text-white transition-all cursor-pointer"
+                title="Previous Festival"
+              >
+                <ChevronLeft className="w-3.5 h-3.5" />
+              </button>
+
+              <div className="flex items-center gap-1.5">
+                {majorFestivals.map((fest, idx) => (
+                  <button
+                    key={fest.id}
+                    onClick={() => setActiveHeroIndex(idx)}
+                    className={`h-2 rounded-full transition-all cursor-pointer ${
+                      idx === activeHeroIndex ? 'w-6 bg-amber-400' : 'w-2 bg-white/30 hover:bg-white/60'
+                    }`}
+                    title={fest.title}
+                  />
+                ))}
+              </div>
+
+              <button
+                onClick={() =>
+                  setActiveHeroIndex((prev) => (prev + 1) % majorFestivals.length)
+                }
+                className="p-1 rounded-full bg-white/10 hover:bg-white/25 text-white transition-all cursor-pointer"
+                title="Next Festival"
+              >
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
             </div>
           </div>
 
