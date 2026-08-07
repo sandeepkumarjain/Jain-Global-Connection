@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Sun, Moon, Sparkles, ChevronDown, Check } from 'lucide-react';
+import { Sun, Moon, ChevronDown, Check } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
 interface ThemeSwitcherProps {
@@ -45,15 +45,6 @@ export const ThemeSwitcher: React.FC<ThemeSwitcherProps> = ({
       activeBg: 'bg-slate-800 text-sky-300 font-bold border border-slate-700',
       toastMsg: 'Dark theme enabled.',
     },
-    {
-      id: 'auspicious' as const,
-      label: 'Auspicious Gold',
-      shortLabel: 'Auspicious',
-      icon: Sparkles,
-      iconColor: 'text-amber-600 dark:text-amber-400 animate-pulse',
-      activeBg: 'bg-amber-100 dark:bg-amber-950/80 text-amber-900 dark:text-amber-200 font-bold border border-amber-300 dark:border-amber-700',
-      toastMsg: 'Auspicious Gold theme enabled.',
-    },
   ];
 
   const currentTheme = themeOptions.find((t) => t.id === themeMode) || themeOptions[0];
@@ -61,27 +52,24 @@ export const ThemeSwitcher: React.FC<ThemeSwitcherProps> = ({
 
   const handleCycleTheme = (e: React.MouseEvent) => {
     e.stopPropagation();
-    const nextMode =
-      themeMode === 'light' ? 'dark' : themeMode === 'dark' ? 'auspicious' : 'light';
+    const nextMode = themeMode === 'light' ? 'dark' : 'light';
     setThemeMode(nextMode);
     const nextObj = themeOptions.find((t) => t.id === nextMode);
-    showToast('Theme Updated', nextObj?.toastMsg || 'Theme changed.', nextMode === 'auspicious' ? 'success' : 'info');
+    showToast('Theme Updated', nextObj?.toastMsg || 'Theme changed.', 'info');
   };
 
-  const handleSelectTheme = (mode: 'light' | 'dark' | 'auspicious') => {
+  const handleSelectTheme = (mode: 'light' | 'dark') => {
     setThemeMode(mode);
     setIsOpen(false);
     const selected = themeOptions.find((t) => t.id === mode);
-    showToast('Theme Updated', selected?.toastMsg || 'Theme changed.', mode === 'auspicious' ? 'success' : 'info');
+    showToast('Theme Updated', selected?.toastMsg || 'Theme changed.', 'info');
   };
 
   return (
     <div className={`relative flex items-center ${className}`} ref={containerRef}>
       <div
         className={`flex items-center rounded-full p-0.5 border shadow-sm transition-all ${
-          themeMode === 'auspicious'
-            ? 'bg-amber-100/90 border-amber-400 text-amber-950 dark:bg-amber-950/80 dark:border-amber-600 dark:text-amber-200'
-            : themeMode === 'dark'
+          themeMode === 'dark'
             ? 'bg-slate-800/90 border-slate-700 text-slate-200 hover:bg-slate-800'
             : 'bg-slate-100 border-slate-200 text-slate-700 hover:bg-slate-200'
         }`}
@@ -91,7 +79,7 @@ export const ThemeSwitcher: React.FC<ThemeSwitcherProps> = ({
           type="button"
           onClick={handleCycleTheme}
           className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-extrabold cursor-pointer hover:opacity-85 transition-opacity"
-          title={`Current: ${currentTheme.label}. Click to cycle (Light -> Dark -> Auspicious Gold)`}
+          title={`Current: ${currentTheme.label}. Click to toggle (Light <-> Dark)`}
           aria-label={`Toggle Theme Mode (Current: ${currentTheme.label})`}
         >
           <CurrentIcon className={`w-4 h-4 ${currentTheme.iconColor}`} />

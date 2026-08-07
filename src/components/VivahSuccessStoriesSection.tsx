@@ -102,23 +102,23 @@ export const VivahSuccessStoriesSection: React.FC<VivahSuccessStoriesSectionProp
     <div className="space-y-6 my-6">
       
       {/* Header Banner */}
-      <div className="bg-gradient-to-r from-rose-900 via-amber-950 to-slate-900 text-white rounded-3xl p-6 sm:p-8 border border-rose-500/30 shadow-2xl relative overflow-hidden">
+      <div className="bg-gradient-to-r from-amber-500/10 via-rose-50/50 to-amber-50/60 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 text-slate-900 dark:text-slate-100 rounded-3xl p-6 sm:p-8 border border-rose-200/80 dark:border-slate-800 shadow-xl relative overflow-hidden">
         {/* Subtle Decorative Elements */}
-        <div className="absolute top-0 right-0 w-64 h-64 bg-rose-500/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute bottom-0 left-0 w-64 h-64 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute top-0 right-0 w-64 h-64 bg-rose-400/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-0 left-0 w-64 h-64 bg-amber-400/10 rounded-full blur-3xl pointer-events-none" />
 
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-3 max-w-2xl">
-            <div className="inline-flex items-center gap-2 px-3 py-1 bg-rose-500/20 border border-rose-400/40 rounded-full text-rose-300 text-xs font-bold uppercase tracking-wider">
-              <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+            <div className="inline-flex items-center gap-2 px-3 py-1 bg-rose-100/80 dark:bg-rose-950/80 border border-rose-200 dark:border-rose-800/60 rounded-full text-rose-900 dark:text-rose-300 text-xs font-bold uppercase tracking-wider shadow-xs">
+              <Sparkles className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
               <span>💐 Vivah Bandhan • Verified Jain Success Stories</span>
             </div>
 
-            <h2 className="text-2xl sm:text-3xl font-extrabold font-serif text-white tracking-tight">
+            <h2 className="text-2xl sm:text-3xl font-extrabold font-serif text-slate-900 dark:text-white tracking-tight">
               Celebrating Blessed Jain Unions Worldwide
             </h2>
 
-            <p className="text-xs sm:text-sm text-rose-100/90 leading-relaxed">
+            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
               Read inspiring journeys of Jain brides, grooms, and respected families who found their lifelong soulmates through our verified platform.
             </p>
           </div>
@@ -126,9 +126,9 @@ export const VivahSuccessStoriesSection: React.FC<VivahSuccessStoriesSectionProp
           {showDeactivateButton && (
             <button
               onClick={() => setShowStoryModal(true)}
-              className="px-5 py-3.5 min-h-[44px] bg-gradient-to-r from-amber-500 via-amber-400 to-amber-600 text-slate-950 font-extrabold text-xs sm:text-sm rounded-2xl shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2 shrink-0 border border-amber-300/60"
+              className="px-5 py-3.5 min-h-[44px] bg-gradient-to-r from-rose-600 to-amber-600 hover:from-rose-700 hover:to-amber-700 text-white font-extrabold text-xs sm:text-sm rounded-2xl shadow-md hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2 shrink-0 cursor-pointer"
             >
-              <Heart className="w-4 h-4 text-rose-700 fill-rose-700 animate-pulse" />
+              <Heart className="w-4 h-4 text-white fill-white animate-pulse" />
               <span>Got Married? Deactivate Profile & Share Story</span>
             </button>
           )}

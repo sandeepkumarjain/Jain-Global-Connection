@@ -550,8 +550,8 @@ export const Header: React.FC = () => {
         </div>
 
         {/* Navigation Tabs Bar - Visible on desktop, hidden on mobile as options are in mobile menu */}
-        <div className="hidden md:block bg-slate-900/95 dark:bg-slate-950 text-amber-100 border-t border-amber-500/20 shadow-lg w-full max-w-full overflow-hidden">
-          <div className="max-w-7xl mx-auto px-2 sm:px-4 py-1.5 w-full max-w-full overflow-x-auto no-scrollbar touch-pan-x">
+        <div className="hidden md:block bg-gradient-to-r from-amber-900 via-amber-800 to-amber-900 text-amber-50 border-t border-amber-500/30 shadow-md w-full max-w-full overflow-hidden">
+          <div className="max-w-7xl mx-auto px-2 sm:px-4 py-2 w-full max-w-full overflow-x-auto no-scrollbar touch-pan-x">
             <div className="flex items-center gap-1.5 sm:gap-2 flex-nowrap shrink-0 w-max min-w-full">
               {displayedNavItems.map((item) => {
                 const Icon = item.icon;
@@ -560,13 +560,13 @@ export const Header: React.FC = () => {
                   <button
                     key={item.id}
                     onClick={() => handleTabClick(item.id)}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold transition-all rounded-full whitespace-nowrap shrink-0 border ${
+                    className={`flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold transition-all rounded-full whitespace-nowrap shrink-0 border cursor-pointer ${
                       isActive
-                        ? 'bg-amber-500 text-slate-950 border-amber-400 font-extrabold shadow-md shadow-amber-500/20 scale-[1.02]'
-                        : 'bg-slate-800/80 text-slate-200 border-slate-700/60 hover:text-white hover:bg-slate-800 hover:border-amber-500/40'
+                        ? 'bg-amber-400 text-slate-950 border-amber-300 font-black shadow-md scale-[1.02]'
+                        : 'bg-amber-950/60 text-amber-100 border-amber-600/40 hover:text-white hover:bg-amber-800/90 hover:border-amber-400'
                     }`}
                   >
-                    <Icon className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-slate-950' : 'text-amber-400'}`} />
+                    <Icon className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-slate-950' : 'text-amber-300'}`} />
                     <span>{item.label}</span>
                   </button>
                 );

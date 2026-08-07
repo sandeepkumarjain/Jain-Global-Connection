@@ -150,23 +150,23 @@ export const DailyJainWisdom: React.FC = () => {
   };
 
   return (
-    <section className="bg-slate-900/90 dark:bg-slate-950 text-white rounded-3xl p-6 sm:p-8 border border-amber-500/30 shadow-2xl space-y-6 relative overflow-hidden my-6">
+    <section className="bg-gradient-to-b from-amber-50/60 via-orange-50/30 to-white dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 text-slate-900 dark:text-slate-100 rounded-3xl p-6 sm:p-8 border border-amber-200/80 dark:border-slate-800 shadow-xl space-y-6 relative overflow-hidden my-6">
       {/* Background Decorative Glow */}
-      <div className="absolute top-0 right-1/4 w-72 h-72 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute bottom-0 left-1/4 w-72 h-72 bg-red-500/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute top-0 right-1/4 w-72 h-72 bg-amber-400/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute bottom-0 left-1/4 w-72 h-72 bg-orange-400/10 rounded-full blur-3xl pointer-events-none" />
 
       {/* Header Bar */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-amber-500/20 pb-4 relative z-10">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-amber-200/70 dark:border-slate-800 pb-4 relative z-10">
         <div className="flex items-center gap-3">
-          <div className="p-3 bg-amber-500/15 border border-amber-500/30 rounded-2xl text-amber-400">
-            <BookOpen className="w-6 h-6" />
+          <div className="p-3 bg-amber-100/80 dark:bg-amber-950/80 border border-amber-200 dark:border-amber-700/60 rounded-2xl text-amber-900 dark:text-amber-300 shadow-xs">
+            <BookOpen className="w-6 h-6 text-amber-700 dark:text-amber-400" />
           </div>
           <div>
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-amber-500/10 border border-amber-500/20 rounded-full text-amber-300 text-[10px] font-bold uppercase tracking-widest">
-              <Sparkles className="w-3 h-3 text-amber-400" />
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-amber-100/80 dark:bg-amber-950/80 border border-amber-200 dark:border-amber-700/60 rounded-full text-amber-900 dark:text-amber-300 text-[10px] font-bold uppercase tracking-widest">
+              <Sparkles className="w-3 h-3 text-amber-600 dark:text-amber-400" />
               <span>Sacred Jain Scriptures & Agams</span>
             </div>
-            <h2 className="text-xl sm:text-2xl font-extrabold font-serif text-white tracking-tight">
+            <h2 className="text-xl sm:text-2xl font-extrabold font-serif text-slate-900 dark:text-white tracking-tight">
               Daily Jain Wisdom
             </h2>
           </div>
@@ -176,7 +176,7 @@ export const DailyJainWisdom: React.FC = () => {
         <div className="flex items-center gap-2 self-end sm:self-auto">
           <button
             onClick={() => setIsPlaying(!isPlaying)}
-            className="p-2.5 min-h-[44px] min-w-[44px] rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-400 border border-slate-700 transition-all flex items-center justify-center"
+            className="p-2.5 min-h-[44px] min-w-[44px] rounded-xl bg-white dark:bg-slate-800 hover:bg-amber-50 dark:hover:bg-slate-700 text-amber-800 dark:text-amber-300 border border-amber-200/80 dark:border-slate-700 shadow-xs transition-all flex items-center justify-center cursor-pointer"
             title={isPlaying ? 'Pause auto-play' : 'Resume auto-play'}
           >
             {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
@@ -184,7 +184,7 @@ export const DailyJainWisdom: React.FC = () => {
 
           <button
             onClick={handlePrev}
-            className="p-2.5 min-h-[44px] min-w-[44px] rounded-xl bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 transition-all active:scale-95 flex items-center justify-center"
+            className="p-2.5 min-h-[44px] min-w-[44px] rounded-xl bg-white dark:bg-slate-800 hover:bg-amber-50 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 border border-amber-200/80 dark:border-slate-700 shadow-xs transition-all active:scale-95 flex items-center justify-center cursor-pointer"
             title="Previous Quote"
           >
             <ChevronLeft className="w-5 h-5" />
@@ -192,7 +192,7 @@ export const DailyJainWisdom: React.FC = () => {
 
           <button
             onClick={handleNext}
-            className="p-2.5 min-h-[44px] min-w-[44px] rounded-xl bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 transition-all active:scale-95 flex items-center justify-center"
+            className="p-2.5 min-h-[44px] min-w-[44px] rounded-xl bg-white dark:bg-slate-800 hover:bg-amber-50 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 border border-amber-200/80 dark:border-slate-700 shadow-xs transition-all active:scale-95 flex items-center justify-center cursor-pointer"
             title="Next Quote"
           >
             <ChevronRight className="w-5 h-5" />
@@ -202,7 +202,7 @@ export const DailyJainWisdom: React.FC = () => {
 
       {/* Main Quote Card Container */}
       <div
-        className="relative z-10 bg-slate-950/80 border border-amber-500/20 rounded-2xl p-6 sm:p-8 space-y-6 shadow-inner transition-all duration-500 cursor-grab active:cursor-grabbing"
+        className="relative z-10 bg-white dark:bg-slate-900 border border-amber-200/80 dark:border-slate-800 rounded-2xl p-6 sm:p-8 space-y-6 shadow-md transition-all duration-500 cursor-grab active:cursor-grabbing"
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
@@ -211,48 +211,48 @@ export const DailyJainWisdom: React.FC = () => {
       >
         {/* Top Tag & Speaker */}
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <span className="px-3.5 py-1.5 bg-amber-500/15 border border-amber-500/30 text-amber-300 font-bold text-xs rounded-full flex items-center gap-1.5">
-            <Quote className="w-3.5 h-3.5 text-amber-400" />
+          <span className="px-3.5 py-1.5 bg-amber-100/80 dark:bg-amber-950/80 border border-amber-200 dark:border-amber-700/60 text-amber-900 dark:text-amber-300 font-bold text-xs rounded-full flex items-center gap-1.5">
+            <Quote className="w-3.5 h-3.5 text-amber-700 dark:text-amber-400" />
             <span>{activeQuote.principle}</span>
           </span>
 
-          <span className="text-xs font-semibold text-slate-400">
-            Source: <strong className="text-amber-200">{activeQuote.speaker}</strong> ({activeQuote.source})
+          <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+            Source: <strong className="text-amber-900 dark:text-amber-300">{activeQuote.speaker}</strong> ({activeQuote.source})
           </span>
         </div>
 
         {/* Verse Display */}
         <div className="space-y-3 text-center sm:text-left">
-          <p className="text-2xl sm:text-3xl font-extrabold font-serif text-amber-300 tracking-wide leading-relaxed">
+          <p className="text-2xl sm:text-3xl font-extrabold font-serif text-amber-900 dark:text-amber-200 tracking-wide leading-relaxed">
             {activeQuote.prakritText}
           </p>
-          <p className="text-xs font-medium text-slate-400 italic">
+          <p className="text-xs font-medium text-slate-500 dark:text-slate-400 italic">
             Transliteration: "{activeQuote.prakritTransliteration}"
           </p>
         </div>
 
         {/* English Translation */}
-        <div className="bg-slate-900/90 border-l-4 border-amber-500 p-4 rounded-r-xl space-y-1">
-          <p className="text-base sm:text-lg font-semibold text-slate-100 italic leading-relaxed">
+        <div className="bg-amber-50/70 dark:bg-amber-950/30 border-l-4 border-amber-500 p-4 rounded-r-xl space-y-1">
+          <p className="text-base sm:text-lg font-semibold text-slate-800 dark:text-slate-100 italic leading-relaxed">
             "{activeQuote.englishTranslation}"
           </p>
-          <p className="text-xs text-slate-400 pt-1">
-            <strong className="text-amber-400">Practical Guidance:</strong> {activeQuote.meaningAndRelevance}
+          <p className="text-xs text-slate-600 dark:text-slate-300 pt-1">
+            <strong className="text-amber-800 dark:text-amber-300">Practical Guidance:</strong> {activeQuote.meaningAndRelevance}
           </p>
         </div>
 
         {/* Bottom Actions */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2 border-t border-slate-800">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2 border-t border-amber-100 dark:border-slate-800">
           {/* Slide Indicator Dots */}
           <div className="flex items-center gap-2">
             {JAIN_QUOTES.map((_, idx) => (
               <button
                 key={idx}
                 onClick={() => setCurrentIndex(idx)}
-                className={`h-2.5 rounded-full transition-all ${
+                className={`h-2.5 rounded-full transition-all cursor-pointer ${
                   currentIndex === idx
-                    ? 'w-8 bg-amber-500'
-                    : 'w-2.5 bg-slate-700 hover:bg-slate-600'
+                    ? 'w-8 bg-amber-600 dark:bg-amber-500'
+                    : 'w-2.5 bg-amber-200 dark:bg-slate-700 hover:bg-amber-300'
                 }`}
                 title={`Quote ${idx + 1}`}
               />
@@ -263,15 +263,15 @@ export const DailyJainWisdom: React.FC = () => {
           <div className="flex items-center gap-3 w-full sm:w-auto">
             <button
               onClick={handleCopyQuote}
-              className="flex-1 sm:flex-none px-4 py-2.5 min-h-[44px] bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs rounded-xl border border-slate-700 transition-all flex items-center justify-center gap-1.5"
+              className="flex-1 sm:flex-none px-4 py-2.5 min-h-[44px] bg-white dark:bg-slate-800 hover:bg-amber-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-xs rounded-xl border border-amber-200/80 dark:border-slate-700 shadow-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer"
             >
-              {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
+              {copied ? <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400" /> : <Copy className="w-4 h-4" />}
               <span>{copied ? 'Copied!' : 'Copy Quote'}</span>
             </button>
 
             <button
               onClick={handleShareWhatsApp}
-              className="flex-1 sm:flex-none px-5 py-2.5 min-h-[44px] bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5"
+              className="flex-1 sm:flex-none px-5 py-2.5 min-h-[44px] bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5 cursor-pointer"
             >
               <Share2 className="w-4 h-4" />
               <span>Share on WhatsApp</span>

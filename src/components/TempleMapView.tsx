@@ -180,6 +180,7 @@ export const TempleMapView: React.FC<TempleMapViewProps> = ({
   const [livePlaces, setLivePlaces] = useState<any[]>([]);
   const [activePlaceInfoWindowId, setActivePlaceInfoWindowId] = useState<string | null>(null);
   const [mapSearchTerm, setMapSearchTerm] = useState('');
+  const [selected360Temple, setSelected360Temple] = useState<TempleListing | null>(null);
 
   // Request browser geolocation
   const handleDetectLocation = useCallback(() => {
@@ -541,6 +542,11 @@ export const TempleMapView: React.FC<TempleMapViewProps> = ({
                             </div>
 
                             <div className="flex items-center gap-1 pt-0.5">
+                              <VirtualTourButton
+                                temple={temple}
+                                onOpenTour={(t) => setSelected360Temple(t)}
+                                size="sm"
+                              />
                               <button
                                 onClick={() => onOpenLiveDarshan(temple)}
                                 className="flex-1 py-1 bg-red-600 text-white rounded text-[9px] font-bold flex items-center justify-center gap-1 cursor-pointer"
@@ -739,6 +745,11 @@ export const TempleMapView: React.FC<TempleMapViewProps> = ({
                       </span>
 
                       <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                        <VirtualTourButton
+                          temple={temple}
+                          onOpenTour={(t) => setSelected360Temple(t)}
+                          size="sm"
+                        />
                         <a
                           href={
                             userLocation
@@ -773,6 +784,14 @@ export const TempleMapView: React.FC<TempleMapViewProps> = ({
           </div>
         </div>
       </div>
+
+      {/* 360-degree Virtual 3D Tour Modal */}
+      {selected360Temple && (
+        <Virtual3DTourModal
+          temple={selected360Temple}
+          onClose={() => setSelected360Temple(null)}
+        />
+      )}
     </div>
   );
 };

@@ -57,7 +57,7 @@ export interface User {
   donorCity?: string;
   donorState?: string;
   qrCodeUrl?: string;
-  themePreference?: 'light' | 'dark' | 'auspicious';
+  themePreference?: 'light' | 'dark';
   password?: string;
   permissions?: string[];
   rolePermissions?: Partial<RolePermissions>;

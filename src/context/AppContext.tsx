@@ -74,8 +74,8 @@ interface AppContextType {
   setActiveTab: (tab: TabOption) => void;
   language: LanguageOption;
   setLanguage: (lang: LanguageOption) => void;
-  themeMode: 'light' | 'dark' | 'auspicious';
-  setThemeMode: (mode: 'light' | 'dark' | 'auspicious') => void;
+  themeMode: 'light' | 'dark';
+  setThemeMode: (mode: 'light' | 'dark') => void;
   toggleTheme: () => void;
   searchQuery: string;
   setSearchQuery: (q: string) => void;
@@ -376,9 +376,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return () => clearTimeout(timer);
   }, []);
 
-  const [themeMode, setThemeMode] = useState<'light' | 'dark' | 'auspicious'>(() => {
+  const [themeMode, setThemeMode] = useState<'light' | 'dark'>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.THEME);
-    return (saved as 'light' | 'dark' | 'auspicious') || 'light';
+    return saved === 'dark' ? 'dark' : 'light';
   });
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -642,8 +642,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     document.documentElement.classList.remove('dark', 'auspicious');
     if (themeMode === 'dark') {
       document.documentElement.classList.add('dark');
-    } else if (themeMode === 'auspicious') {
-      document.documentElement.classList.add('auspicious');
     }
 
     if (currentUser) {
@@ -685,11 +683,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [currentUser?.id]);
 
   const toggleTheme = () => {
-    setThemeMode((prev) => {
-      if (prev === 'light') return 'dark';
-      if (prev === 'dark') return 'auspicious';
-      return 'light';
-    });
+    setThemeMode((prev) => (prev === 'light' ? 'dark' : 'light'));
   };
 
   const showToast = (
