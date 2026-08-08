@@ -3,7 +3,6 @@ import { useApp } from '../context/AppContext';
 import { NAV_TRANSLATIONS } from '../utils/translations';
 import { useTypingPlaceholder } from '../hooks/useTypingPlaceholder';
 import { LanguageSwitcher } from './LanguageSwitcher';
-import { ThemeSwitcher } from './ThemeSwitcher';
 import {
   Search,
   Sparkles,
@@ -65,6 +64,7 @@ export const Header: React.FC = () => {
     logout,
     systemSettings,
     showToast,
+    panchang,
     bhajans,
     currentSong,
     isPlayingSong,
@@ -165,14 +165,14 @@ export const Header: React.FC = () => {
   const langTranslations = NAV_TRANSLATIONS[language] || NAV_TRANSLATIONS.English;
 
   const navItems = [
-    { id: 'home', label: langTranslations.home || 'Home', icon: Globe },
-    { id: 'matrimonial', label: langTranslations.matrimonial || 'Matrimonial', icon: Heart },
-    { id: 'business', label: langTranslations.business || 'Business Directory', icon: Building2 },
-    { id: 'directory', label: langTranslations.directory || 'Jain Directory', icon: Users },
-    { id: 'temple', label: langTranslations.temple || 'Temple Directory', icon: MapPin },
-    { id: 'panchang', label: langTranslations.panchang || 'Panchang & Quotes', icon: Calendar },
-    { id: 'feed', label: langTranslations.feed || 'Community Feed', icon: MessageSquare },
-    { id: 'emergency', label: langTranslations.emergency || 'Services & Emergency', icon: AlertCircle },
+    { id: 'home', label: langTranslations.home || 'Home', shortLabel: langTranslations.home || 'Home', icon: Globe },
+    { id: 'matrimonial', label: langTranslations.matrimonial || 'Matrimonial', shortLabel: 'Matrimonial', icon: Heart },
+    { id: 'business', label: langTranslations.business || 'Business Directory', shortLabel: 'Business', icon: Building2 },
+    { id: 'directory', label: langTranslations.directory || 'Jain Directory', shortLabel: 'Jain Directory', icon: Users },
+    { id: 'temple', label: langTranslations.temple || 'Temple Directory', shortLabel: 'Temples', icon: MapPin },
+    { id: 'panchang', label: langTranslations.panchang || 'Panchang & Quotes', shortLabel: 'Panchang', icon: Calendar },
+    { id: 'feed', label: langTranslations.feed || 'Community Feed', shortLabel: 'Feed', icon: MessageSquare },
+    { id: 'emergency', label: langTranslations.emergency || 'Services & Emergency', shortLabel: 'Services', icon: AlertCircle },
   ];
 
   const displayedNavItems = isMatrimonialOnlyUser
@@ -180,6 +180,57 @@ export const Header: React.FC = () => {
     : isBusinessOnlyUser
     ? navItems.filter((item) => item.id === 'business')
     : navItems;
+
+  const NAV_ITEM_THEMES: Record<string, { active: string; hover: string; iconActive: string; iconInactive: string }> = {
+    home: {
+      active: 'bg-gradient-to-r from-amber-400 via-amber-500 to-yellow-500 text-slate-950 border-amber-300 font-black shadow-md scale-[1.02]',
+      hover: 'hover:bg-amber-800/90 hover:text-amber-200 hover:border-amber-400',
+      iconActive: 'text-slate-950',
+      iconInactive: 'text-amber-400',
+    },
+    matrimonial: {
+      active: 'bg-gradient-to-r from-rose-500 via-pink-500 to-rose-600 text-white border-rose-300 font-black shadow-md scale-[1.02]',
+      hover: 'hover:bg-rose-900/90 hover:text-rose-200 hover:border-rose-400',
+      iconActive: 'text-white',
+      iconInactive: 'text-rose-300',
+    },
+    business: {
+      active: 'bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 text-slate-950 border-amber-300 font-black shadow-md scale-[1.02]',
+      hover: 'hover:bg-orange-900/90 hover:text-amber-200 hover:border-amber-400',
+      iconActive: 'text-slate-950',
+      iconInactive: 'text-amber-300',
+    },
+    directory: {
+      active: 'bg-gradient-to-r from-cyan-500 via-teal-500 to-blue-600 text-white border-cyan-300 font-black shadow-md scale-[1.02]',
+      hover: 'hover:bg-cyan-900/90 hover:text-cyan-200 hover:border-cyan-400',
+      iconActive: 'text-white',
+      iconInactive: 'text-cyan-300',
+    },
+    temple: {
+      active: 'bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-600 text-white border-emerald-300 font-black shadow-md scale-[1.02]',
+      hover: 'hover:bg-emerald-900/90 hover:text-emerald-200 hover:border-emerald-400',
+      iconActive: 'text-white',
+      iconInactive: 'text-emerald-300',
+    },
+    panchang: {
+      active: 'bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-600 text-white border-indigo-300 font-black shadow-md scale-[1.02]',
+      hover: 'hover:bg-indigo-900/90 hover:text-indigo-200 hover:border-indigo-400',
+      iconActive: 'text-white',
+      iconInactive: 'text-indigo-300',
+    },
+    feed: {
+      active: 'bg-gradient-to-r from-fuchsia-500 via-purple-500 to-pink-600 text-white border-fuchsia-300 font-black shadow-md scale-[1.02]',
+      hover: 'hover:bg-fuchsia-900/90 hover:text-fuchsia-200 hover:border-fuchsia-400',
+      iconActive: 'text-white',
+      iconInactive: 'text-fuchsia-300',
+    },
+    emergency: {
+      active: 'bg-gradient-to-r from-red-600 via-rose-600 to-red-700 text-white border-red-300 font-black shadow-md scale-[1.02]',
+      hover: 'hover:bg-red-900/90 hover:text-red-200 hover:border-red-400',
+      iconActive: 'text-white',
+      iconInactive: 'text-red-300',
+    },
+  };
 
   const userNotifications = useMemo(() => {
     if (!currentUser) return [];
@@ -231,6 +282,18 @@ export const Header: React.FC = () => {
 
           {/* Quick Info & Controls */}
           <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
+            {/* Today's Jain Tithi & Date Badge */}
+            <button
+              onClick={() => setActiveTab('panchang')}
+              className="hidden lg:flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-950/80 hover:bg-amber-900 border border-amber-500/40 text-amber-100 text-[10px] sm:text-[11px] font-semibold shadow-xs cursor-pointer transition-all hover:border-amber-400 shrink-0"
+              title="Click to view Today's Jain Panchang"
+            >
+              <Calendar className="w-3 h-3 text-amber-400 shrink-0" />
+              <span className="text-amber-100 font-bold">{new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</span>
+              <span className="text-amber-500/60">•</span>
+              <span className="text-amber-300 font-extrabold">{panchang?.tithi ? panchang.tithi.split('(')[0].trim() : 'Jain Tithi'}</span>
+            </button>
+
             {/* Developer Badge */}
             <div className="hidden sm:flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-amber-900/60 border border-amber-500/30 text-amber-200 shadow-inner text-[10px] sm:text-[11px]">
               <ShieldCheck className="w-3 h-3 text-amber-400 shrink-0" />
@@ -242,9 +305,6 @@ export const Header: React.FC = () => {
 
             {/* Language Switcher Dropdown */}
             <LanguageSwitcher variant="topbar" />
-
-            {/* Theme Selector Dropdown */}
-            <ThemeSwitcher />
           </div>
         </div>
       </div>
@@ -324,9 +384,6 @@ export const Header: React.FC = () => {
               <Crown className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
               <span>Membership</span>
             </button>
-
-            {/* Persistent Global Theme Selector (Light / Dark / Auspicious Gold) */}
-            <ThemeSwitcher />
 
             {/* Gmail Integration Center Button */}
             <button
@@ -550,24 +607,26 @@ export const Header: React.FC = () => {
         </div>
 
         {/* Navigation Tabs Bar - Visible on desktop, hidden on mobile as options are in mobile menu */}
-        <div className="hidden md:block bg-gradient-to-r from-amber-900 via-amber-800 to-amber-900 text-amber-50 border-t border-amber-500/30 shadow-md w-full max-w-full overflow-hidden">
-          <div className="max-w-7xl mx-auto px-2 sm:px-4 py-2 w-full max-w-full overflow-x-auto no-scrollbar touch-pan-x">
-            <div className="flex items-center gap-1.5 sm:gap-2 flex-nowrap shrink-0 w-max min-w-full">
+        <div className="hidden md:block bg-gradient-to-r from-amber-900 via-amber-800 to-amber-900 text-amber-50 border-t border-amber-500/30 shadow-md w-full">
+          <div className="max-w-7xl mx-auto px-1.5 lg:px-3 py-2 w-full">
+            <div className="flex items-center justify-between gap-1 lg:gap-1.5 xl:gap-2 flex-nowrap w-full overflow-x-auto no-scrollbar">
               {displayedNavItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = activeTab === item.id;
+                const theme = NAV_ITEM_THEMES[item.id] || NAV_ITEM_THEMES.home;
                 return (
                   <button
                     key={item.id}
                     onClick={() => handleTabClick(item.id)}
-                    className={`flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold transition-all rounded-full whitespace-nowrap shrink-0 border cursor-pointer ${
+                    className={`flex items-center gap-1 lg:gap-1.5 px-2 py-1.5 lg:px-3 lg:py-1.5 text-[11px] lg:text-xs font-bold transition-all rounded-full whitespace-nowrap shrink-0 border cursor-pointer ${
                       isActive
-                        ? 'bg-amber-400 text-slate-950 border-amber-300 font-black shadow-md scale-[1.02]'
-                        : 'bg-amber-950/60 text-amber-100 border-amber-600/40 hover:text-white hover:bg-amber-800/90 hover:border-amber-400'
+                        ? theme.active
+                        : `bg-slate-900/80 dark:bg-slate-950/80 text-slate-100 border-slate-700/60 ${theme.hover}`
                     }`}
                   >
-                    <Icon className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-slate-950' : 'text-amber-300'}`} />
-                    <span>{item.label}</span>
+                    <Icon className={`w-3.5 h-3.5 shrink-0 ${isActive ? theme.iconActive : theme.iconInactive}`} />
+                    <span className="hidden xl:inline">{item.label}</span>
+                    <span className="xl:hidden">{item.shortLabel || item.label}</span>
                   </button>
                 );
               })}
@@ -576,16 +635,17 @@ export const Header: React.FC = () => {
               {!isMatrimonialOnlyUser && (
                 <button
                   onClick={() => setIsBhajanModalOpen(true)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all border shrink-0 whitespace-nowrap shadow-sm ${
+                  className={`flex items-center gap-1 lg:gap-1.5 px-2 py-1.5 lg:px-3 lg:py-1.5 rounded-full text-[11px] lg:text-xs font-bold transition-all border shrink-0 whitespace-nowrap shadow-sm cursor-pointer ${
                     isPlayingSong
                       ? 'border-amber-400 bg-amber-900/90 text-amber-300 animate-pulse'
                       : 'border-amber-500/40 bg-amber-950/80 text-amber-200 hover:text-white hover:bg-amber-900'
                   }`}
-                  title="Click to view & listen to Jain Devotional Bhajans & Songs in same window"
+                  title="Click to view & listen to Jain Devotional Bhajans & Songs"
                 >
                   <Music className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                  <span>Bhajans & Songs</span>
-                  <span className="text-[10px] bg-amber-500/20 text-amber-300 font-extrabold px-1.5 py-0.2 rounded-full border border-amber-500/30">
+                  <span className="hidden xl:inline">Bhajans & Songs</span>
+                  <span className="xl:hidden">Bhajans</span>
+                  <span className="text-[9px] bg-amber-500/20 text-amber-300 font-extrabold px-1.5 py-0.2 rounded-full border border-amber-500/30">
                     {bhajans.filter((b) => b.isActive).length}
                   </span>
                   {isPlayingSong && <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping ml-0.5" />}
@@ -593,32 +653,21 @@ export const Header: React.FC = () => {
               )}
 
               {/* Admin Panel Tab highlight if Admin */}
-              {(currentUser?.role === 'Super Admin' || currentUser?.role === 'Admin') && (
+              {(currentUser?.role === 'Super Admin' || currentUser?.role === 'Admin' || currentUser?.email === 'sandeepbachhawat1@gmail.com') && (
                 <button
                   onClick={() => setActiveTab('admin')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-extrabold transition-all rounded-full whitespace-nowrap shrink-0 border ${
+                  className={`flex items-center gap-1 lg:gap-1.5 px-2 py-1.5 lg:px-3 lg:py-1.5 text-[11px] lg:text-xs font-extrabold transition-all rounded-full whitespace-nowrap shrink-0 border cursor-pointer ${
                     activeTab === 'admin'
                       ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-md'
                       : 'border-amber-500/50 bg-amber-950/40 text-amber-400 hover:bg-amber-900/60'
                   }`}
+                  title="Control Panel"
                 >
                   <ShieldCheck className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                  <span>Admin Panel</span>
+                  <span>Admin</span>
                 </button>
               )}
             </div>
-
-            {/* Super Admin Quick Access Button */}
-            {(currentUser?.role === 'Super Admin' || currentUser?.role === 'Admin' || currentUser?.email === 'sandeepbachhawat1@gmail.com') && (
-              <button
-                onClick={() => setActiveTab('admin')}
-                className="flex items-center gap-1.5 px-3 py-1 bg-gradient-to-r from-amber-500 via-amber-600 to-yellow-500 hover:from-amber-600 hover:to-amber-700 text-slate-950 rounded-full text-xs font-black shadow-md border border-amber-300 transition-all cursor-pointer shrink-0"
-                title="Click to Open Super Admin Control Panel"
-              >
-                <ShieldCheck className="w-3.5 h-3.5 text-slate-950 shrink-0" />
-                <span>Super Admin</span>
-              </button>
-            )}
           </div>
         </div>
 
@@ -725,39 +774,6 @@ export const Header: React.FC = () => {
 
             {/* Mobile Language Switcher */}
             <LanguageSwitcher variant="mobile" className="pt-2 border-t border-slate-800" />
-
-            {/* Mobile Theme Switcher */}
-            <div className="pt-2 border-t border-slate-800 space-y-1.5">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1">
-                <Sun className="w-3.5 h-3.5" /> Select Visual Theme
-              </p>
-              <div className="grid grid-cols-3 gap-2">
-                <button
-                  onClick={() => setThemeMode('light')}
-                  className={`py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 border transition ${
-                    themeMode === 'light' ? 'bg-amber-500 text-slate-950 border-amber-400 font-extrabold shadow' : 'bg-slate-900 text-slate-300 border-slate-800'
-                  }`}
-                >
-                  <Sun className="w-3.5 h-3.5" /> Light
-                </button>
-                <button
-                  onClick={() => setThemeMode('dark')}
-                  className={`py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 border transition ${
-                    themeMode === 'dark' ? 'bg-amber-500 text-slate-950 border-amber-400 font-extrabold shadow' : 'bg-slate-900 text-slate-300 border-slate-800'
-                  }`}
-                >
-                  <Moon className="w-3.5 h-3.5" /> Dark
-                </button>
-                <button
-                  onClick={() => setThemeMode('auspicious')}
-                  className={`py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 border transition ${
-                    themeMode === 'auspicious' ? 'bg-amber-500 text-slate-950 border-amber-400 font-extrabold shadow' : 'bg-slate-900 text-slate-300 border-slate-800'
-                  }`}
-                >
-                  <Sparkles className="w-3.5 h-3.5 text-slate-950" /> Gold
-                </button>
-              </div>
-            </div>
 
             {/* Mobile Navigation Links */}
             <div className="pt-2 border-t border-slate-800 space-y-2">

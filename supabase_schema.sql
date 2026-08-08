@@ -266,14 +266,32 @@ CREATE TABLE IF NOT EXISTS public.settings (
   "extraData" JSONB DEFAULT '{}'::jsonb
 );
 
--- Enable Row Level Security (RLS) & Grant Public Access for all 14 tables
+-- 15. Matrimonial Success Stories Table
+CREATE TABLE IF NOT EXISTS public.success_stories (
+  id TEXT PRIMARY KEY,
+  "profileId" TEXT,
+  "brideName" TEXT NOT NULL,
+  "groomName" TEXT NOT NULL,
+  "marriageDate" TEXT,
+  "matchSource" TEXT,
+  feedback TEXT,
+  rating INT DEFAULT 5,
+  "couplePhotoUrl" TEXT,
+  city TEXT,
+  "submittedBy" TEXT,
+  "isApproved" BOOLEAN DEFAULT TRUE,
+  "createdAt" TIMESTAMPTZ DEFAULT NOW(),
+  "extraData" JSONB DEFAULT '{}'::jsonb
+);
+
+-- Enable Row Level Security (RLS) & Grant Public Access for all 15 tables
 DO $$
 DECLARE
   tbl TEXT;
   tables TEXT[] := ARRAY[
     'users', 'matrimonials', 'businesses', 'temples', 'members',
     'posts', 'news', 'ads', 'panchang', 'blood_donors',
-    'jobs', 'bhajans', 'pages', 'settings'
+    'jobs', 'bhajans', 'pages', 'settings', 'success_stories'
   ];
 BEGIN
   FOREACH tbl IN ARRAY tables LOOP

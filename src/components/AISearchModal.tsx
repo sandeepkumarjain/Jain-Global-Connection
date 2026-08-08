@@ -174,9 +174,24 @@ export const AISearchModal: React.FC = () => {
           ))}
 
           {loading && (
-            <div className="flex items-center gap-2 text-xs text-amber-600 dark:text-amber-400 font-bold p-2">
-              <Loader2 className="w-4 h-4 animate-spin" />
-              <span>Consulting Jain AI Knowledge Base...</span>
+            <div className="flex items-start gap-3 animate-pulse">
+              <div className="w-8 h-8 rounded-full bg-amber-500/20 dark:bg-amber-900/40 border border-amber-400/40 flex items-center justify-center shrink-0">
+                <Bot className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+              </div>
+
+              <div className="flex-1 max-w-[80%] rounded-2xl p-4 bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/60 rounded-tl-none space-y-2.5 shadow-sm">
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="h-3.5 bg-amber-300/80 dark:bg-amber-600/50 rounded-md w-36" />
+                  <div className="h-2.5 bg-slate-200 dark:bg-slate-700 rounded-md w-16" />
+                </div>
+                <div className="h-3 bg-slate-200 dark:bg-slate-700 rounded-md w-full" />
+                <div className="h-3 bg-slate-200 dark:bg-slate-700 rounded-md w-[92%]" />
+                <div className="h-3 bg-slate-200 dark:bg-slate-700 rounded-md w-[75%]" />
+                <div className="flex items-center gap-2 pt-1.5 text-[11px] text-amber-600 dark:text-amber-400 font-bold">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <span>Consulting Jain AI Knowledge Base...</span>
+                </div>
+              </div>
             </div>
           )}
         </div>

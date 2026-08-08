@@ -376,10 +376,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return () => clearTimeout(timer);
   }, []);
 
-  const [themeMode, setThemeMode] = useState<'light' | 'dark'>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.THEME);
-    return saved === 'dark' ? 'dark' : 'light';
-  });
+  const [themeMode, setThemeMode] = useState<'light' | 'dark'>('light');
+
+  // Enforce light theme mode globally and cleanup dark theme localStorage
+  useEffect(() => {
+    localStorage.removeItem(STORAGE_KEYS.THEME);
+    localStorage.removeItem('jain_connect_theme');
+    document.documentElement.classList.remove('dark');
+  }, []);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -675,15 +679,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [themeMode]);
 
-  // Load user's saved theme preference when currentUser changes
-  useEffect(() => {
-    if (currentUser?.themePreference && currentUser.themePreference !== themeMode) {
-      setThemeMode(currentUser.themePreference);
-    }
-  }, [currentUser?.id]);
-
   const toggleTheme = () => {
-    setThemeMode((prev) => (prev === 'light' ? 'dark' : 'light'));
+    // Theme is defaulted to light mode
   };
 
   const showToast = (

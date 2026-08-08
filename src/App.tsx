@@ -6,6 +6,7 @@ import { Header } from './components/Header';
 import { BreadcrumbNav } from './components/BreadcrumbNav';
 import { Footer } from './components/Footer';
 import { HeroBanner } from './components/HeroBanner';
+import { HomeDateBanner } from './components/HomeDateBanner';
 import { PanchangWidget } from './components/PanchangWidget';
 import { MatrimonialSection } from './components/MatrimonialSection';
 import { BusinessSection } from './components/BusinessSection';
@@ -28,6 +29,7 @@ import { DailyJainWisdom } from './components/DailyJainWisdom';
 import { GlobalSanghHighlights } from './components/GlobalSanghHighlights';
 import { JainPrinciplesSection } from './components/JainPrinciplesSection';
 import { VivahSuccessStoriesSection } from './components/VivahSuccessStoriesSection';
+import { ScrollReveal } from './components/ScrollReveal';
 import {
   CheckCircle2,
   AlertCircle,
@@ -142,13 +144,7 @@ const MainContent: React.FC = () => {
   };
 
   return (
-    <div
-      className={`min-h-screen flex flex-col font-sans transition-colors duration-300 w-full max-w-full overflow-x-hidden ${
-        themeMode === 'dark'
-          ? 'dark bg-slate-950 text-slate-100'
-          : 'bg-slate-50 text-slate-900'
-      }`}
-    >
+    <div className="min-h-screen flex flex-col font-sans transition-colors duration-300 w-full max-w-full overflow-x-hidden bg-slate-50 text-slate-900">
       <Helmet>
         <title>{tabMeta.title}</title>
         <meta name="description" content={tabMeta.description} />
@@ -170,18 +166,27 @@ const MainContent: React.FC = () => {
           <>
             {/* TAB 1: HOME VIEW */}
         {activeTab === 'home' && (
-          <div className="space-y-10">
+          <div className="space-y-6 sm:space-y-10">
+            {/* Small Elegant Jain Tithi & Gregorian Date Banner */}
+            <HomeDateBanner />
+
             {/* Hero Banner Carousel */}
             <HeroBanner />
 
             {/* Daily Jain Panchang & Tithi Summary with Agam & Promotions */}
-            <PanchangWidget />
+            <ScrollReveal>
+              <PanchangWidget />
+            </ScrollReveal>
 
             {/* Global Sangh Hub & Quick Directory Explorer */}
-            <GlobalSanghHighlights />
+            <ScrollReveal>
+              <GlobalSanghHighlights />
+            </ScrollReveal>
 
             {/* Daily Jain Wisdom Scriptures & Quotes Carousel */}
-            <DailyJainWisdom />
+            <ScrollReveal>
+              <DailyJainWisdom />
+            </ScrollReveal>
 
             {/* GUEST VISITORS HOME VIEW (LOGGED OUT) */}
             {!currentUser ? (
@@ -508,46 +513,74 @@ const MainContent: React.FC = () => {
 
         {/* Tab 2: Matrimonial (Restricted to logged-in users) */}
         {activeTab === 'matrimonial' && (
-          currentUser ? (
-            <MatrimonialSection />
-          ) : (
-            <LoginRequiredView
-              title="Jain Matrimonial Bureau Access Restricted"
-              description="Candidate biodatas, family backgrounds, and contact details are strictly restricted to verified members."
-              sectionIcon="matrimonial"
-            />
-          )
+          <ScrollReveal>
+            {currentUser ? (
+              <MatrimonialSection />
+            ) : (
+              <LoginRequiredView
+                title="Jain Matrimonial Bureau Access Restricted"
+                description="Candidate biodatas, family backgrounds, and contact details are strictly restricted to verified members."
+                sectionIcon="matrimonial"
+              />
+            )}
+          </ScrollReveal>
         )}
 
         {/* Tab 3: Business Directory (Public Access) */}
-        {activeTab === 'business' && <BusinessSection />}
+        {activeTab === 'business' && (
+          <ScrollReveal>
+            <BusinessSection />
+          </ScrollReveal>
+        )}
 
         {/* Tab 4: Jain Directory (Public Access) */}
-        {activeTab === 'directory' && <DirectorySection />}
+        {activeTab === 'directory' && (
+          <ScrollReveal>
+            <DirectorySection />
+          </ScrollReveal>
+        )}
 
         {/* Tab 5: Temple Directory (Public Access) */}
-        {activeTab === 'temple' && <TempleSection />}
+        {activeTab === 'temple' && (
+          <ScrollReveal>
+            <TempleSection />
+          </ScrollReveal>
+        )}
 
         {/* Tab 6: Panchang & Quotes (Public Access) */}
-        {activeTab === 'panchang' && <PanchangWidget />}
+        {activeTab === 'panchang' && (
+          <ScrollReveal>
+            <PanchangWidget />
+          </ScrollReveal>
+        )}
 
         {/* Tab 7: Community Feed (Public Access) */}
-        {activeTab === 'feed' && <CommunityFeed />}
+        {activeTab === 'feed' && (
+          <ScrollReveal>
+            <CommunityFeed />
+          </ScrollReveal>
+        )}
 
         {/* Tab 8: Emergency Services (Public Access) */}
-        {activeTab === 'emergency' && <EmergencyDirectory />}
+        {activeTab === 'emergency' && (
+          <ScrollReveal>
+            <EmergencyDirectory />
+          </ScrollReveal>
+        )}
 
         {/* Tab 9: Admin Control Panel */}
         {activeTab === 'admin' && (
-          currentUser ? (
-            <AdminPanel />
-          ) : (
-            <LoginRequiredView
-              title="Super Admin Control Panel Restricted"
-              description="Sign in with Super Admin clearance to access approval management."
-              sectionIcon="admin"
-            />
-          )
+          <ScrollReveal>
+            {currentUser ? (
+              <AdminPanel />
+            ) : (
+              <LoginRequiredView
+                title="Super Admin Control Panel Restricted"
+                description="Sign in with Super Admin clearance to access approval management."
+                sectionIcon="admin"
+              />
+            )}
+          </ScrollReveal>
         )}
           </>
         )}
