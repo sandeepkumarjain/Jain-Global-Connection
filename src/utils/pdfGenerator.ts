@@ -1,5 +1,5 @@
 import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
+import { safeHtml2Canvas } from './safeHtml2Canvas';
 import { MatrimonialProfile } from '../types';
 
 export async function generateBiodataPDF(profile: MatrimonialProfile, isUnlocked: boolean = true): Promise<void> {
@@ -251,7 +251,7 @@ export async function generateBiodataPDF(profile: MatrimonialProfile, isUnlocked
   document.body.appendChild(container);
 
   try {
-    const canvas = await html2canvas(container, {
+    const canvas = await safeHtml2Canvas(container, {
       scale: 2,
       useCORS: true,
       allowTaint: true,

@@ -16,15 +16,128 @@ import {
   X,
   Heart,
   CheckCircle2,
-  Sparkles
+  Sparkles,
+  Award,
+  Crown,
+  Landmark,
+  Zap,
+  Medal,
+  Star,
+  Tag
 } from 'lucide-react';
 import { CommunityMemberProfile, FamilyMember, MatrimonialProfile } from '../types';
 
 export const DirectorySection: React.FC = () => {
-  const { members, openRegistrationModal, showToast, registerMatrimonialFromDirectory, currentUser, initiateCall } = useApp();
+  const {
+    members,
+    openRegistrationModal,
+    showToast,
+    registerMatrimonialFromDirectory,
+    currentUser,
+    initiateCall,
+    sendProfileViewAlert,
+    sendConnectionRequestAlert
+  } = useApp();
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedBadgeFilter, setSelectedBadgeFilter] = useState<string>('All');
   const [selectedMember, setSelectedMember] = useState<CommunityMemberProfile | null>(null);
   const [showIDModal, setShowIDModal] = useState(false);
+
+  const getMemberBadges = (m: CommunityMemberProfile): string[] => {
+    const badgeList: string[] = [];
+
+    if (m.isVerified) {
+      badgeList.push('Verified');
+    }
+
+    if (m.isCommunityLeader || m.userId === 'usr_admin_sandeep' || m.id === 'mem_001') {
+      badgeList.push('Community Leader');
+    }
+
+    if (m.membershipTier === 'Trustee') {
+      badgeList.push('Sangh Trustee');
+    } else if (m.membershipTier === 'Elite') {
+      badgeList.push('Elite Member');
+    } else if (m.membershipTier === 'Premium') {
+      badgeList.push('Premium');
+    }
+
+    if (m.badges && Array.isArray(m.badges)) {
+      m.badges.forEach((b) => {
+        if (!badgeList.includes(b)) {
+          badgeList.push(b);
+        }
+      });
+    }
+
+    return badgeList;
+  };
+
+  const renderProfileBadge = (badgeText: string) => {
+    const lower = badgeText.toLowerCase();
+    if (lower.includes('verified')) {
+      return (
+        <span key={badgeText} className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 shadow-xs">
+          <ShieldCheck className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+          <span>Verified</span>
+        </span>
+      );
+    }
+    if (lower.includes('community leader') || lower.includes('leader')) {
+      return (
+        <span key={badgeText} className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-purple-100 dark:bg-purple-950/80 text-purple-900 dark:text-purple-200 border border-purple-300 dark:border-purple-800 shadow-xs">
+          <Award className="w-3 h-3 text-purple-600 dark:text-purple-400" />
+          <span>Community Leader</span>
+        </span>
+      );
+    }
+    if (lower.includes('trustee') || lower.includes('sangh')) {
+      return (
+        <span key={badgeText} className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-100 dark:bg-amber-950/80 text-amber-950 dark:text-amber-200 border border-amber-400 dark:border-amber-700 shadow-xs">
+          <Landmark className="w-3 h-3 text-amber-600 dark:text-amber-400" />
+          <span>Sangh Trustee</span>
+        </span>
+      );
+    }
+    if (lower.includes('premium')) {
+      return (
+        <span key={badgeText} className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-indigo-100 dark:bg-indigo-950/80 text-indigo-900 dark:text-indigo-200 border border-indigo-300 dark:border-indigo-800 shadow-xs">
+          <Crown className="w-3 h-3 text-indigo-600 dark:text-indigo-400" />
+          <span>Premium</span>
+        </span>
+      );
+    }
+    if (lower.includes('elite')) {
+      return (
+        <span key={badgeText} className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-yellow-100 dark:bg-yellow-950/80 text-yellow-950 dark:text-yellow-200 border border-yellow-400 dark:border-yellow-700 shadow-xs">
+          <Sparkles className="w-3 h-3 text-yellow-600 dark:text-yellow-400" />
+          <span>Elite Member</span>
+        </span>
+      );
+    }
+    if (lower.includes('youth') || lower.includes('ambassador')) {
+      return (
+        <span key={badgeText} className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-cyan-100 dark:bg-cyan-950/80 text-cyan-900 dark:text-cyan-200 border border-cyan-300 dark:border-cyan-800 shadow-xs">
+          <Zap className="w-3 h-3 text-cyan-600 dark:text-cyan-400" />
+          <span>Youth Ambassador</span>
+        </span>
+      );
+    }
+    if (lower.includes('contributor') || lower.includes('key')) {
+      return (
+        <span key={badgeText} className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-100 dark:bg-rose-950/80 text-rose-900 dark:text-rose-200 border border-rose-300 dark:border-rose-800 shadow-xs">
+          <Medal className="w-3 h-3 text-rose-600 dark:text-rose-400" />
+          <span>Key Contributor</span>
+        </span>
+      );
+    }
+    return (
+      <span key={badgeText} className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-700 shadow-xs">
+        <Star className="w-3 h-3 text-amber-500" />
+        <span>{badgeText}</span>
+      </span>
+    );
+  };
 
   // Quick Matrimonial Register Modal State
   const [selectedMatCandidate, setSelectedMatCandidate] = useState<{
@@ -91,8 +204,27 @@ export const DirectorySection: React.FC = () => {
     ) {
       return false;
     }
+
+    if (selectedBadgeFilter !== 'All') {
+      const badges = getMemberBadges(m).map((b) => b.toLowerCase());
+      const filterLower = selectedBadgeFilter.toLowerCase();
+      if (!badges.some((b) => b.includes(filterLower))) {
+        return false;
+      }
+    }
+
     return true;
   });
+
+  const badgeFilterCategories = [
+    'All',
+    'Verified',
+    'Community Leader',
+    'Sangh Trustee',
+    'Premium',
+    'Elite Member',
+    'Youth Ambassador',
+  ];
 
   return (
     <div className="space-y-6">
@@ -110,7 +242,7 @@ export const DirectorySection: React.FC = () => {
           </h2>
 
           <p className="text-xs sm:text-sm text-slate-300">
-            Find fellow Jains by City, Profession, Blood Group, and Family ties. Digital QR Community ID card verification for security.
+            Find fellow Jains by City, Profession, Visual Badges, Blood Group, and Family ties. Digital QR Community ID card verification for security.
           </p>
 
           <div className="pt-2">
@@ -125,61 +257,117 @@ export const DirectorySection: React.FC = () => {
         </div>
       </div>
 
-      {/* Search Input */}
-      <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+      {/* Search Input, Badge Filter Pills & Count Banner */}
+      <div className="bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-3">
         <div className="relative">
           <input
             type="text"
-            placeholder="Search Member Name, Profession, City or Blood Group..."
+            placeholder="Search Member Name, Profession, City, Badge, or Blood Group..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-10 pr-4 py-2.5 text-xs rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-500"
           />
           <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
         </div>
+
+        {/* Profile Badge Filter Pills */}
+        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pt-1">
+          <span className="text-[10px] font-bold uppercase text-slate-400 shrink-0 flex items-center gap-1 mr-1">
+            <Tag className="w-3 h-3 text-amber-500" /> Profile Badges:
+          </span>
+          {badgeFilterCategories.map((badgeCat) => {
+            const isActive = selectedBadgeFilter === badgeCat;
+            return (
+              <button
+                key={badgeCat}
+                onClick={() => setSelectedBadgeFilter(badgeCat)}
+                className={`px-3 py-1.5 rounded-full text-xs font-extrabold transition-all shrink-0 flex items-center gap-1 ${
+                  isActive
+                    ? 'bg-amber-600 text-white shadow-md'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                }`}
+              >
+                {badgeCat === 'Verified' && <ShieldCheck className="w-3.5 h-3.5" />}
+                {badgeCat === 'Community Leader' && <Award className="w-3.5 h-3.5" />}
+                {badgeCat === 'Sangh Trustee' && <Landmark className="w-3.5 h-3.5" />}
+                {badgeCat === 'Premium' && <Crown className="w-3.5 h-3.5" />}
+                {badgeCat === 'Elite Member' && <Sparkles className="w-3.5 h-3.5" />}
+                {badgeCat === 'Youth Ambassador' && <Zap className="w-3.5 h-3.5" />}
+                <span>{badgeCat}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="flex items-center justify-between text-xs font-bold text-slate-600 dark:text-slate-300 pt-1 border-t border-slate-100 dark:border-slate-800">
+          <span>Showing <strong>{filtered.length}</strong> of <strong>{members.length}</strong> Total Registered Community Members</span>
+          {(searchTerm || selectedBadgeFilter !== 'All') && (
+            <button
+              onClick={() => {
+                setSearchTerm('');
+                setSelectedBadgeFilter('All');
+              }}
+              className="px-2.5 py-1 bg-amber-100 dark:bg-amber-900/60 text-amber-900 dark:text-amber-200 hover:bg-amber-200 rounded-lg text-[11px] font-extrabold transition-all"
+            >
+              Clear Filters (Show All {members.length})
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Member Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {filtered.map((m) => (
-          <div
-            key={m.id}
-            className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-lg space-y-4 hover:border-amber-500/50 transition-all"
-          >
-            <div className="flex items-start gap-4">
-              <img
-                src={m.photoUrl}
-                alt={m.name}
-                className="w-16 h-16 rounded-full object-cover border-2 border-amber-400 shadow-md shrink-0"
-              />
+        {filtered.map((m) => {
+          const mBadges = getMemberBadges(m);
 
-              <div className="flex-1 min-w-0">
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <h3 className="text-base font-bold font-serif text-slate-900 dark:text-white truncate">
-                    {m.name} {m.surname}
-                  </h3>
+          return (
+            <div
+              key={m.id}
+              className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-lg space-y-4 hover:border-amber-500/50 transition-all"
+            >
+              <div className="flex items-start gap-4">
+                <div className="relative shrink-0">
+                  <img
+                    src={m.photoUrl}
+                    alt={m.name}
+                    className="w-16 h-16 rounded-full object-cover border-2 border-amber-400 shadow-md"
+                  />
                   {m.isVerified && (
-                    <VerifiedBadge type="member" showText={true} />
+                    <div className="absolute -bottom-1 -right-1 bg-emerald-500 text-white p-0.5 rounded-full border-2 border-white dark:border-slate-900" title="Verified Member">
+                      <ShieldCheck className="w-3.5 h-3.5" />
+                    </div>
                   )}
                 </div>
 
-                <p className="text-xs font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1 mt-0.5">
-                  <Briefcase className="w-3.5 h-3.5" />
-                  <span>{m.profession}</span>
-                </p>
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <h3 className="text-base font-bold font-serif text-slate-900 dark:text-white truncate">
+                      {m.name} {m.surname}
+                    </h3>
+                  </div>
 
-                <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1 mt-0.5">
-                  <MapPin className="w-3.5 h-3.5 text-amber-500" />
-                  <span>{m.city}, {m.state}, {m.country}</span>
-                </p>
+                  <p className="text-xs font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1 mt-0.5">
+                    <Briefcase className="w-3.5 h-3.5" />
+                    <span>{m.profession}</span>
+                  </p>
 
-                {m.bloodGroup && (
-                  <span className="inline-block mt-2 px-2 py-0.5 bg-red-50 dark:bg-red-950 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800 text-[10px] font-bold rounded">
-                    Blood Group: {m.bloodGroup}
-                  </span>
-                )}
+                  <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1 mt-0.5">
+                    <MapPin className="w-3.5 h-3.5 text-amber-500" />
+                    <span>{m.city}, {m.state}, {m.country}</span>
+                  </p>
+
+                  {/* Visual Profile Badges Row */}
+                  <div className="flex flex-wrap items-center gap-1.5 mt-2.5">
+                    {mBadges.map((badge) => renderProfileBadge(badge))}
+                  </div>
+
+                  {m.bloodGroup && (
+                    <span className="inline-block mt-2 px-2 py-0.5 bg-red-50 dark:bg-red-950 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800 text-[10px] font-bold rounded">
+                      Blood Group: {m.bloodGroup}
+                    </span>
+                  )}
+                </div>
               </div>
-            </div>
 
             {/* Family Members snippet with Direct Matrimonial Registration */}
             {m.familyMembers && m.familyMembers.length > 0 && (
@@ -242,30 +430,58 @@ export const DirectorySection: React.FC = () => {
             )}
 
             {/* Actions */}
-            <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100 dark:border-slate-800 text-xs">
+            <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100 dark:border-slate-800 text-xs">
               <button
                 onClick={() => {
                   setSelectedMember(m);
                   setShowIDModal(true);
+                  if (m.userId || m.id) {
+                    sendProfileViewAlert(m.userId || m.id, `${m.name} ${m.surname}`, currentUser);
+                  }
                 }}
-                className="px-3.5 py-2.5 min-h-[44px] bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 font-bold rounded-lg flex items-center justify-center gap-1.5 hover:bg-amber-100"
+                className="px-3 py-2 min-h-[40px] bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 font-bold rounded-xl flex items-center justify-center gap-1.5 hover:bg-amber-100 transition-colors"
+                title="View Digital ID card and trigger view alert"
               >
-                <QrCode className="w-4 h-4 text-amber-500" />
-                <span>Digital ID Card</span>
+                <QrCode className="w-3.5 h-3.5 text-amber-500" />
+                <span>Digital ID</span>
               </button>
 
               <button
-                onClick={() => initiateCall(m.mobile, m.fullName)}
-                className="px-4 py-2.5 min-h-[44px] bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-lg flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
+                onClick={() => {
+                  if (m.userId || m.id) {
+                    sendConnectionRequestAlert(
+                      m.userId || m.id,
+                      `${m.name} ${m.surname}`,
+                      currentUser,
+                      `Jai Jinendra ${m.name}! I would like to connect with your family on Jain Connect Global.`
+                    );
+                  }
+                }}
+                className="px-3 py-2 min-h-[40px] bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 font-bold border border-emerald-300 dark:border-emerald-800 rounded-xl flex items-center justify-center gap-1.5 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 transition-colors"
+                title="Send networking connection request"
+              >
+                <UserCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                <span>Connect</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  initiateCall(m.mobile, `${m.name} ${m.surname}`);
+                  if (m.userId || m.id) {
+                    sendProfileViewAlert(m.userId || m.id, `${m.name} ${m.surname}`, currentUser);
+                  }
+                }}
+                className="px-3.5 py-2 min-h-[40px] bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl flex items-center justify-center gap-1.5 shadow-sm cursor-pointer transition-colors"
                 title="Click to call via verified phone dialer"
               >
-                <Phone className="w-4 h-4 fill-current" />
-                <span>Contact Member</span>
+                <Phone className="w-3.5 h-3.5 fill-current" />
+                <span>Contact</span>
               </button>
             </div>
           </div>
-        ))}
-      </div>
+        );
+      })}
+    </div>
 
       {/* Digital ID Card Modal */}
       {showIDModal && selectedMember && (
@@ -299,6 +515,11 @@ export const DirectorySection: React.FC = () => {
                 </div>
                 <p className="text-xs text-amber-300">{selectedMember.profession}</p>
                 <p className="text-[10px] text-slate-400 mt-0.5">{selectedMember.city}, {selectedMember.country}</p>
+
+                {/* Profile Badges on ID Card */}
+                <div className="flex flex-wrap items-center justify-center gap-1 mt-2.5">
+                  {getMemberBadges(selectedMember).map((b) => renderProfileBadge(b))}
+                </div>
               </div>
 
               <div className="bg-white p-2 rounded-xl w-32 h-32 mx-auto flex items-center justify-center shadow-md">

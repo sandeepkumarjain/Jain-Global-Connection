@@ -23,6 +23,8 @@ import { UserProfileModal } from './components/UserProfileModal';
 import { MemberDigitalIdModal } from './components/MemberDigitalIdModal';
 import { BhajanLibraryModal } from './components/BhajanLibraryModal';
 import { GmailCenterModal } from './components/GmailCenterModal';
+import { CentralNotificationCenterModal } from './components/CentralNotificationCenterModal';
+import { ReadingProgressBar } from './components/ReadingProgressBar';
 import { AudioPlayer } from './components/AudioPlayer';
 import { LoginRequiredView } from './components/LoginRequiredView';
 import { DailyJainWisdom } from './components/DailyJainWisdom';
@@ -114,6 +116,8 @@ const MainContent: React.FC = () => {
     isGmailCenterOpen,
     setIsGmailCenterOpen,
     gmailModalData,
+    isCentralNotifOpen,
+    setIsCentralNotifOpen,
     systemSettings
   } = useApp();
 
@@ -145,6 +149,7 @@ const MainContent: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col font-sans transition-colors duration-300 w-full max-w-full overflow-x-hidden bg-slate-50 text-slate-900">
+      <ReadingProgressBar />
       <Helmet>
         <title>{tabMeta.title}</title>
         <meta name="description" content={tabMeta.description} />
@@ -600,6 +605,10 @@ const MainContent: React.FC = () => {
         defaultRecipient={gmailModalData.recipient}
         defaultSubject={gmailModalData.subject}
         defaultBody={gmailModalData.body}
+      />
+      <CentralNotificationCenterModal
+        isOpen={isCentralNotifOpen}
+        onClose={() => setIsCentralNotifOpen(false)}
       />
       <AudioPlayer />
 

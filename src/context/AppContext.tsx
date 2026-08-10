@@ -20,7 +20,9 @@ import {
   SystemSettings,
   CustomPage,
   MatrimonialMessage,
-  MatrimonialSuccessStory
+  MatrimonialSuccessStory,
+  EndorsementCategory,
+  Endorsement
 } from '../types';
 import {
   INITIAL_SYSTEM_SETTINGS,
@@ -98,6 +100,17 @@ interface AppContextType {
   setIsBhajanModalOpen: (open: boolean) => void;
   isGmailCenterOpen: boolean;
   setIsGmailCenterOpen: (open: boolean) => void;
+  isCentralNotifOpen: boolean;
+  setIsCentralNotifOpen: (open: boolean) => void;
+  markNotificationAsRead: (id: string) => void;
+  markAllNotificationsAsRead: () => void;
+  deleteNotification: (id: string) => void;
+  clearAllNotifications: () => void;
+  addNotification: (notifData: Partial<AppNotification>) => AppNotification;
+  sendProfileViewAlert: (targetUserId: string, targetName?: string, viewerUser?: User | null) => void;
+  sendConnectionRequestAlert: (targetUserId: string, targetName?: string, senderUser?: User | null, note?: string) => void;
+  sendCommunityAnnouncement: (title: string, message: string, actionTab?: TabOption) => void;
+  respondToConnectionRequest: (notifId: string, status: 'Accepted' | 'Declined') => void;
   gmailModalData: { recipient?: string; subject?: string; body?: string };
   openGmailModal: (recipient?: string, subject?: string, body?: string) => void;
   toast: { id?: string; title: string; desc: string; type?: 'success' | 'error' | 'info'; duration?: number } | null;
@@ -137,6 +150,7 @@ interface AppContextType {
   deleteCommunityMember: (memId: string) => void;
   addBusiness: (biz: Partial<BusinessListing>) => BusinessListing;
   updateBusinessListing: (bizId: string, updates: Partial<BusinessListing>) => void;
+  endorseBusiness: (bizId: string, category: EndorsementCategory, comment?: string) => { success: boolean; message: string };
   approveBusiness: (bizId: string) => void;
   deleteBusiness: (bizId: string) => void;
   addTemple: (tpl: Partial<TempleListing>) => TempleListing;
@@ -302,7 +316,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return saved ? JSON.parse(saved) : INITIAL_BLOOD_DONORS;
   });
   const [jobs, setJobs] = useState<JobItem[]>(INITIAL_JOBS);
-  const [notifications, setNotifications] = useState<AppNotification[]>(INITIAL_NOTIFICATIONS);
+  const [notifications, setNotifications] = useState<AppNotification[]>(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.NOTIFS);
+    return saved ? JSON.parse(saved) : INITIAL_NOTIFICATIONS;
+  });
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.NOTIFS, JSON.stringify(notifications));
+  }, [notifications]);
+
+  const [isCentralNotifOpen, setIsCentralNotifOpen] = useState<boolean>(false);
 
   const [systemSettings, setSystemSettings] = useState<SystemSettings>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.SETTINGS);
@@ -822,6 +845,151 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return { success: true, message: 'Password updated successfully!', userEmail: found.email };
   };
 
+  const markNotificationAsRead = (id: string) => {
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === id ? { ...n, isRead: true } : n))
+    );
+  };
+
+  const markAllNotificationsAsRead = () => {
+    setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+  };
+
+  const deleteNotification = (id: string) => {
+    setNotifications((prev) => prev.filter((n) => n.id !== id));
+  };
+
+  const clearAllNotifications = () => {
+    setNotifications([]);
+  };
+
+  const addNotification = (notifData: Partial<AppNotification>): AppNotification => {
+    const newNotif: AppNotification = {
+      id: `notif_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+      userId: notifData.userId || 'all',
+      title: notifData.title || 'Notification Alert',
+      message: notifData.message || '',
+      type: notifData.type || 'General',
+      createdAt: 'Just now',
+      isRead: false,
+      senderId: notifData.senderId,
+      senderName: notifData.senderName,
+      senderPhoto: notifData.senderPhoto,
+      actionTab: notifData.actionTab,
+      actionEntityId: notifData.actionEntityId,
+      connectionStatus: notifData.connectionStatus,
+    };
+
+    setNotifications((prev) => [newNotif, ...prev]);
+
+    try {
+      setDoc(doc(db, 'notifications', newNotif.id), newNotif, { merge: true });
+      syncToSupabaseTable('notifications', newNotif);
+    } catch (e) {}
+
+    return newNotif;
+  };
+
+  const sendProfileViewAlert = (
+    targetUserId: string,
+    targetName?: string,
+    viewerUser?: User | null
+  ) => {
+    const viewer = viewerUser || currentUser;
+    if (!targetUserId || (viewer && viewer.id === targetUserId)) return;
+
+    const viewerName = viewer ? viewer.fullName : 'A Verified Jain Member';
+    const viewerPhoto = viewer?.profilePhoto;
+
+    addNotification({
+      userId: targetUserId,
+      title: '👀 Profile View Alert',
+      message: `${viewerName} viewed your Jain Community Directory profile card.`,
+      type: 'ProfileView',
+      senderId: viewer?.id,
+      senderName: viewerName,
+      senderPhoto: viewerPhoto,
+      actionTab: 'directory',
+    });
+  };
+
+  const sendConnectionRequestAlert = (
+    targetUserId: string,
+    targetName?: string,
+    senderUser?: User | null,
+    note?: string
+  ) => {
+    const sender = senderUser || currentUser;
+    if (!targetUserId || (sender && sender.id === targetUserId)) return;
+
+    const senderName = sender ? sender.fullName : 'A Jain Community Member';
+    const senderPhoto = sender?.profilePhoto;
+
+    addNotification({
+      userId: targetUserId,
+      title: '🤝 Connection Request Received',
+      message: note || `${senderName} sent you a networking connection request on Jain Connect Global.`,
+      type: 'ConnectionRequest',
+      senderId: sender?.id,
+      senderName: senderName,
+      senderPhoto: senderPhoto,
+      actionTab: 'directory',
+      connectionStatus: 'Pending',
+    });
+
+    showToast('Connection Request Sent!', `Sent networking connection request to ${targetName || 'member'}.`, 'success');
+  };
+
+  const sendCommunityAnnouncement = (
+    title: string,
+    message: string,
+    actionTab: TabOption = 'home'
+  ) => {
+    addNotification({
+      userId: 'all',
+      title: `📢 ${title}`,
+      message,
+      type: 'Announcement',
+      senderId: currentUser?.id || 'sys_admin',
+      senderName: currentUser ? currentUser.fullName : 'Jain Connect Global HQ',
+      senderPhoto: currentUser?.profilePhoto,
+      actionTab,
+    });
+
+    showToast('Announcement Dispatched!', `Community announcement broadcasted to all members.`, 'success');
+  };
+
+  const respondToConnectionRequest = (notifId: string, status: 'Accepted' | 'Declined') => {
+    setNotifications((prev) =>
+      prev.map((n) => {
+        if (n.id === notifId) {
+          return { ...n, connectionStatus: status, isRead: true };
+        }
+        return n;
+      })
+    );
+
+    const targetNotif = notifications.find((n) => n.id === notifId);
+    if (targetNotif && targetNotif.senderId) {
+      addNotification({
+        userId: targetNotif.senderId,
+        title: status === 'Accepted' ? '✅ Connection Accepted' : 'Connection Update',
+        message: `${currentUser?.fullName || 'Member'} ${status.toLowerCase()} your connection request.`,
+        type: 'ConnectionRequest',
+        senderId: currentUser?.id,
+        senderName: currentUser?.fullName,
+        senderPhoto: currentUser?.profilePhoto,
+        connectionStatus: status,
+      });
+    }
+
+    showToast(
+      `Request ${status}`,
+      `Connection request from ${targetNotif?.senderName || 'member'} ${status.toLowerCase()}.`,
+      status === 'Accepted' ? 'success' : 'info'
+    );
+  };
+
   const dispatchApprovalEmail = (
     fullName: string,
     recipientEmail: string,
@@ -1317,6 +1485,75 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
       showToast('Card Updated', 'Your business card branding has been saved successfully.', 'success');
     }
+  };
+
+  const endorseBusiness = (bizId: string, category: EndorsementCategory, comment?: string) => {
+    if (!currentUser) {
+      showToast('Login Required', 'Please login to endorse business listings.', 'info');
+      setIsAuthModalOpen(true);
+      return { success: false, message: 'Login required to endorse.' };
+    }
+
+    let updatedBiz: BusinessListing | undefined;
+    let actionTaken: 'added' | 'removed' = 'added';
+
+    setBusinesses((prev) =>
+      prev.map((b) => {
+        if (b.id === bizId || b.applicationId === bizId) {
+          const currentEndorsements = b.endorsements || [];
+          const existingIdx = currentEndorsements.findIndex(
+            (e) => e.userId === currentUser.id && e.category === category
+          );
+
+          let nextEndorsements: Endorsement[] = [];
+          if (existingIdx >= 0) {
+            // Toggle off endorsement
+            nextEndorsements = currentEndorsements.filter((_, idx) => idx !== existingIdx);
+            actionTaken = 'removed';
+          } else {
+            // Add new endorsement
+            const newEndorsement: Endorsement = {
+              id: `end_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+              userId: currentUser.id,
+              userName: currentUser.fullName,
+              userPhotoUrl: currentUser.photoUrl,
+              category,
+              createdAt: new Date().toISOString().split('T')[0],
+              comment: comment?.trim() || undefined,
+            };
+            nextEndorsements = [newEndorsement, ...currentEndorsements];
+            actionTaken = 'added';
+          }
+
+          updatedBiz = { ...b, endorsements: nextEndorsements };
+          return updatedBiz;
+        }
+        return b;
+      })
+    );
+
+    if (updatedBiz) {
+      try {
+        setDoc(doc(db, 'businesses', updatedBiz.id), updatedBiz, { merge: true });
+        syncToSupabaseTable('businesses', updatedBiz);
+      } catch (e) {
+        console.warn('Firestore endorse business error:', e);
+      }
+
+      if (actionTaken === 'added') {
+        triggerConfetti();
+        showToast(
+          'Endorsement Confirmed! 🎉',
+          `You endorsed "${updatedBiz.businessName}" for ${category}. Thank you for strengthening Jain community business trust!`,
+          'success'
+        );
+      } else {
+        showToast('Endorsement Withdrawn', `Removed your endorsement for ${category}.`, 'info');
+      }
+      return { success: true, message: `Endorsement ${actionTaken} successfully.` };
+    }
+
+    return { success: false, message: 'Business listing not found.' };
   };
 
   const addTemple = (tpl: Partial<TempleListing>): TempleListing => {
@@ -1915,6 +2152,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const sendInterest = (matrimonialId: string) => {
     const userId = currentUser?.id || 'usr_guest';
+    const targetProfile = matrimonials.find((m) => m.id === matrimonialId);
+
     setMatrimonials((prev) =>
       prev.map((m) => {
         if (m.id === matrimonialId) {
@@ -1934,6 +2173,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return m;
       })
     );
+
+    if (targetProfile && targetProfile.userId) {
+      addNotification({
+        userId: targetProfile.userId,
+        title: '💍 Matrimonial Interest Received',
+        message: `${currentUser?.fullName || 'A Jain Member'} expressed interest in your matrimonial candidate profile (${targetProfile.fullName}).`,
+        type: 'Matrimonial',
+        senderId: currentUser?.id,
+        senderName: currentUser?.fullName,
+        senderPhoto: currentUser?.profilePhoto,
+        actionTab: 'matrimonial',
+        connectionStatus: 'Pending',
+      });
+    }
+
     triggerConfetti();
     showToast('Interest Request Sent!', 'The candidate and family have been notified.', 'success');
   };
@@ -1971,6 +2225,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return m;
       })
     );
+
+    if (fromUserId) {
+      addNotification({
+        userId: fromUserId,
+        title: '🎉 Matrimonial Request Accepted!',
+        message: `Your interest request was ACCEPTED by ${targetMat?.fullName || 'the candidate'}'s family. Direct contact is unlocked!`,
+        type: 'Matrimonial',
+        senderId: currentUser?.id,
+        senderName: currentUser?.fullName,
+        actionTab: 'matrimonial',
+        connectionStatus: 'Accepted',
+      });
+    }
     triggerCelebrationConfetti();
     showToast('Interest Accepted!', 'You can now view full contact details and chat directly.', 'success');
   };
@@ -2378,6 +2645,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setIsBhajanModalOpen,
         isGmailCenterOpen,
         setIsGmailCenterOpen,
+        isCentralNotifOpen,
+        setIsCentralNotifOpen,
+        markNotificationAsRead,
+        markAllNotificationsAsRead,
+        deleteNotification,
+        clearAllNotifications,
+        addNotification,
+        sendProfileViewAlert,
+        sendConnectionRequestAlert,
+        sendCommunityAnnouncement,
+        respondToConnectionRequest,
         gmailModalData,
         openGmailModal,
         toastMessage,
@@ -2461,6 +2739,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         isSuperAdmin,
         isAdmin,
         isVerifiedBusiness,
+        endorseBusiness,
         initiateCall,
       }}
     >

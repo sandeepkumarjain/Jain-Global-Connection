@@ -61,6 +61,9 @@ export const Header: React.FC = () => {
     setIsBhajanModalOpen,
     openGmailModal,
     notifications,
+    setIsCentralNotifOpen,
+    markNotificationAsRead,
+    markAllNotificationsAsRead,
     logout,
     systemSettings,
     showToast,
@@ -398,47 +401,80 @@ export const Header: React.FC = () => {
             {currentUser && (
               <div className="relative shrink-0">
                 <button
-                  onClick={() => setIsNotifOpen(!isNotifOpen)}
+                  onClick={() => setIsCentralNotifOpen(true)}
                   className="p-1.5 sm:p-2 rounded-full text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors relative"
-                  title="Notifications"
+                  title="Open Central Notification Center"
                 >
                   <Bell className="w-4 h-4 sm:w-5 sm:h-5" />
                   {unreadNotifsCount > 0 && (
-                    <span className="absolute top-0.5 right-0.5 w-3.5 h-3.5 sm:w-4 sm:h-4 bg-red-600 text-white text-[8px] sm:text-[9px] font-bold rounded-full flex items-center justify-center">
+                    <span className="absolute top-0.5 right-0.5 w-3.5 h-3.5 sm:w-4 sm:h-4 bg-red-600 text-white text-[8px] sm:text-[9px] font-bold rounded-full flex items-center justify-center animate-pulse">
                       {unreadNotifsCount}
                     </span>
                   )}
                 </button>
 
-                {/* Notif Popup */}
+                {/* Notif Quick Dropdown */}
                 {isNotifOpen && (
                   <div className="absolute right-0 mt-2 w-72 sm:w-80 bg-white dark:bg-slate-900 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-800 p-3 z-50">
                     <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800 mb-2">
                       <h3 className="text-xs font-bold text-slate-800 dark:text-slate-100 flex items-center gap-1.5">
                         <Bell className="w-3.5 h-3.5 text-amber-500" />
-                        Notifications
+                        Member Notifications
                       </h3>
-                      <span className="text-[10px] text-amber-600 font-semibold">{userNotifications.length} Total</span>
+                      <button
+                        onClick={() => {
+                          setIsNotifOpen(false);
+                          setIsCentralNotifOpen(true);
+                        }}
+                        className="text-[10px] text-amber-600 dark:text-amber-400 font-bold hover:underline"
+                      >
+                        View All ({userNotifications.length})
+                      </button>
                     </div>
+
                     <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
                       {userNotifications.length === 0 ? (
                         <p className="text-xs text-slate-500 dark:text-slate-400 py-3 text-center">
                           No notifications found for your account.
                         </p>
                       ) : (
-                        userNotifications.map((n) => (
+                        userNotifications.slice(0, 5).map((n) => (
                           <div
                             key={n.id}
-                            className="p-2 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-700/50 text-xs"
+                            onClick={() => {
+                              setIsNotifOpen(false);
+                              setIsCentralNotifOpen(true);
+                            }}
+                            className={`p-2 rounded-lg cursor-pointer transition-all text-xs ${
+                              !n.isRead
+                                ? 'bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800'
+                                : 'bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-700/50'
+                            }`}
                           >
-                            <p className="font-bold text-slate-800 dark:text-slate-200">{n.title}</p>
-                            <p className="text-slate-600 dark:text-slate-400 text-[11px] mt-0.5">{n.message}</p>
+                            <p className="font-bold text-slate-800 dark:text-slate-200 flex items-center justify-between">
+                              <span>{n.title}</span>
+                              {!n.isRead && <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>}
+                            </p>
+                            <p className="text-slate-600 dark:text-slate-400 text-[11px] mt-0.5 line-clamp-2">{n.message}</p>
                             <span className="text-[9px] text-amber-600 dark:text-amber-400 font-medium block mt-1">
                               {n.createdAt}
                             </span>
                           </div>
                         ))
                       )}
+                    </div>
+
+                    <div className="pt-2 border-t border-slate-100 dark:border-slate-800 mt-2 text-center">
+                      <button
+                        onClick={() => {
+                          setIsNotifOpen(false);
+                          setIsCentralNotifOpen(true);
+                        }}
+                        className="w-full py-1.5 text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white rounded-lg transition-colors flex items-center justify-center gap-1.5"
+                      >
+                        <Bell className="w-3.5 h-3.5" />
+                        Open Notification Center
+                      </button>
                     </div>
                   </div>
                 )}

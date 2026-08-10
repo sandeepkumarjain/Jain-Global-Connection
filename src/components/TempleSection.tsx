@@ -298,6 +298,20 @@ export const TempleSection: React.FC = () => {
 
         {/* Sect Filter Pills & View Mode Selector */}
         <div className="flex flex-col md:flex-row items-center justify-between gap-3 pt-2 border-t border-slate-200/80 dark:border-slate-800">
+          <div className="flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-300">
+            <span>Showing <strong>{filtered.length}</strong> of <strong>{temples.length}</strong> Total Database Temples</span>
+            {(selectedSect !== 'All' || searchTerm || aiSearchActive) && (
+              <button
+                onClick={() => {
+                  setSelectedSect('All');
+                  clearAiSearch();
+                }}
+                className="ml-2 px-2.5 py-1 bg-amber-100 dark:bg-amber-900/60 text-amber-900 dark:text-amber-200 hover:bg-amber-200 rounded-lg text-[11px] font-extrabold transition-all"
+              >
+                Clear Filters (Show All {temples.length})
+              </button>
+            )}
+          </div>
           <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar w-full md:w-auto">
             <span className="text-[10px] font-bold uppercase text-slate-400 shrink-0 flex items-center gap-1">
               <Filter className="w-3 h-3" /> Sect Filter:

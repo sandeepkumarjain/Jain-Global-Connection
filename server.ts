@@ -460,67 +460,73 @@ ${JSON.stringify(
 // AI Search Assistant Route (Gemini 3.6 Flash)
 app.post("/api/ai/assistant", async (req, res) => {
   try {
-    const { prompt, context } = req.body;
+    const { prompt, categoryFilter, context } = req.body;
     if (!prompt) {
       return res.status(400).json({ error: "Prompt is required" });
     }
 
     const ai = getGeminiClient();
+    const filterName = categoryFilter && categoryFilter !== 'All' ? categoryFilter : 'All Core Portals';
 
     if (!ai) {
+      let categoryNote = "";
+      if (categoryFilter === 'Matrimonial') {
+        categoryNote = "\n\n• **Matrimonial Portal Insights**: Filter profiles by Gotra, Sect (Swetambar / Digambar), Education, City, and Age. Ensure 4-Gotra exclusion rules for traditional Jain marriages.";
+      } else if (categoryFilter === 'Business') {
+        categoryNote = "\n\n• **Business Directory Portal Insights**: Search verified Jain enterprises by GSTIN, business category (Jewellery, Textile, IT, Real Estate, Medical), and Chamber of Commerce verification.";
+      } else if (categoryFilter === 'Temple') {
+        categoryNote = "\n\n• **Temples & Tirths Portal Insights**: Explore 800+ Tirths with Dharamshala room availability, Bhojanashala meal timings, Live Darshan streams, and Google Maps directions.";
+      } else if (categoryFilter === 'Directory') {
+        categoryNote = "\n\n• **Member Directory Portal Insights**: Search verified Jain Sangh family members by name, city, profession, blood group, and digital QR ID card.";
+      } else if (categoryFilter === 'Emergency') {
+        categoryNote = "\n\n• **Emergency Donors Portal Insights**: Access 24/7 volunteer blood donor listings, filterable by O+, A+, B+, AB+ blood groups and city.";
+      } else if (categoryFilter === 'Panchang') {
+        categoryNote = "\n\n• **Jain Panchang & Principles**: View daily Tithis, Sunrise/Sunset Navkarshi & Chouvihar timings, and Kandmool prohibition guidelines.";
+      }
+
       return res.json({
-        reply: `🙏 Jai Jinendra!\n\nI am the Jain Connect Global AI Assistant. Here is guidance regarding your inquiry about "${prompt}":\n\n• **Tirth Locations**: Popular Tirths include Palitana Shatrunjaya (Gujarat), Shikharji (Jharkhand), Girnar (Gujarat), Pawapuri (Bihar), and Ranakpur (Rajasthan).\n• **Jain Principles**: Founded on Ahimsa (Non-violence), Satya (Truth), Aparigraha (Non-possession), and Anekantavada (Non-absolutism).\n• **Matrimonial Search Tips**: Ensure Gotra compatibility (avoiding matching father's and mother's gotras), verify educational & sect alignment (Swetambar/Digambar), and review verified profiles on Jain Connect Global.\n• **Emergency Network**: Access our 24/7 Emergency Directory to filter volunteer blood donors by city and blood group.\n\n*(Note: Configure GEMINI_API_KEY for dynamic real-time AI responses)*`,
+        reply: `🙏 Jai Jinendra!\n\nI am the Jain Connect Global AI Assistant. Here is guidance regarding your inquiry about "${prompt}" [Filter: ${filterName}]:${categoryNote}\n\n• **Tirth Locations**: Popular Tirths include Palitana Shatrunjaya, Shikharji, Girnar, Pawapuri, and Ranakpur.\n• **Jain Philosophy**: Rooted in Ahimsa (Non-violence), Satya, Aparigraha, and Anekantavada.\n• **Matrimonial Tips**: Verify Gotra exclusions, family background, and sect alignment.\n• **Emergency Network**: Access our 24/7 Emergency Directory to filter volunteer blood donors by city and blood group.\n\n*(Note: Configure GEMINI_API_KEY for dynamic real-time AI responses)*`,
+        portalCategory: filterName,
       });
     }
 
     const systemInstruction = `You are "Ahimsa AI" - The official Contextual Knowledge & Guidance Assistant for "JAIN CONNECT GLOBAL" (developed by SKJ Tech World).
 
-Your mission is to help Jain community members worldwide find accurate details on:
-1. **Tirth Locations & Yatra Guidelines**:
-   - Palitana (Shatrunjaya Hills, Bhavnagar, Gujarat): 863 marble temples, first Tirthankara Rishabhdev (Adinath) Bhagwan.
-   - Sammed Shikharji (Parasnath Hill, Giridih, Jharkhand): Nirvana Bhumi of 20 Tirthankaras.
-   - Girnar Tirth (Junagadh, Gujarat): Nirvana Bhumi of 22nd Tirthankara Lord Neminath.
-   - Pawapuri (Nalanda, Bihar): Nirvana Bhumi & Jal Mandir of 24th Tirthankara Lord Mahavira.
-   - Ranakpur (Pali, Rajasthan): Famous Chaumukha Temple with 1,444 unique carved marble pillars.
-   - Shankheshwar Parshwanath (Patan, Gujarat), Hastinapur (UP), Sonagiri (MP), Taranga, Dilwara (Mount Abu).
+ACTIVE SEARCH CATEGORY FILTER: "${filterName}"
 
-2. **Jain Principles & Philosophy**:
-   - Core 5 Mahavratas/Anuvratas: Ahimsa (Non-violence in thought, word, and action), Satya (Truthfulness), Asteya (Non-stealing), Brahmacharya (Chastity/Purity), Aparigraha (Non-possessiveness).
-   - Anekantavada (Multi-faceted doctrine of truth) and Syadvada (Qualified assertion).
-   - Navkar Mantra significance and breakdown (Namo Arihantanam, Namo Siddhanam, Namo Ayriyanam, Namo Uvajjhayanam, Namo Loe Savva Sahunam).
-   - Dietary Ethics: Pure vegetarianism (Sattvic), avoidance of root vegetables (Kandmool/Ananthkay like onions, garlic, potatoes), sunset dinner rule (Chouvihar), and Navkarshi/Porshi timings.
-   - Festivals: Paryushan Parv, Das Lakshana Parv, Mahavir Jayanti, Diwali (Nirvana Kalyanak of Mahavir Swami), Kshamavani / Samvatsari ("Michhami Dukkadam").
-
-3. **Matrimonial Search Tips & Gotra Compatibility**:
-   - Gotra Exclusion Rules: Avoid matching identical Gotra on Father's side and Mother's side.
-   - Sect & Sub-sect Alignment: Swetambar (Murtipujak, Sthanakvasi, Terapanthi) vs Digambar (Bisapanthi, Terapanthi, Kanji Panth).
-   - Profile verification checklist: Verify education, family background, occupation, and mutual contacts in Jain Samaj directories.
-
-4. **Jain Connect Global Platform Usage**:
-   - Business Directory: 5000+ verified Jain businesses.
-   - Emergency Directory: Filter volunteer blood donors by blood group (O+, A+, B+, AB+, etc.) and city.
-   - Temple & Dharamshala Directory: Find nearby Jain Sangh contact numbers, Bhojanalaya timings, and lodging details.
+Search Scope Guidance based on Category Filter:
+- If filter is "Matrimonial": Focus strictly on Jain Matrimonial searches, candidate profile criteria, Gotra compatibility (father/mother gotra exclusions), Swetambar / Digambar sect matching, age/education filters, and registration steps for Jain Vivah.
+- If filter is "Business": Focus strictly on Jain Business Directory, Jain Chamber of Commerce listings, GSTIN verification, B2B supplier networking, and business categories (jewellery, textiles, manufacturing, IT, pharmaceuticals, food/catering).
+- If filter is "Temple": Focus strictly on Jain Tirths & Temples, Palitana, Shikharji, Girnar, Pawapuri, Ranakpur, Shankheshwar, Dharamshala lodging rooms, Bhojanashala Jain meal timings, Live Darshan, and 360 virtual tours.
+- If filter is "Directory": Focus strictly on Jain Community Member Directory, family listings, Sangh membership verification, professional networking, and digital QR ID cards.
+- If filter is "Emergency": Focus strictly on 24/7 Emergency Blood Donor network, finding volunteer blood donors by blood group (O+, A+, B+, AB+, O-) and city, and urgent medical assistance.
+- If filter is "Panchang": Focus strictly on Jain Panchang tithis, Navkarshi, Porshi, Chouvihar sunset dinner rules, Kandmool prohibition (no root vegetables like onion, garlic, potato), Pachkan, and Navkar Mantra breakdown.
+- If filter is "All Core Portals": Synthesize relevant results across Matrimonial, Business, Temples, Member Directory, and Emergency donors.
 
 FORMATTING RULES:
 - ALWAYS begin responses with "🙏 Jai Jinendra!".
+- Explicitly acknowledge the active category context (e.g. "[Portal: ${filterName}]").
 - Use polite, respectful, and dignified tone.
 - Format responses cleanly with bold headings and structured bullet points.
-- Keep answers informative, practical, and easy to read.`;
+- Provide actionable advice and clear steps.`;
+
+    const userPromptWithCategory = `[Category Context: ${filterName}] ${prompt}`;
 
     const response = await ai.models.generateContent({
       model: "gemini-3.6-flash",
-      contents: prompt,
+      contents: userPromptWithCategory,
       config: {
         systemInstruction,
       },
     });
 
     const text = response.text || "🙏 Jai Jinendra! Thank you for your question. How else can I assist you on Jain Connect Global?";
-    return res.json({ reply: text });
+    return res.json({ reply: text, portalCategory: filterName });
   } catch (err: any) {
     console.error("Gemini API Error:", err);
     return res.json({
       reply: `🙏 Jai Jinendra!\n\nRegarding your request about "${req.body.prompt}":\n\n• **Tirth Locations**: Explore details for Palitana, Shikharji, Girnar, Pawapuri, and Ranakpur.\n• **Jain Philosophy**: Rooted in Ahimsa, Satya, Aparigraha, and Anekantavada.\n• **Matrimonial Tips**: Verify Gotra exclusions, family background, and sect alignment.\n• **Emergency Blood Donors**: Use our Emergency tab to quickly find donors by city and blood group.`,
+      portalCategory: req.body.categoryFilter || 'All Core Portals',
     });
   }
 });

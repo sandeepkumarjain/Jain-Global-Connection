@@ -171,6 +171,18 @@ export interface MatrimonialProfile {
   };
 }
 
+export type EndorsementCategory = 'Reliability' | 'Ethics' | 'Service Quality';
+
+export interface Endorsement {
+  id: string;
+  userId: string;
+  userName: string;
+  userPhotoUrl?: string;
+  category: EndorsementCategory;
+  createdAt: string;
+  comment?: string;
+}
+
 export interface BusinessListing {
   id: string;
   applicationId?: string;
@@ -201,6 +213,7 @@ export interface BusinessListing {
   isSponsored: boolean;
   createdAt: string;
   status: 'Approved' | 'Pending Approval' | 'Rejected';
+  endorsements?: Endorsement[];
 }
 
 export interface TempleListing {
@@ -282,6 +295,9 @@ export interface CommunityMemberProfile {
   familyMembers: FamilyMember[];
   isVerified: boolean;
   address: string;
+  badges?: string[];
+  membershipTier?: 'Free' | 'Premium' | 'Elite' | 'Trustee';
+  isCommunityLeader?: boolean;
 }
 
 export interface CommunityPost {
@@ -365,14 +381,32 @@ export interface JobItem {
   postedDate: string;
 }
 
+export type NotificationType = 
+  | 'Approval' 
+  | 'Matrimonial' 
+  | 'Business' 
+  | 'Temple' 
+  | 'Broadcast' 
+  | 'General' 
+  | 'AdReminder'
+  | 'ProfileView'
+  | 'ConnectionRequest'
+  | 'Announcement';
+
 export interface AppNotification {
   id: string;
-  userId?: string; // if targeted or global
+  userId?: string; // if targeted to specific user ID or 'all'/undefined for global broadcast
   title: string;
   message: string;
-  type: 'Approval' | 'Matrimonial' | 'Business' | 'Temple' | 'Broadcast' | 'General' | 'AdReminder';
+  type: NotificationType;
   createdAt: string;
   isRead: boolean;
+  senderId?: string;
+  senderName?: string;
+  senderPhoto?: string;
+  actionTab?: 'home' | 'matrimonial' | 'business' | 'directory' | 'temple' | 'panchang' | 'feed' | 'emergency' | 'admin';
+  actionEntityId?: string;
+  connectionStatus?: 'Pending' | 'Accepted' | 'Declined';
 }
 
 export interface BhajanSong {

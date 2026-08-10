@@ -57,6 +57,7 @@ export const MatrimonialSection: React.FC = () => {
 
   // Shortlist State & Persistence
   const [shortlistOnly, setShortlistOnly] = useState(false);
+  const [includeOwnProfile, setIncludeOwnProfile] = useState(true);
   const [shortlistedIds, setShortlistedIds] = useState<string[]>(() => {
     try {
       const key = currentUser ? `jcg_shortlisted_${currentUser.id}` : 'jcg_shortlisted_guest';
@@ -342,10 +343,10 @@ export const MatrimonialSection: React.FC = () => {
     showToast('Photos Updated', 'Candidate gallery updated successfully.', 'success');
   };
 
-  // Filter profiles: EXCLUDE user's own profile + apply Groom/Bride role restrictions + Shortlist tab
+  // Filter profiles: Filter by gender, sect, verification and shortlist
   const filtered = matrimonials.filter((m) => {
-    // 1. Exclude logged-in user's own profile card from search grid
-    if (currentUser && (m.userId === currentUser.id || (myProfile && m.id === myProfile.id))) {
+    // 1. Exclude logged-in user's own profile only if includeOwnProfile is disabled
+    if (!includeOwnProfile && currentUser && (m.userId === currentUser.id || (myProfile && m.id === myProfile.id))) {
       return false;
     }
 
@@ -354,12 +355,8 @@ export const MatrimonialSection: React.FC = () => {
       return false;
     }
 
-    // 3. Strict Role-based Groom/Bride Filtering
-    if (isGroomUser) {
-      if (m.gender !== 'Bride') return false;
-    } else if (isBrideUser) {
-      if (m.gender !== 'Groom') return false;
-    } else if (genderFilter !== 'All' && m.gender !== genderFilter) {
+    // 3. Gender Filter (When 'All' is selected, show both Groom and Bride profiles)
+    if (genderFilter !== 'All' && m.gender !== genderFilter) {
       return false;
     }
 
@@ -692,40 +689,44 @@ export const MatrimonialSection: React.FC = () => {
 
           <div className="flex items-center gap-2 text-xs font-bold text-slate-600 dark:text-slate-300">
             <Filter className="w-4 h-4 text-amber-500" />
-            <span>Showing {filtered.length} {shortlistOnly ? 'Shortlisted' : 'Candidate'} Profiles</span>
+            <span>Showing <strong>{filtered.length}</strong> of <strong>{matrimonials.length}</strong> Total Database Profiles</span>
+            {(genderFilter !== 'All' || sectFilter !== 'All' || verifiedOnly || shortlistOnly) && (
+              <button
+                onClick={() => {
+                  setGenderFilter('All');
+                  setSectFilter('All');
+                  setVerifiedOnly(false);
+                  setShortlistOnly(false);
+                  setIncludeOwnProfile(true);
+                }}
+                className="ml-2 px-2.5 py-1 bg-amber-100 dark:bg-amber-900/60 text-amber-900 dark:text-amber-200 hover:bg-amber-200 rounded-lg text-[11px] font-extrabold transition-all"
+              >
+                Clear Filters (Show All {matrimonials.length})
+              </button>
+            )}
           </div>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-4 gap-3 text-xs">
-          {/* Gender Filter Pill (Locked if logged in as Groom/Bride) */}
+          {/* Gender Filter Pill (Select All, Groom, or Bride) */}
           <div>
             <label className="block text-[11px] font-bold text-slate-500 mb-1">
-              Looking For {isGroomUser ? '(Brides)' : isBrideUser ? '(Grooms)' : ''}
+              Filter By Gender
             </label>
             <div className="flex rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
-              {isGroomUser ? (
-                <button className="flex-1 py-2.5 min-h-[44px] font-bold bg-amber-600 text-white cursor-default">
-                  Brides
+              {['All', 'Groom', 'Bride'].map((g) => (
+                <button
+                  key={g}
+                  onClick={() => setGenderFilter(g as any)}
+                  className={`flex-1 py-2.5 min-h-[44px] font-bold transition-colors flex items-center justify-center ${
+                    genderFilter === g
+                      ? 'bg-amber-600 text-white'
+                      : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100'
+                  }`}
+                >
+                  {g === 'Groom' ? 'Grooms' : g === 'Bride' ? 'Brides' : `All (${matrimonials.length})`}
                 </button>
-              ) : isBrideUser ? (
-                <button className="flex-1 py-2.5 min-h-[44px] font-bold bg-amber-600 text-white cursor-default">
-                  Grooms
-                </button>
-              ) : (
-                ['All', 'Groom', 'Bride'].map((g) => (
-                  <button
-                    key={g}
-                    onClick={() => setGenderFilter(g as any)}
-                    className={`flex-1 py-2.5 min-h-[44px] font-bold transition-colors flex items-center justify-center ${
-                      genderFilter === g
-                        ? 'bg-amber-600 text-white'
-                        : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100'
-                    }`}
-                  >
-                    {g === 'Groom' ? 'Grooms' : g === 'Bride' ? 'Brides' : 'All'}
-                  </button>
-                ))
-              )}
+              ))}
             </div>
           </div>
 

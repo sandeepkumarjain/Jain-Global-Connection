@@ -332,6 +332,27 @@ export const EmergencyDirectory: React.FC = () => {
             </button>
           </div>
 
+          {/* Count Banner & Clear Filters */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-2 pt-2 border-t border-slate-100 dark:border-slate-800 text-xs font-bold text-slate-600 dark:text-slate-300">
+            <div className="flex items-center gap-2">
+              <span>Showing <strong>{filteredDonors.length}</strong> of <strong>{bloodDonors.length}</strong> Total Registered Donors</span>
+              {(selectedBloodGroup !== 'All' || selectedCity !== 'All' || citySearchInput || donorNameFilter || onlyAvailable) && (
+                <button
+                  onClick={() => {
+                    setSelectedBloodGroup('All');
+                    setSelectedCity('All');
+                    setCitySearchInput('');
+                    setDonorNameFilter('');
+                    setOnlyAvailable(false);
+                  }}
+                  className="ml-2 px-2.5 py-1 bg-red-100 dark:bg-red-950/60 text-red-900 dark:text-red-200 hover:bg-red-200 rounded-lg text-[11px] font-extrabold transition-all"
+                >
+                  Clear Filters (Show All {bloodDonors.length})
+                </button>
+              )}
+            </div>
+          </div>
+
           {/* Quick City Filter Pills */}
           <div className="flex flex-wrap items-center gap-1.5 pt-1 text-xs">
             <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mr-1">Quick Cities:</span>

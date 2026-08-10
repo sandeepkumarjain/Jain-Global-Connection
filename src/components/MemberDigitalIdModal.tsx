@@ -1,5 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
+import jsPDF from 'jspdf';
+import { safeHtml2Canvas } from '../utils/safeHtml2Canvas';
 import { useApp } from '../context/AppContext';
 import { User } from '../types';
 import {
@@ -20,7 +22,8 @@ import {
   Check,
   Scan,
   Palette,
-  Sun
+  Sun,
+  FileText
 } from 'lucide-react';
 
 interface MemberDigitalIdModalProps {
@@ -53,6 +56,7 @@ export const MemberDigitalIdModal: React.FC<MemberDigitalIdModalProps> = ({
   const [copiedPayload, setCopiedPayload] = useState(false);
   const [isSimulatingScan, setIsSimulatingScan] = useState(false);
   const [scanVerified, setScanVerified] = useState(false);
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
 
   const cardRef = useRef<HTMLDivElement>(null);
 
@@ -80,6 +84,42 @@ export const MemberDigitalIdModal: React.FC<MemberDigitalIdModalProps> = ({
   };
 
   const qrString = JSON.stringify(qrDataObj);
+
+  const handleDownloadPdf = async () => {
+    if (!cardRef.current || !user) return;
+    setIsDownloadingPdf(true);
+    showToast('Generating PDF', 'Converting Member Digital ID card to formatted PDF...', 'info');
+
+    try {
+      const canvas = await safeHtml2Canvas(cardRef.current, {
+        scale: 3,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: null,
+      });
+
+      const imgData = canvas.toDataURL('image/jpeg', 0.95);
+      
+      // Standard ID Card dimension: 88mm x 55mm (landscape credit card pass size)
+      const pdf = new jsPDF({
+        orientation: 'landscape',
+        unit: 'mm',
+        format: [88, 55],
+      });
+
+      pdf.addImage(imgData, 'JPEG', 0, 0, 88, 55);
+
+      const cleanName = (user.fullName || 'Member').replace(/[^a-zA-Z0-9]/g, '_');
+      pdf.save(`JCG_Digital_ID_${cleanName}.pdf`);
+
+      showToast('Digital ID PDF Downloaded! 📄', 'Member Digital ID saved as formatted PDF document.', 'success');
+    } catch (err) {
+      console.error('Error generating Member ID PDF:', err);
+      showToast('PDF Download Failed', 'Unable to generate PDF document.', 'error');
+    } finally {
+      setIsDownloadingPdf(false);
+    }
+  };
 
   const handleCopyMemberId = () => {
     navigator.clipboard.writeText(memberCode);
@@ -547,29 +587,42 @@ export const MemberDigitalIdModal: React.FC<MemberDigitalIdModalProps> = ({
 
           {/* Quick Actions & Sharing Toolbar */}
           <div className="space-y-3 print:hidden">
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               <button
                 onClick={handleCopyMemberId}
-                className="px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-amber-100 dark:hover:bg-amber-950 text-slate-800 dark:text-slate-200 text-xs font-bold border border-slate-200 dark:border-slate-700 transition-all flex items-center justify-center gap-1.5"
+                className="px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-amber-100 dark:hover:bg-amber-950 text-slate-800 dark:text-slate-200 text-xs font-bold border border-slate-200 dark:border-slate-700 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
               >
                 {copiedId ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5 text-amber-600" />}
-                <span>{copiedId ? 'ID Copied' : 'Copy Member ID'}</span>
+                <span>{copiedId ? 'ID Copied' : 'Copy ID'}</span>
               </button>
 
               <button
                 onClick={handleCopyPayload}
-                className="px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-amber-100 dark:hover:bg-amber-950 text-slate-800 dark:text-slate-200 text-xs font-bold border border-slate-200 dark:border-slate-700 transition-all flex items-center justify-center gap-1.5"
+                className="px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-amber-100 dark:hover:bg-amber-950 text-slate-800 dark:text-slate-200 text-xs font-bold border border-slate-200 dark:border-slate-700 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
               >
                 {copiedPayload ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Share2 className="w-3.5 h-3.5 text-amber-600" />}
-                <span>{copiedPayload ? 'QR Data Copied' : 'Copy QR Payload'}</span>
+                <span>{copiedPayload ? 'Data Copied' : 'Copy QR'}</span>
+              </button>
+
+              <button
+                onClick={handleDownloadPdf}
+                disabled={isDownloadingPdf}
+                className="px-3 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-700 text-amber-950 font-extrabold hover:from-amber-600 hover:to-amber-800 text-xs transition-all flex items-center justify-center gap-1.5 shadow-sm cursor-pointer disabled:opacity-50"
+              >
+                {isDownloadingPdf ? (
+                  <Sparkles className="w-3.5 h-3.5 animate-spin text-amber-950" />
+                ) : (
+                  <FileText className="w-3.5 h-3.5 text-amber-950" />
+                )}
+                <span>{isDownloadingPdf ? 'Creating...' : 'Download PDF'}</span>
               </button>
 
               <button
                 onClick={handlePrintCard}
-                className="col-span-2 sm:col-span-1 px-3 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm"
+                className="px-3 py-2 rounded-xl bg-slate-900 dark:bg-slate-700 hover:bg-slate-800 text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
               >
-                <Printer className="w-3.5 h-3.5" />
-                <span>Print Digital Card</span>
+                <Printer className="w-3.5 h-3.5 text-amber-400" />
+                <span>Print Pass</span>
               </button>
             </div>
 
