@@ -32,7 +32,7 @@ import { Virtual3DTourModal } from './Virtual3DTourModal';
 import { VirtualTourButton } from './VirtualTourButton';
 
 export const TempleSection: React.FC = () => {
-  const { temples, openRegistrationModal, showToast, isLoadingData } = useApp();
+  const { temples, openRegistrationModal, showToast, isLoadingData, systemSettings } = useApp();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSect, setSelectedSect] = useState<string>('All');
@@ -157,11 +157,11 @@ export const TempleSection: React.FC = () => {
         <div className="relative z-10 max-w-3xl space-y-3">
           <div className="inline-flex items-center gap-2 px-3 py-1 bg-amber-500/20 border border-amber-500/40 rounded-full text-amber-300 text-xs font-bold uppercase tracking-wider">
             <MapPin className="w-3.5 h-3.5 text-amber-400" />
-            <span>Sacred Jain Tirth & Temple Directory</span>
+            <span>{systemSettings.templeSubtitle || 'Sacred Jain Tirth & Temple Directory'}</span>
           </div>
 
           <h2 className="text-2xl sm:text-3xl font-extrabold font-serif text-white">
-            Discover Holy Jain Tirths, Timings, Dharamshala & Live Darshan
+            {systemSettings.templeHeading || 'Discover Holy Jain Tirths, Timings, Dharamshala & Live Darshan'}
           </h2>
 
           <p className="text-xs sm:text-sm text-slate-300">

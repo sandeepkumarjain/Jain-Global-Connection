@@ -14,7 +14,14 @@ import {
   AlertCircle,
   Save,
   Briefcase,
-  QrCode
+  QrCode,
+  Award,
+  Crown,
+  Zap,
+  Sparkles,
+  Activity,
+  BadgeCheck,
+  TrendingUp
 } from 'lucide-react';
 
 export const UserProfileModal: React.FC = () => {
@@ -25,6 +32,10 @@ export const UserProfileModal: React.FC = () => {
     setIsDigitalIdModalOpen,
     updateUserProfile,
     bloodDonors,
+    posts = [],
+    businesses = [],
+    temples = [],
+    matrimonials = [],
   } = useApp();
 
   // Local form state initialized from currentUser
@@ -111,6 +122,62 @@ export const UserProfileModal: React.FC = () => {
 
   const bloodGroups = ['O+', 'A+', 'B+', 'AB+', 'O-', 'A-', 'B-', 'AB-'];
 
+  // Dynamic Platform Activity & Badge Calculations
+  const userPostsCount = posts.filter(
+    (p) => p.authorId === currentUser?.id || p.authorName === currentUser?.fullName
+  ).length;
+
+  const userBusinessesCount = businesses.filter(
+    (b) =>
+      b.ownerId === currentUser?.id ||
+      (currentUser?.email && b.email?.toLowerCase() === currentUser?.email.toLowerCase())
+  ).length;
+
+  const userTemplesCount = temples.filter(
+    (t) =>
+      t.createdBy === currentUser?.id ||
+      (currentUser?.email && t.contactEmail?.toLowerCase() === currentUser?.email.toLowerCase())
+  ).length;
+
+  const userMatrimonialsCount = matrimonials.filter(
+    (m) =>
+      m.userId === currentUser?.id ||
+      (currentUser?.email && m.contactEmail?.toLowerCase() === currentUser?.email.toLowerCase())
+  ).length;
+
+  const isDonorActive =
+    currentUser?.isBloodDonor ||
+    bloodDonors.some(
+      (d) =>
+        d.userId === currentUser?.id ||
+        (currentUser?.email && d.email?.toLowerCase() === currentUser?.email.toLowerCase()) ||
+        (currentUser?.mobile && d.mobile === currentUser?.mobile)
+    );
+
+  const isVerifiedBadge =
+    Boolean(currentUser?.isVerified) ||
+    Boolean(currentUser?.isPhoneVerified) ||
+    currentUser?.status === 'Approved';
+
+  const isActiveContributorBadge =
+    isDonorActive ||
+    userPostsCount > 0 ||
+    userBusinessesCount > 0 ||
+    userMatrimonialsCount > 0 ||
+    currentUser?.membershipTier === 'Premium' ||
+    currentUser?.membershipTier === 'Elite';
+
+  const isCommunityLeaderBadge =
+    ['Super Admin', 'Admin', 'Moderator', 'Temple Admin', 'Business Owner'].includes(
+      currentUser?.role || ''
+    ) ||
+    currentUser?.registrationType === 'NGO' ||
+    currentUser?.registrationType === 'Trust' ||
+    userTemplesCount > 0 ||
+    (userBusinessesCount > 0 && isDonorActive && userPostsCount > 0);
+
+  const unlockedBadgesCount = [isVerifiedBadge, isActiveContributorBadge, isCommunityLeaderBadge].filter(Boolean).length;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-sm overflow-y-auto animate-fade-in">
       <div className="relative w-full max-w-2xl bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 my-8 overflow-hidden">
@@ -118,7 +185,7 @@ export const UserProfileModal: React.FC = () => {
         {/* Header */}
         <div className="p-5 sm:p-6 bg-gradient-to-r from-amber-600 via-amber-700 to-amber-900 text-white flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="relative w-12 h-12 rounded-full border-2 border-white/80 overflow-hidden shadow-md">
+            <div className="relative w-14 h-14 rounded-full border-2 border-white/80 overflow-hidden shadow-md shrink-0">
               <img
                 src={currentUser.profilePhoto}
                 alt={currentUser.fullName}
@@ -126,17 +193,34 @@ export const UserProfileModal: React.FC = () => {
               />
             </div>
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <h2 className="text-lg font-bold font-serif">{currentUser.fullName}</h2>
-                {currentUser.isVerified && (
-                  <span className="px-2 py-0.5 bg-emerald-500 text-white text-[10px] font-bold rounded-full flex items-center gap-1">
-                    <ShieldCheck className="w-3 h-3" /> Verified
-                  </span>
-                )}
               </div>
               <p className="text-xs text-amber-200 font-medium">
                 {currentUser.role} • {currentUser.registrationType} Profile
               </p>
+
+              {/* Header Badges Bar */}
+              <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                {isVerifiedBadge && (
+                  <span className="px-2.5 py-0.5 bg-emerald-500/90 text-white text-[10px] font-extrabold rounded-full flex items-center gap-1 shadow-sm border border-emerald-300/40">
+                    <ShieldCheck className="w-3 h-3 text-emerald-100" />
+                    Verified
+                  </span>
+                )}
+                {isActiveContributorBadge && (
+                  <span className="px-2.5 py-0.5 bg-amber-400 text-slate-950 text-[10px] font-extrabold rounded-full flex items-center gap-1 shadow-sm border border-amber-200">
+                    <Award className="w-3 h-3 text-slate-950" />
+                    Active Contributor
+                  </span>
+                )}
+                {isCommunityLeaderBadge && (
+                  <span className="px-2.5 py-0.5 bg-purple-600 text-white text-[10px] font-extrabold rounded-full flex items-center gap-1 shadow-sm border border-purple-300/40">
+                    <Crown className="w-3 h-3 text-amber-300" />
+                    Community Leader
+                  </span>
+                )}
+              </div>
             </div>
           </div>
 
@@ -164,6 +248,144 @@ export const UserProfileModal: React.FC = () => {
 
         {/* Modal Form */}
         <form onSubmit={handleSubmit} className="p-5 sm:p-6 space-y-6 max-h-[80vh] overflow-y-auto">
+          
+          {/* Section: Member Status & Activity Badges */}
+          <div className="p-4 sm:p-5 bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-slate-900/5 dark:from-amber-950/40 dark:via-slate-900 dark:to-slate-950/60 rounded-2xl border border-amber-200 dark:border-amber-800/60 space-y-3.5">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-black uppercase tracking-wider text-amber-900 dark:text-amber-300 flex items-center gap-2">
+                <Award className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                Member Status & Platform Badges
+              </h3>
+              <span className="text-[11px] font-bold text-amber-900 dark:text-amber-300 bg-amber-100 dark:bg-amber-900/60 px-2.5 py-0.5 rounded-full border border-amber-300/50">
+                {unlockedBadgesCount} / 3 Badges Unlocked
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+              {/* Verified Badge Card */}
+              <div
+                className={`p-3 rounded-xl border transition-all ${
+                  isVerifiedBadge
+                    ? 'bg-emerald-500/10 dark:bg-emerald-950/30 border-emerald-300 dark:border-emerald-800 text-slate-900 dark:text-white shadow-sm'
+                    : 'bg-slate-100 dark:bg-slate-800/40 border-slate-200 dark:border-slate-800 text-slate-500 opacity-70'
+                }`}
+              >
+                <div className="flex items-center gap-2 mb-1.5">
+                  <div
+                    className={`p-1.5 rounded-lg ${
+                      isVerifiedBadge
+                        ? 'bg-emerald-500 text-white shadow-sm'
+                        : 'bg-slate-300 dark:bg-slate-700 text-slate-500'
+                    }`}
+                  >
+                    <ShieldCheck className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <span className="font-extrabold text-xs block leading-tight">Verified</span>
+                    <span
+                      className={`text-[10px] font-bold ${
+                        isVerifiedBadge ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-400'
+                      }`}
+                    >
+                      {isVerifiedBadge ? 'Unlocked ✓' : 'Pending Verification'}
+                    </span>
+                  </div>
+                </div>
+                <p className="text-[10px] text-slate-600 dark:text-slate-400 leading-tight">
+                  Identity & mobile number verified on Jain Connect Global.
+                </p>
+              </div>
+
+              {/* Active Contributor Badge Card */}
+              <div
+                className={`p-3 rounded-xl border transition-all ${
+                  isActiveContributorBadge
+                    ? 'bg-amber-500/10 dark:bg-amber-950/30 border-amber-300 dark:border-amber-800 text-slate-900 dark:text-white shadow-sm'
+                    : 'bg-slate-100 dark:bg-slate-800/40 border-slate-200 dark:border-slate-800 text-slate-500 opacity-70'
+                }`}
+              >
+                <div className="flex items-center gap-2 mb-1.5">
+                  <div
+                    className={`p-1.5 rounded-lg ${
+                      isActiveContributorBadge
+                        ? 'bg-amber-500 text-slate-950 shadow-sm'
+                        : 'bg-slate-300 dark:bg-slate-700 text-slate-500'
+                    }`}
+                  >
+                    <Zap className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <span className="font-extrabold text-xs block leading-tight">Active Contributor</span>
+                    <span
+                      className={`text-[10px] font-bold ${
+                        isActiveContributorBadge ? 'text-amber-700 dark:text-amber-400' : 'text-slate-400'
+                      }`}
+                    >
+                      {isActiveContributorBadge ? 'Unlocked ✓' : 'Not Active Yet'}
+                    </span>
+                  </div>
+                </div>
+                <p className="text-[10px] text-slate-600 dark:text-slate-400 leading-tight">
+                  Participates in community posts, blood donation, or directory listings.
+                </p>
+              </div>
+
+              {/* Community Leader Badge Card */}
+              <div
+                className={`p-3 rounded-xl border transition-all ${
+                  isCommunityLeaderBadge
+                    ? 'bg-purple-500/10 dark:bg-purple-950/30 border-purple-300 dark:border-purple-800 text-slate-900 dark:text-white shadow-sm'
+                    : 'bg-slate-100 dark:bg-slate-800/40 border-slate-200 dark:border-slate-800 text-slate-500 opacity-70'
+                }`}
+              >
+                <div className="flex items-center gap-2 mb-1.5">
+                  <div
+                    className={`p-1.5 rounded-lg ${
+                      isCommunityLeaderBadge
+                        ? 'bg-purple-600 text-amber-300 shadow-sm'
+                        : 'bg-slate-300 dark:bg-slate-700 text-slate-500'
+                    }`}
+                  >
+                    <Crown className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <span className="font-extrabold text-xs block leading-tight">Community Leader</span>
+                    <span
+                      className={`text-[10px] font-bold ${
+                        isCommunityLeaderBadge ? 'text-purple-700 dark:text-purple-400' : 'text-slate-400'
+                      }`}
+                    >
+                      {isCommunityLeaderBadge ? 'Unlocked ✓' : 'Locked'}
+                    </span>
+                  </div>
+                </div>
+                <p className="text-[10px] text-slate-600 dark:text-slate-400 leading-tight">
+                  Holds admin role, temple leadership, or multi-service community activity.
+                </p>
+              </div>
+            </div>
+
+            {/* Live Activity Breakdown Metrics */}
+            <div className="pt-2 border-t border-amber-200/60 dark:border-amber-800/40 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-700 dark:text-slate-300">
+              <div className="flex items-center gap-3">
+                <span className="flex items-center gap-1 font-semibold">
+                  <Activity className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                  Feed Posts: <strong>{userPostsCount}</strong>
+                </span>
+                <span className="flex items-center gap-1 font-semibold">
+                  <HeartHandshake className="w-3.5 h-3.5 text-red-500" />
+                  Blood Donor: <strong>{isDonorActive ? 'Registered' : 'Not Registered'}</strong>
+                </span>
+                <span className="flex items-center gap-1 font-semibold">
+                  <Building className="w-3.5 h-3.5 text-blue-500" />
+                  Listings: <strong>{userBusinessesCount + userTemplesCount + userMatrimonialsCount}</strong>
+                </span>
+              </div>
+              <span className="text-[10px] text-amber-800 dark:text-amber-400 font-bold bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-300/40">
+                Tier: {currentUser?.membershipTier || 'Free'} Member
+              </span>
+            </div>
+          </div>
           
           {/* Section 1: Basic Profile Info */}
           <div className="space-y-4">

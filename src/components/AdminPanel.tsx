@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { doc, setDoc, getDocs, collection } from 'firebase/firestore';
+import { doc, setDoc, getDocs, collection, onSnapshot } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useApp } from '../context/AppContext';
 import { User, AdBanner, BhajanSong, MatrimonialProfile, BusinessListing, TempleListing, CommunityMemberProfile, CommunityPost, JobItem, BloodDonor, CustomPage } from '../types';
 import { syncToSupabaseTable } from '../lib/supabase';
+import { AdminOverviewDashboard } from './AdminOverviewDashboard';
 import {
   ShieldCheck,
   UserCheck,
@@ -58,7 +59,12 @@ import {
   FileCheck,
   BarChart3,
   PieChart as PieChartIcon,
-  TrendingUp
+  TrendingUp,
+  Bell,
+  BellRing,
+  Volume2,
+  VolumeX,
+  Activity
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -72,6 +78,22 @@ import {
   Tooltip,
   Legend
 } from 'recharts';
+
+export interface AdminActivityLogEntry {
+  id: string;
+  adminEmail: string;
+  adminName: string;
+  adminRole: string;
+  actionType: 'APPROVAL' | 'DELETION' | 'SETTING_CHANGE' | 'VERIFICATION' | 'SYSTEM' | 'CREATE';
+  category: 'Business' | 'Member' | 'User' | 'Matrimonial' | 'Temple' | 'Post' | 'Settings' | 'Services' | 'Ads' | 'Panchang' | 'System' | 'Page';
+  title: string;
+  details: string;
+  targetId?: string;
+  targetName?: string;
+  timestamp: string;
+  formattedDate: string;
+  status: 'SUCCESS' | 'WARNING' | 'INFO' | 'DANGER';
+}
 
 export interface VerificationAuditLogEntry {
   id: string;
@@ -122,6 +144,7 @@ export const AdminPanel: React.FC = () => {
     approveCommunityMember,
     deleteCommunityMember,
     approveBusiness,
+    addBusiness,
     deleteBusiness,
     approveTemple,
     deleteTemple,
@@ -155,8 +178,10 @@ export const AdminPanel: React.FC = () => {
   } = useApp();
 
   type AdminTab =
+    | 'overview'
     | 'pending'
     | 'biz_verification'
+    | 'activity_logs'
     | 'matrimonials'
     | 'businesses'
     | 'members'
@@ -169,8 +194,233 @@ export const AdminPanel: React.FC = () => {
     | 'database'
     | 'settings';
 
-  const [activeAdminTab, setActiveAdminTab] = useState<AdminTab>('pending');
+  const [activeAdminTab, setActiveAdminTab] = useState<AdminTab>('overview');
   const [pendingSubTab, setPendingSubTab] = useState<'all' | 'users' | 'matrimonials' | 'businesses' | 'temples' | 'members'>('all');
+
+  // Real-time Activity Log State & Filters
+  const [activityLogs, setActivityLogs] = useState<AdminActivityLogEntry[]>([]);
+  const [activitySearchQuery, setActivitySearchQuery] = useState('');
+  const [activityActionTypeFilter, setActivityActionTypeFilter] = useState<string>('all');
+  const [activityCategoryFilter, setActivityCategoryFilter] = useState<string>('all');
+  const [activityStatusFilter, setActivityStatusFilter] = useState<string>('all');
+
+  // Core Helper: Log administrative action in state, localStorage & Firestore in real-time
+  const logAdminActivity = async (
+    actionType: AdminActivityLogEntry['actionType'],
+    category: AdminActivityLogEntry['category'],
+    title: string,
+    details: string,
+    targetId?: string,
+    targetName?: string,
+    status: AdminActivityLogEntry['status'] = 'SUCCESS'
+  ) => {
+    const now = new Date();
+    const adminEmail = currentUser?.email || 'sandeep.bachhawat1@gmail.com';
+    const adminName = currentUser?.fullName || currentUser?.username || 'Super Admin (Sandeep Bachhawat)';
+    const adminRole = currentUser?.role || 'Super Admin';
+
+    const newLog: AdminActivityLogEntry = {
+      id: `act-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      adminEmail,
+      adminName,
+      adminRole,
+      actionType,
+      category,
+      title,
+      details,
+      targetId,
+      targetName,
+      timestamp: now.toISOString(),
+      formattedDate: now.toLocaleString('en-IN', {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+      }),
+      status,
+    };
+
+    setActivityLogs((prev) => [newLog, ...prev.filter((l) => l.id !== newLog.id)]);
+
+    try {
+      const localStr = localStorage.getItem('jcg_admin_activity_logs_v1');
+      const existing: AdminActivityLogEntry[] = localStr ? JSON.parse(localStr) : [];
+      const updated = [newLog, ...existing.filter((e) => e.id !== newLog.id).slice(0, 199)];
+      localStorage.setItem('jcg_admin_activity_logs_v1', JSON.stringify(updated));
+    } catch (err) {
+      console.warn('LocalStorage activity log save error:', err);
+    }
+
+    try {
+      if (db) {
+        await setDoc(doc(db, 'admin_activity_logs', newLog.id), newLog);
+      }
+    } catch (err) {
+      console.warn('Firestore activity log setDoc error:', err);
+    }
+  };
+
+  // Real-time Firestore Listener for Administrative Activity Logs
+  useEffect(() => {
+    let unsub = () => {};
+
+    const fetchAndSubscribeActivityLogs = async () => {
+      let initialLogs: AdminActivityLogEntry[] = [];
+
+      try {
+        const localStr = localStorage.getItem('jcg_admin_activity_logs_v1');
+        if (localStr) {
+          initialLogs = JSON.parse(localStr);
+        }
+      } catch (e) {
+        console.warn('LocalStorage activity log read error:', e);
+      }
+
+      if (db) {
+        try {
+          unsub = onSnapshot(
+            collection(db, 'admin_activity_logs'),
+            (snapshot) => {
+              const remoteLogs = snapshot.docs.map((d) => d.data() as AdminActivityLogEntry);
+              if (remoteLogs.length > 0) {
+                const map = new Map<string, AdminActivityLogEntry>();
+                [...remoteLogs, ...initialLogs].forEach((item) => {
+                  if (item && item.id) map.set(item.id, item);
+                });
+                const combined = Array.from(map.values()).sort(
+                  (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+                );
+                setActivityLogs(combined);
+                localStorage.setItem('jcg_admin_activity_logs_v1', JSON.stringify(combined.slice(0, 200)));
+              }
+            },
+            (err) => {
+              console.warn('Firestore activity log listener error:', err);
+            }
+          );
+        } catch (err) {
+          console.warn('Firestore onSnapshot error for activity logs:', err);
+        }
+      }
+
+      // If initial logs are completely empty, seed sample initial entries
+      if (initialLogs.length === 0) {
+        const sampleSeedLogs: AdminActivityLogEntry[] = [
+          {
+            id: 'act-seed-1',
+            adminEmail: currentUser?.email || 'sandeep.bachhawat1@gmail.com',
+            adminName: currentUser?.fullName || 'Super Admin (Sandeep Bachhawat)',
+            adminRole: 'Super Admin',
+            actionType: 'VERIFICATION',
+            category: 'Business',
+            title: 'Verified GST & Approved Business Listing',
+            details: 'Verified GSTIN 27AAAAA0000A1Z5 for "Jain Electricals & Solar Power". Approved and synchronized to global directory.',
+            targetId: 'biz-001',
+            targetName: 'Jain Electricals & Solar Power',
+            timestamp: new Date(Date.now() - 1000 * 60 * 15).toISOString(),
+            formattedDate: new Date(Date.now() - 1000 * 60 * 15).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }),
+            status: 'SUCCESS',
+          },
+          {
+            id: 'act-seed-2',
+            adminEmail: 'skjtechworld@gmail.com',
+            adminName: 'Super Admin Portal System',
+            adminRole: 'Super Admin',
+            actionType: 'APPROVAL',
+            category: 'Member',
+            title: 'Approved Directory Member Profile',
+            details: 'Reviewed and verified member profile for "Rajesh Kumar Shah" (Mumbai Chapter). Email approval dispatched.',
+            targetId: 'mem-102',
+            targetName: 'Rajesh Kumar Shah',
+            timestamp: new Date(Date.now() - 1000 * 60 * 45).toISOString(),
+            formattedDate: new Date(Date.now() - 1000 * 60 * 45).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }),
+            status: 'SUCCESS',
+          },
+          {
+            id: 'act-seed-3',
+            adminEmail: currentUser?.email || 'sandeep.bachhawat1@gmail.com',
+            adminName: currentUser?.fullName || 'Super Admin (Sandeep Bachhawat)',
+            adminRole: 'Super Admin',
+            actionType: 'SETTING_CHANGE',
+            category: 'Settings',
+            title: 'Updated Global Portal Configuration',
+            details: 'Updated primary theme color palette, announcement ticker, and system contact details in portal settings.',
+            timestamp: new Date(Date.now() - 1000 * 60 * 120).toISOString(),
+            formattedDate: new Date(Date.now() - 1000 * 60 * 120).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }),
+            status: 'INFO',
+          },
+          {
+            id: 'act-seed-4',
+            adminEmail: 'admin@jainconnect.org',
+            adminName: 'Directory Moderator',
+            adminRole: 'Admin',
+            actionType: 'DELETION',
+            category: 'Post',
+            title: 'Removed Flagged Community Post',
+            details: 'Removed reported spam post (ID: post-901) from community feed per community guidelines policy.',
+            targetId: 'post-901',
+            targetName: 'Community Feed Post',
+            timestamp: new Date(Date.now() - 1000 * 60 * 240).toISOString(),
+            formattedDate: new Date(Date.now() - 1000 * 60 * 240).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }),
+            status: 'DANGER',
+          },
+        ];
+        setActivityLogs(sampleSeedLogs);
+        try {
+          localStorage.setItem('jcg_admin_activity_logs_v1', JSON.stringify(sampleSeedLogs));
+        } catch (e) {}
+      }
+    };
+
+    fetchAndSubscribeActivityLogs();
+
+    return () => unsub();
+  }, [currentUser]);
+
+  // Test Simulation Trigger for Activity Logs
+  const handleSimulateAdminAction = () => {
+    const actions: Array<{ type: AdminActivityLogEntry['actionType']; cat: AdminActivityLogEntry['category']; title: string; details: string; status: AdminActivityLogEntry['status'] }> = [
+      {
+        type: 'APPROVAL',
+        cat: 'Business',
+        title: 'Approved New Business Directory Listing',
+        details: 'Super admin reviewed and approved business listing "Ahimsa Food Products". Status published to live directory.',
+        status: 'SUCCESS',
+      },
+      {
+        type: 'DELETION',
+        cat: 'Member',
+        title: 'Deleted Directory Member Profile',
+        details: 'Super admin deleted community member profile "Amit Jain" (ID: mem-del-402) per data removal request.',
+        status: 'DANGER',
+      },
+      {
+        type: 'SETTING_CHANGE',
+        cat: 'Settings',
+        title: 'Updated Portal System Settings',
+        details: 'Super admin updated announcement ticker message and primary theme configuration.',
+        status: 'INFO',
+      },
+      {
+        type: 'VERIFICATION',
+        cat: 'Business',
+        title: 'Executed Real-Time GSTIN Lookup',
+        details: 'Successfully verified government GST registration 27JAIN8820A1Z2 for "Paras Diamond Jewels".',
+        status: 'SUCCESS',
+      },
+    ];
+
+    const item = actions[Math.floor(Math.random() * actions.length)];
+    logAdminActivity(
+      item.type,
+      item.cat,
+      item.title,
+      `${item.details} (Real-time system trigger at ${new Date().toLocaleTimeString()})`,
+      `target-${Math.floor(100 + Math.random() * 900)}`,
+      'Sample Target Record',
+      item.status
+    );
+
+    showToast('⚡ Activity Logged in Real-Time', `Logged action "${item.title}".`, 'success');
+  };
 
   // Business Verification Queue & Audit Trail State
   const [bizViewSubTab, setBizViewSubTab] = useState<'queue' | 'audit_log'>('queue');
@@ -187,9 +437,126 @@ export const AdminPanel: React.FC = () => {
   ]);
   const [isBatchSyncingBiz, setIsBatchSyncingBiz] = useState(false);
 
+  // Real-time Notification Badge & Sound Alert State
+  const [isRealtimeSoundEnabled, setIsRealtimeSoundEnabled] = useState(true);
+  const [dismissedRealtimeBizIds, setDismissedRealtimeBizIds] = useState<string[]>([]);
+  const initialBizMountRef = React.useRef(true);
+  const knownBizIdsRef = React.useRef<Set<string>>(new Set());
+
   const logBizAction = (msg: string) => {
     const time = new Date().toLocaleTimeString();
     setBizQueueLogs((prev) => [`[${time}] ${msg}`, ...prev.slice(0, 49)]);
+  };
+
+  // Function to synthesize a clean audio chime when a new business is submitted
+  const playRealtimeNotificationSound = () => {
+    try {
+      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(587.33, audioCtx.currentTime); // D5
+      osc.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 0.18); // A5
+      gain.gain.setValueAtTime(0.18, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.35);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.35);
+    } catch (e) {
+      console.warn('Audio Context sound play warning:', e);
+    }
+  };
+
+  // Real-time Firestore Listener for New Business Submissions
+  useEffect(() => {
+    if (!db) return;
+
+    let unsub = () => {};
+    try {
+      unsub = onSnapshot(
+        collection(db, 'businesses'),
+        (snapshot) => {
+          snapshot.docChanges().forEach((change) => {
+            const biz = { id: change.doc.id, ...change.doc.data() } as BusinessListing;
+            const isPending = biz.status === 'Pending Approval' || (biz.status as string) === 'Pending' || !biz.isVerified;
+
+            if (change.type === 'added' || change.type === 'modified') {
+              if (isPending) {
+                // Check if this is a newly arrived pending business after initial mount
+                if (!initialBizMountRef.current && !knownBizIdsRef.current.has(biz.id)) {
+                  knownBizIdsRef.current.add(biz.id);
+                  if (isRealtimeSoundEnabled) {
+                    playRealtimeNotificationSound();
+                  }
+                  logBizAction(`🚨 REAL-TIME ALERT: New Business Listing submitted for approval: "${biz.businessName}" (${biz.city || 'Directory'})`);
+                  showToast(
+                    '🚨 REAL-TIME BUSINESS SUBMISSION',
+                    `New Business Listing "${biz.businessName}" was submitted for admin approval!`,
+                    'info',
+                    8000
+                  );
+                }
+              }
+            }
+          });
+
+          // Seed knownBizIdsRef on initial snapshot
+          if (initialBizMountRef.current) {
+            snapshot.docs.forEach((docSnap) => {
+              knownBizIdsRef.current.add(docSnap.id);
+            });
+            initialBizMountRef.current = false;
+          }
+        },
+        (err) => {
+          console.warn('Real-time Firestore business snapshot listener warning:', err);
+        }
+      );
+    } catch (err) {
+      console.warn('Firestore onSnapshot error:', err);
+    }
+
+    return () => unsub();
+  }, [isRealtimeSoundEnabled]);
+
+  // Helper to trigger a test business submission for demonstration & verification
+  const handleSimulateNewBusinessSubmission = () => {
+    const sampleNames = [
+      'Ahimsa Organic Dairy & Food Products',
+      'Mahavir Jewellers & Precious Gems',
+      'Paras Textiles & Fashion Garments',
+      'Arihant Software & Cloud Solutions',
+      'Navkar Health & Wellness Center'
+    ];
+    const sampleCities = ['Mumbai', 'Ahmedabad', 'Surat', 'Jaipur', 'Bangalore', 'Delhi'];
+    const randomName = sampleNames[Math.floor(Math.random() * sampleNames.length)] + ` (${Math.floor(100 + Math.random() * 900)})`;
+    const randomCity = sampleCities[Math.floor(Math.random() * sampleCities.length)];
+
+    const created = addBusiness({
+      businessName: randomName,
+      category: 'Retail & Commerce',
+      city: randomCity,
+      state: 'Maharashtra',
+      country: 'India',
+      description: 'Newly submitted Jain business directory listing awaiting super admin verification and approval.',
+      email: 'owner@jainbusiness.org',
+      mobile: '+91 98920 ' + Math.floor(10000 + Math.random() * 90000),
+      gstNumber: '27JAIN' + Math.floor(1000 + Math.random() * 9000) + 'A1Z' + Math.floor(1 + Math.random() * 9),
+      isVerified: false,
+      status: 'Pending',
+    });
+
+    if (isRealtimeSoundEnabled) {
+      playRealtimeNotificationSound();
+    }
+
+    logBizAction(`⚡ SIMULATED REAL-TIME SUBMISSION: Created pending listing "${created.businessName}" (ID: ${created.id}).`);
+    showToast(
+      '⚡ Test Business Submitted',
+      `Created real-time submission "${created.businessName}". Alert badge updated!`,
+      'success'
+    );
   };
 
   // Business Verification Recharts Analytics Calculations
@@ -352,6 +719,55 @@ export const AdminPanel: React.FC = () => {
     showToast('Audit Log Exported', 'Downloaded verification audit trail JSON log file.', 'success');
   };
 
+  const handleExportActivityLogsCSV = () => {
+    if (activityLogs.length === 0) {
+      showToast('Export Error', 'No activity logs available to export.', 'error');
+      return;
+    }
+
+    const headers = ['ID', 'Timestamp', 'Admin Name', 'Admin Email', 'Action Type', 'Category', 'Title', 'Details', 'Target Name', 'Target ID', 'Status'];
+    const rows = activityLogs.map((log) => [
+      `"${log.id}"`,
+      `"${log.formattedDate || log.timestamp}"`,
+      `"${(log.adminName || '').replace(/"/g, '""')}"`,
+      `"${(log.adminEmail || '').replace(/"/g, '""')}"`,
+      `"${log.actionType}"`,
+      `"${log.category}"`,
+      `"${(log.title || '').replace(/"/g, '""')}"`,
+      `"${(log.details || '').replace(/"/g, '""')}"`,
+      `"${(log.targetName || '').replace(/"/g, '""')}"`,
+      `"${log.targetId || ''}"`,
+      `"${log.status}"`,
+    ]);
+
+    const csvContent = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `admin_activity_log_${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    showToast('Activity Log Exported', 'Downloaded activity log as CSV file.', 'success');
+  };
+
+  const handleExportActivityLogsJSON = () => {
+    if (activityLogs.length === 0) {
+      showToast('Export Error', 'No activity logs available to export.', 'error');
+      return;
+    }
+
+    const jsonStr = JSON.stringify(activityLogs, null, 2);
+    const blob = new Blob([jsonStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `admin_activity_log_${new Date().toISOString().slice(0, 10)}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+    showToast('Activity Log Exported', 'Downloaded activity log as JSON file.', 'success');
+  };
+
   const handleManualSyncBusiness = async (biz: BusinessListing) => {
     setSyncingBizIds((prev) => ({ ...prev, [biz.id]: true }));
     logBizAction(`Initiating manual Supabase sync for business "${biz.businessName}" (ID: ${biz.id})...`);
@@ -390,6 +806,16 @@ export const AdminPanel: React.FC = () => {
       `Admin "${currentUser?.fullName || currentUser?.email || 'Admin'}" manually verified business record "${biz.businessName}" (ID: ${biz.id}) and updated status in database.`
     );
 
+    logAdminActivity(
+      'APPROVAL',
+      'Business',
+      'Approved & Verified Business Listing',
+      `Manually verified GST and approved business listing "${biz.businessName}". Synchronized with global directory.`,
+      biz.id,
+      biz.businessName,
+      'SUCCESS'
+    );
+
     showToast('Manual Verification Success', `"${biz.businessName}" verified and update processed in database!`, 'success');
   };
 
@@ -401,6 +827,17 @@ export const AdminPanel: React.FC = () => {
       biz,
       `Admin "${currentUser?.fullName || currentUser?.email || 'Admin'}" manually verified and approved business "${biz.businessName}" (ID: ${biz.id}).`
     );
+
+    logAdminActivity(
+      'APPROVAL',
+      'Business',
+      'Approved Business Directory Listing',
+      `Approved pending business listing "${biz.businessName}". Status updated to live directory.`,
+      biz.id,
+      biz.businessName,
+      'SUCCESS'
+    );
+
     showToast('Manual Verification Success', `"${biz.businessName}" verified and recorded in audit trail!`, 'success');
   };
 
@@ -608,7 +1045,7 @@ export const AdminPanel: React.FC = () => {
   // Pending items counts
   const pendingUsers = users.filter((u) => u.status === 'Pending Approval');
   const pendingMatrimonials = matrimonials.filter((m) => !m.isVerified);
-  const pendingBusinesses = businesses.filter((b) => b.status === 'Pending' || !b.isVerified);
+  const pendingBusinesses = businesses.filter((b) => b.status === 'Pending Approval' || (b.status as string) === 'Pending' || !b.isVerified);
   const pendingTemples = temples.filter((t) => !t.isVerified);
   const pendingMembers = members.filter((m) => !m.isVerified);
 
@@ -653,6 +1090,7 @@ export const AdminPanel: React.FC = () => {
       termsAndConditions,
       privacyPolicy,
     });
+    logAdminActivity('SETTING_CHANGE', 'Settings', 'Updated System Settings & Portal Configuration', 'Updated theme color palette, announcement ticker, system contact info, and landing text.', undefined, undefined, 'INFO');
     showToast('Settings Saved', 'Theme color palette, policies & website wordings updated across the platform.', 'success');
   };
 
@@ -660,6 +1098,7 @@ export const AdminPanel: React.FC = () => {
     e.preventDefault();
     if (!broadcastContent.trim()) return;
     addPost(broadcastContent.trim(), broadcastImageUrl.trim() || undefined, broadcastCategory);
+    logAdminActivity('CREATE', 'Post', 'Published Community Broadcast Post', `Published official announcement under category "${broadcastCategory}".`, undefined, undefined, 'SUCCESS');
     setBroadcastContent('');
     setBroadcastImageUrl('');
     showToast('Official Broadcast Posted!', 'Published to all user community feeds.', 'success');
@@ -810,26 +1249,178 @@ export const AdminPanel: React.FC = () => {
           </p>
         </div>
 
-        {/* Quick Database Stats Pills */}
-        <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-300">
-          <span className="px-2.5 py-1 bg-slate-900/90 border border-amber-500/30 rounded-lg">
-            👰 <strong className="text-amber-400">{matrimonials.length}</strong> Matrimonials
-          </span>
-          <span className="px-2.5 py-1 bg-slate-900/90 border border-amber-500/30 rounded-lg">
-            🏢 <strong className="text-amber-400">{businesses.length}</strong> Businesses
-          </span>
-          <span className="px-2.5 py-1 bg-slate-900/90 border border-amber-500/30 rounded-lg">
-            📖 <strong className="text-amber-400">{members.length}</strong> Jain Directory
-          </span>
-          <span className="px-2.5 py-1 bg-slate-900/90 border border-amber-500/30 rounded-lg">
-            🛕 <strong className="text-amber-400">{temples.length}</strong> Temples
-          </span>
+        {/* Header Right Actions & Stats */}
+        <div className="flex flex-col items-start md:items-end gap-2.5">
+          {/* Real-time Business Approval Alert Badge */}
+          {pendingBusinesses.length > 0 && (
+            <button
+              type="button"
+              onClick={() => {
+                setActiveAdminTab('biz_verification');
+                setPendingSubTab('businesses');
+              }}
+              className="relative flex items-center gap-2 px-3.5 py-2 bg-gradient-to-r from-red-600 via-amber-600 to-amber-500 hover:from-red-500 hover:to-amber-400 text-white rounded-xl text-xs font-black shadow-lg hover:shadow-red-500/30 transition-all cursor-pointer ring-2 ring-red-400/50"
+              title="Real-time alert: Business listings submitted for super admin approval"
+            >
+              <span className="relative flex h-2.5 w-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-200 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-white"></span>
+              </span>
+              <BellRing className="w-4 h-4 text-yellow-200 animate-pulse" />
+              <span>{pendingBusinesses.length} Business{pendingBusinesses.length > 1 ? 'es' : ''} Pending Approval</span>
+            </button>
+          )}
+
+          {/* Quick Database Stats Pills */}
+          <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-300">
+            <span className="px-2.5 py-1 bg-slate-900/90 border border-amber-500/30 rounded-lg">
+              👰 <strong className="text-amber-400">{matrimonials.length}</strong> Matrimonials
+            </span>
+            <span className="px-2.5 py-1 bg-slate-900/90 border border-amber-500/30 rounded-lg">
+              🏢 <strong className="text-amber-400">{businesses.length}</strong> Businesses
+            </span>
+            <span className="px-2.5 py-1 bg-slate-900/90 border border-amber-500/30 rounded-lg">
+              📖 <strong className="text-amber-400">{members.length}</strong> Jain Directory
+            </span>
+            <span className="px-2.5 py-1 bg-slate-900/90 border border-amber-500/30 rounded-lg">
+              🛕 <strong className="text-amber-400">{temples.length}</strong> Temples
+            </span>
+          </div>
         </div>
       </div>
 
-      {/* Admin Responsive Grid Navigation Tabs Bar - All 12 Options 100% Visible */}
+      {/* Prominent Real-Time Business Submission Alert Notification Banner Box */}
+      {pendingBusinesses.length > 0 && (
+        <div className="bg-gradient-to-r from-slate-900 via-amber-950/90 to-slate-900 border-2 border-amber-500/60 rounded-2xl p-4 text-white shadow-xl space-y-3 relative overflow-hidden">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-amber-500/30 pb-2.5">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 bg-amber-500/20 rounded-xl border border-amber-400/40 text-amber-300 animate-pulse">
+                <Bell className="w-5 h-5 text-amber-400" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-xs font-black uppercase tracking-wider text-amber-300 flex items-center gap-1.5">
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                    </span>
+                    Real-Time Business Submission Alert
+                  </h3>
+                  <span className="px-2 py-0.5 bg-red-500/30 text-red-300 border border-red-500/40 rounded-full text-[10px] font-extrabold animate-pulse">
+                    {pendingBusinesses.length} Submission{pendingBusinesses.length > 1 ? 's' : ''} Awaiting Review
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-300 mt-0.5">
+                  New business listing{pendingBusinesses.length > 1 ? 's have' : ' has'} been submitted to the platform and requires super admin approval.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 self-start sm:self-auto">
+              <button
+                type="button"
+                onClick={() => setIsRealtimeSoundEnabled(!isRealtimeSoundEnabled)}
+                className={`px-2.5 py-1.5 rounded-lg text-xs font-bold border transition-all flex items-center gap-1.5 cursor-pointer ${
+                  isRealtimeSoundEnabled
+                    ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 hover:bg-amber-500/30'
+                    : 'bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-700'
+                }`}
+                title={isRealtimeSoundEnabled ? 'Audio chime alert active' : 'Audio chime alert muted'}
+              >
+                {isRealtimeSoundEnabled ? <Volume2 className="w-3.5 h-3.5 text-amber-400" /> : <VolumeX className="w-3.5 h-3.5" />}
+                <span className="text-[10px]">{isRealtimeSoundEnabled ? 'Chime Active' : 'Chime Muted'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleSimulateNewBusinessSubmission}
+                className="px-2.5 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black rounded-lg text-xs transition-all flex items-center gap-1.5 cursor-pointer shadow-md"
+                title="Trigger a test business submission to verify real-time alert functionality"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Test Submission</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Latest Pending Business Quick Action Highlight */}
+          {pendingBusinesses.length > 0 && (
+            <div className="bg-slate-950/80 rounded-xl p-3 border border-amber-500/30 flex flex-col md:flex-row md:items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <img
+                  src={pendingBusinesses[0].logoUrl || 'https://images.unsplash.com/photo-1519389950473-47ba0277781c?auto=format&fit=crop&w=300&q=80'}
+                  alt={pendingBusinesses[0].businessName}
+                  className="w-10 h-10 rounded-xl object-cover border border-amber-500/40 shrink-0"
+                />
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs font-black text-amber-300">{pendingBusinesses[0].businessName}</span>
+                    <span className="text-[10px] bg-amber-500/20 text-amber-200 px-2 py-0.5 rounded border border-amber-500/30">
+                      {pendingBusinesses[0].category || 'Retail'}
+                    </span>
+                    {pendingBusinesses[0].gstNumber && (
+                      <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded border border-emerald-500/30">
+                        GSTIN: {pendingBusinesses[0].gstNumber}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    📍 {pendingBusinesses[0].city || 'Mumbai'}, {pendingBusinesses[0].state || 'Maharashtra'} • 📞 {pendingBusinesses[0].mobile || 'N/A'} • 📧 {pendingBusinesses[0].email || 'N/A'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setViewingProfile({ type: 'business', data: pendingBusinesses[0] })}
+                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-lg border border-slate-700 transition-all flex items-center gap-1 cursor-pointer"
+                >
+                  <Eye className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Inspect</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleManualVerifyAndApprove(pendingBusinesses[0])}
+                  className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black rounded-lg transition-all flex items-center gap-1.5 shadow-md cursor-pointer"
+                >
+                  <CheckCircle className="w-3.5 h-3.5" />
+                  <span>Approve & Verify</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveAdminTab('biz_verification');
+                    setPendingSubTab('businesses');
+                  }}
+                  className="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-black rounded-lg transition-all flex items-center gap-1 cursor-pointer"
+                >
+                  <span>Queue ({pendingBusinesses.length})</span>
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Admin Responsive Grid Navigation Tabs Bar - All Options 100% Visible */}
       <div className="bg-amber-50/90 dark:bg-slate-900/90 p-3 rounded-2xl border-2 border-amber-300 dark:border-amber-800 shadow-md">
         <div className="flex flex-wrap items-center gap-2 w-full max-w-full">
+          <button
+            type="button"
+            onClick={() => setActiveAdminTab('overview')}
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
+              activeAdminTab === 'overview'
+                ? 'bg-amber-500 text-slate-950 shadow-md font-black ring-2 ring-amber-400'
+                : 'bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 hover:bg-amber-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700'
+            }`}
+          >
+            <BarChart3 className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+            <span>Overview Dashboard</span>
+          </button>
+
           <button
             type="button"
             onClick={() => setActiveAdminTab('pending')}
@@ -841,6 +1432,11 @@ export const AdminPanel: React.FC = () => {
           >
             <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400" />
             <span>Pending Approvals ({totalPendingRequests})</span>
+            {pendingBusinesses.length > 0 && (
+              <span className="ml-1 px-1.5 py-0.5 bg-amber-600 text-white text-[10px] font-black rounded-full">
+                {pendingBusinesses.length} Biz
+              </span>
+            )}
           </button>
 
           <button
@@ -853,7 +1449,32 @@ export const AdminPanel: React.FC = () => {
             }`}
           >
             <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-            <span>Verification Queue ({businesses.filter((b) => !b.isVerified || b.status === 'Pending').length})</span>
+            <span>Verification Queue</span>
+            {pendingBusinesses.length > 0 ? (
+              <span className="ml-1 px-2 py-0.5 bg-red-600 text-white text-[10px] font-black rounded-full animate-pulse shadow-sm flex items-center gap-1">
+                <span className="w-1.5 h-1.5 bg-white rounded-full animate-ping" />
+                {pendingBusinesses.length} NEW
+              </span>
+            ) : (
+              <span className="text-[10px] text-slate-400">({businesses.filter((b) => !b.isVerified || b.status === 'Pending').length})</span>
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveAdminTab('activity_logs')}
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
+              activeAdminTab === 'activity_logs'
+                ? 'bg-amber-500 text-slate-950 shadow-md font-black ring-2 ring-amber-400'
+                : 'bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 hover:bg-amber-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700'
+            }`}
+          >
+            <Activity className="w-4 h-4 text-orange-500" />
+            <span>Activity Log ({activityLogs.length})</span>
+            <span className="relative flex h-2 w-2 ml-0.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            </span>
           </button>
 
           <button
@@ -880,6 +1501,11 @@ export const AdminPanel: React.FC = () => {
           >
             <Building2 className="w-4 h-4 text-blue-500" />
             <span>Business Directory ({businesses.length})</span>
+            {pendingBusinesses.length > 0 && (
+              <span className="ml-1 px-1.5 py-0.5 bg-amber-500 text-slate-950 text-[10px] font-black rounded-full">
+                {pendingBusinesses.length} Pending
+              </span>
+            )}
           </button>
 
           <button
@@ -1000,6 +1626,18 @@ export const AdminPanel: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {/* Tab 0: Overview Dashboard with D3 Charts */}
+      {activeAdminTab === 'overview' && (
+        <AdminOverviewDashboard
+          users={users}
+          members={members}
+          businesses={businesses}
+          matrimonials={matrimonials}
+          temples={temples}
+          onNavigateTab={(tab) => setActiveAdminTab(tab as AdminTab)}
+        />
+      )}
 
       {/* Tab 1: Pending Approvals Queue */}
       {activeAdminTab === 'pending' && (
@@ -1920,6 +2558,382 @@ export const AdminPanel: React.FC = () => {
         </div>
       )}
 
+      {/* Tab: Real-Time Administrative Activity Log */}
+      {activeAdminTab === 'activity_logs' && (
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-lg space-y-6">
+          {/* Top Banner Header */}
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="text-base font-black uppercase text-slate-900 dark:text-white flex items-center gap-2 tracking-wide">
+                  <Activity className="w-5 h-5 text-orange-500 animate-pulse" />
+                  Real-Time Administrative Activity Log
+                </h3>
+                <span className="px-2.5 py-0.5 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 rounded-full text-[10px] font-extrabold flex items-center gap-1.5">
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                  </span>
+                  Real-Time Sync Active
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Live audit trail recording all administrative business approvals, member deletions, portal setting updates, and system operations.
+              </p>
+            </div>
+
+            {/* Header Action Controls */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                type="button"
+                onClick={handleSimulateAdminAction}
+                className="px-3 py-1.5 bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white font-extrabold text-xs rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer"
+                title="Trigger a test administrative action to observe real-time logging"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-amber-200" />
+                <span>Simulate Action</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleExportActivityLogsCSV}
+                className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-700 font-extrabold text-xs rounded-xl transition-all flex items-center gap-1.5 cursor-pointer"
+                title="Export filtered activity log as CSV file"
+              >
+                <Download className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
+                <span>Export CSV</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleExportActivityLogsJSON}
+                className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-700 font-extrabold text-xs rounded-xl transition-all flex items-center gap-1.5 cursor-pointer"
+                title="Export filtered activity log as JSON file"
+              >
+                <FileText className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
+                <span>Export JSON</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Activity Log Analytics Cards */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="p-4 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-2xl space-y-1 shadow-sm">
+              <div className="flex items-center justify-between text-slate-500">
+                <span className="text-[10px] font-extrabold uppercase tracking-wider">Total Actions</span>
+                <History className="w-4 h-4 text-slate-400" />
+              </div>
+              <p className="text-2xl font-black text-slate-900 dark:text-white">{activityLogs.length}</p>
+              <p className="text-[10px] text-slate-400">Total recorded events</p>
+            </div>
+
+            <div className="p-4 bg-emerald-50/60 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900/50 rounded-2xl space-y-1 shadow-sm">
+              <div className="flex items-center justify-between text-emerald-700 dark:text-emerald-400">
+                <span className="text-[10px] font-extrabold uppercase tracking-wider">Approvals</span>
+                <CheckCircle className="w-4 h-4 text-emerald-500" />
+              </div>
+              <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400">
+                {activityLogs.filter((l) => l.actionType === 'APPROVAL' || l.actionType === 'VERIFICATION').length}
+              </p>
+              <p className="text-[10px] text-emerald-600/80 dark:text-emerald-400/80">Listings & Profiles Verified</p>
+            </div>
+
+            <div className="p-4 bg-red-50/60 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 rounded-2xl space-y-1 shadow-sm">
+              <div className="flex items-center justify-between text-red-700 dark:text-red-400">
+                <span className="text-[10px] font-extrabold uppercase tracking-wider">Deletions / Purges</span>
+                <Trash2 className="w-4 h-4 text-red-500" />
+              </div>
+              <p className="text-2xl font-black text-red-600 dark:text-red-400">
+                {activityLogs.filter((l) => l.actionType === 'DELETION').length}
+              </p>
+              <p className="text-[10px] text-red-600/80 dark:text-red-400/80">Members & Items Removed</p>
+            </div>
+
+            <div className="p-4 bg-amber-50/60 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 rounded-2xl space-y-1 shadow-sm">
+              <div className="flex items-center justify-between text-amber-700 dark:text-amber-400">
+                <span className="text-[10px] font-extrabold uppercase tracking-wider">Settings & System</span>
+                <Settings className="w-4 h-4 text-amber-500" />
+              </div>
+              <p className="text-2xl font-black text-amber-600 dark:text-amber-400">
+                {activityLogs.filter((l) => l.actionType === 'SETTING_CHANGE' || l.actionType === 'SYSTEM').length}
+              </p>
+              <p className="text-[10px] text-amber-600/80 dark:text-amber-400/80">Configuration Changes</p>
+            </div>
+          </div>
+
+          {/* Search & Filter Controls Toolbar */}
+          <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-3">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+              {/* Search Box */}
+              <div className="relative flex-1">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                <input
+                  type="text"
+                  placeholder="Search activity log by title, admin email, category, target name, or description..."
+                  value={activitySearchQuery}
+                  onChange={(e) => setActivitySearchQuery(e.target.value)}
+                  className="w-full pl-9 pr-8 py-2 text-xs rounded-xl bg-white dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-300 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                />
+                {activitySearchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setActivitySearchQuery('')}
+                    className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xs"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+
+              {/* Action Type Dropdown */}
+              <div className="flex items-center gap-2">
+                <Filter className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                <select
+                  value={activityActionTypeFilter}
+                  onChange={(e) => setActivityActionTypeFilter(e.target.value)}
+                  className="px-3 py-2 text-xs rounded-xl bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-700 font-bold focus:outline-none focus:ring-2 focus:ring-amber-500 cursor-pointer"
+                >
+                  <option value="all">All Action Types</option>
+                  <option value="APPROVAL">APPROVALS</option>
+                  <option value="DELETION">DELETIONS</option>
+                  <option value="SETTING_CHANGE">SETTING CHANGES</option>
+                  <option value="VERIFICATION">VERIFICATIONS</option>
+                  <option value="CREATE">CREATIONS</option>
+                  <option value="SYSTEM">SYSTEM OPERATIONS</option>
+                </select>
+
+                {/* Category Dropdown */}
+                <select
+                  value={activityCategoryFilter}
+                  onChange={(e) => setActivityCategoryFilter(e.target.value)}
+                  className="px-3 py-2 text-xs rounded-xl bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-700 font-bold focus:outline-none focus:ring-2 focus:ring-amber-500 cursor-pointer"
+                >
+                  <option value="all">All Categories</option>
+                  <option value="Business">Business Directory</option>
+                  <option value="Member">Community Directory</option>
+                  <option value="User">User Accounts</option>
+                  <option value="Matrimonial">Matrimonial Bureau</option>
+                  <option value="Temple">Temple Directory</option>
+                  <option value="Settings">Portal Settings</option>
+                  <option value="Post">Community Feed</option>
+                  <option value="Services">Services & Jobs</option>
+                  <option value="Ads">Promotions & Ads</option>
+                  <option value="Panchang">Panchang Calendar</option>
+                </select>
+
+                {/* Status Dropdown */}
+                <select
+                  value={activityStatusFilter}
+                  onChange={(e) => setActivityStatusFilter(e.target.value)}
+                  className="px-3 py-2 text-xs rounded-xl bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-700 font-bold focus:outline-none focus:ring-2 focus:ring-amber-500 cursor-pointer"
+                >
+                  <option value="all">All Statuses</option>
+                  <option value="SUCCESS">SUCCESS</option>
+                  <option value="WARNING">WARNING</option>
+                  <option value="DANGER">DANGER</option>
+                  <option value="INFO">INFO</option>
+                </select>
+
+                {(activitySearchQuery || activityActionTypeFilter !== 'all' || activityCategoryFilter !== 'all' || activityStatusFilter !== 'all') && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActivitySearchQuery('');
+                      setActivityActionTypeFilter('all');
+                      setActivityCategoryFilter('all');
+                      setActivityStatusFilter('all');
+                    }}
+                    className="px-2.5 py-2 text-xs bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl font-extrabold hover:bg-slate-300 transition-all cursor-pointer whitespace-nowrap"
+                  >
+                    Reset Filters
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Activity Log Stream List */}
+          <div className="space-y-3">
+            {activityLogs.filter((log) => {
+              const query = activitySearchQuery.toLowerCase();
+              const matchesSearch =
+                !query ||
+                (log.title || '').toLowerCase().includes(query) ||
+                (log.details || '').toLowerCase().includes(query) ||
+                (log.adminName || '').toLowerCase().includes(query) ||
+                (log.adminEmail || '').toLowerCase().includes(query) ||
+                (log.category || '').toLowerCase().includes(query) ||
+                (log.targetName || '').toLowerCase().includes(query) ||
+                (log.targetId || '').toLowerCase().includes(query);
+
+              if (!matchesSearch) return false;
+              if (activityActionTypeFilter !== 'all' && log.actionType !== activityActionTypeFilter) return false;
+              if (activityCategoryFilter !== 'all' && log.category !== activityCategoryFilter) return false;
+              if (activityStatusFilter !== 'all' && log.status !== activityStatusFilter) return false;
+
+              return true;
+            }).length === 0 ? (
+              <div className="py-12 text-center text-slate-500 dark:text-slate-400 space-y-3 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl">
+                <History className="w-10 h-10 text-slate-400 mx-auto animate-pulse" />
+                <p className="font-extrabold text-sm text-slate-800 dark:text-white">No administrative activity logs match your filter parameters.</p>
+                <p className="text-xs text-slate-500 max-w-md mx-auto">
+                  Try adjusting search words or filter selectors above, or click "Simulate Action" to post a live test log entry.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActivitySearchQuery('');
+                    setActivityActionTypeFilter('all');
+                    setActivityCategoryFilter('all');
+                    setActivityStatusFilter('all');
+                  }}
+                  className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs rounded-xl transition-all cursor-pointer shadow-sm"
+                >
+                  Clear All Filters
+                </button>
+              </div>
+            ) : (
+              <div className="divide-y divide-slate-100 dark:divide-slate-800/60 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden bg-white dark:bg-slate-900 shadow-sm">
+                {activityLogs
+                  .filter((log) => {
+                    const query = activitySearchQuery.toLowerCase();
+                    const matchesSearch =
+                      !query ||
+                      (log.title || '').toLowerCase().includes(query) ||
+                      (log.details || '').toLowerCase().includes(query) ||
+                      (log.adminName || '').toLowerCase().includes(query) ||
+                      (log.adminEmail || '').toLowerCase().includes(query) ||
+                      (log.category || '').toLowerCase().includes(query) ||
+                      (log.targetName || '').toLowerCase().includes(query) ||
+                      (log.targetId || '').toLowerCase().includes(query);
+
+                    if (!matchesSearch) return false;
+                    if (activityActionTypeFilter !== 'all' && log.actionType !== activityActionTypeFilter) return false;
+                    if (activityCategoryFilter !== 'all' && log.category !== activityCategoryFilter) return false;
+                    if (activityStatusFilter !== 'all' && log.status !== activityStatusFilter) return false;
+
+                    return true;
+                  })
+                  .map((log) => {
+                    const isApproval = log.actionType === 'APPROVAL';
+                    const isDeletion = log.actionType === 'DELETION';
+                    const isVerification = log.actionType === 'VERIFICATION';
+                    const isSetting = log.actionType === 'SETTING_CHANGE';
+                    const isCreate = log.actionType === 'CREATE';
+
+                    const badgeColorClass = isApproval
+                      ? 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800'
+                      : isDeletion
+                      ? 'bg-red-100 dark:bg-red-950/80 text-red-800 dark:text-red-300 border-red-300 dark:border-red-800'
+                      : isVerification
+                      ? 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800'
+                      : isSetting
+                      ? 'bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-800'
+                      : isCreate
+                      ? 'bg-blue-100 dark:bg-blue-950/80 text-blue-800 dark:text-blue-300 border-blue-300 dark:border-blue-800'
+                      : 'bg-purple-100 dark:bg-purple-950/80 text-purple-800 dark:text-purple-300 border-purple-300 dark:border-purple-800';
+
+                    const actionIcon = isApproval ? (
+                      <CheckCircle className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                    ) : isDeletion ? (
+                      <Trash2 className="w-4 h-4 text-red-600 dark:text-red-400" />
+                    ) : isVerification ? (
+                      <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                    ) : isSetting ? (
+                      <Settings className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                    ) : (
+                      <Plus className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                    );
+
+                    // Compute relative time string
+                    const logTime = new Date(log.timestamp).getTime();
+                    const diffMins = Math.floor((Date.now() - logTime) / (1000 * 60));
+                    let relativeTimeString = 'Just now';
+                    if (diffMins >= 1 && diffMins < 60) {
+                      relativeTimeString = `${diffMins} min${diffMins > 1 ? 's' : ''} ago`;
+                    } else if (diffMins >= 60 && diffMins < 1440) {
+                      const hours = Math.floor(diffMins / 60);
+                      relativeTimeString = `${hours} hour${hours > 1 ? 's' : ''} ago`;
+                    } else if (diffMins >= 1440) {
+                      const days = Math.floor(diffMins / 1440);
+                      relativeTimeString = `${days} day${days > 1 ? 's' : ''} ago`;
+                    }
+
+                    return (
+                      <div key={log.id} className="p-4 hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors space-y-2.5">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                          <div className="flex items-center gap-2.5 flex-wrap">
+                            {/* Action Icon Pill */}
+                            <div className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shrink-0">
+                              {actionIcon}
+                            </div>
+
+                            {/* Action Type Badge */}
+                            <span className={`text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full border ${badgeColorClass}`}>
+                              {log.actionType}
+                            </span>
+
+                            {/* Category Chip */}
+                            <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-md border border-slate-200 dark:border-slate-700">
+                              {log.category}
+                            </span>
+
+                            {/* Title */}
+                            <h4 className="font-black text-xs text-slate-900 dark:text-white tracking-wide">
+                              {log.title}
+                            </h4>
+                          </div>
+
+                          {/* Relative Time & Timestamp */}
+                          <div className="flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400 font-mono shrink-0">
+                            <span className="px-2 py-0.5 bg-slate-100 dark:bg-slate-800 rounded text-[10px] font-extrabold text-slate-700 dark:text-slate-300">
+                              {relativeTimeString}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <Clock className="w-3 h-3 text-slate-400" />
+                              {log.formattedDate || log.timestamp}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Middle Content Details */}
+                        <div className="pl-10 space-y-1.5">
+                          {/* Admin Operator Info */}
+                          <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
+                            <span className="text-slate-400 font-bold text-[11px]">Performed by:</span>
+                            <span className="font-extrabold text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                              <UserCheck className="w-3.5 h-3.5" />
+                              {log.adminName}
+                            </span>
+                            <span className="text-[10px] text-slate-400 font-mono">({log.adminEmail})</span>
+                            <span className="px-1.5 py-0.2 bg-amber-500/20 text-amber-700 dark:text-amber-300 text-[9px] font-black rounded uppercase">
+                              {log.adminRole}
+                            </span>
+                          </div>
+
+                          {/* Target Record Reference if present */}
+                          {(log.targetName || log.targetId) && (
+                            <p className="text-xs text-slate-800 dark:text-slate-200 font-medium">
+                              Target Entity:{' '}
+                              <strong className="text-slate-950 dark:text-white font-extrabold">{log.targetName || 'N/A'}</strong>{' '}
+                              {log.targetId && <span className="text-[10px] text-slate-400 font-mono">(Ref ID: {log.targetId})</span>}
+                            </p>
+                          )}
+
+                          {/* Description Box */}
+                          <p className="text-xs text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-950/70 p-3 rounded-xl border border-slate-200/80 dark:border-slate-800/80 leading-relaxed font-mono text-[11px]">
+                            {log.details}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Tab 2: All Registered Matrimonial Bureau */}
       {activeAdminTab === 'matrimonials' && (
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-lg space-y-4">
@@ -2735,74 +3749,344 @@ export const AdminPanel: React.FC = () => {
 
       {/* Tab 11: Dynamic Website Control */}
       {activeAdminTab === 'settings' && (
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-lg space-y-6">
-          <div className="pb-3 border-b border-slate-100 dark:border-slate-800">
-            <h3 className="text-sm font-black uppercase text-slate-900 dark:text-white flex items-center gap-2">
-              <Settings className="w-4 h-4 text-slate-500" />
-              Dynamic Portal Branding & System Settings
-            </h3>
-          </div>
-
-          <form onSubmit={handleSaveSettings} className="space-y-4 text-xs">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block font-bold mb-1">Portal Name</label>
-                <input
-                  type="text"
-                  value={appName}
-                  onChange={(e) => setAppName(e.target.value)}
-                  className="w-full p-2.5 rounded-xl border bg-slate-50 dark:bg-slate-800 font-bold"
-                />
-              </div>
-
-              <div>
-                <label className="block font-bold mb-1">Tagline</label>
-                <input
-                  type="text"
-                  value={tagline}
-                  onChange={(e) => setTagline(e.target.value)}
-                  className="w-full p-2.5 rounded-xl border bg-slate-50 dark:bg-slate-800"
-                />
-              </div>
-
-              <div>
-                <label className="block font-bold mb-1">Support Email</label>
-                <input
-                  type="text"
-                  value={contactEmail}
-                  onChange={(e) => setContactEmail(e.target.value)}
-                  className="w-full p-2.5 rounded-xl border bg-slate-50 dark:bg-slate-800"
-                />
-              </div>
-
-              <div>
-                <label className="block font-bold mb-1">Support Phone</label>
-                <input
-                  type="text"
-                  value={contactPhone}
-                  onChange={(e) => setContactPhone(e.target.value)}
-                  className="w-full p-2.5 rounded-xl border bg-slate-50 dark:bg-slate-800"
-                />
-              </div>
-            </div>
-
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-8">
+          <div className="pb-4 border-b border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <label className="block font-bold mb-1">Ticker / Announcement Banner</label>
-              <input
-                type="text"
-                value={ticker}
-                onChange={(e) => setTicker(e.target.value)}
-                className="w-full p-2.5 rounded-xl border bg-slate-50 dark:bg-slate-800"
-              />
+              <h3 className="text-lg font-black uppercase tracking-wide text-slate-900 dark:text-white flex items-center gap-2">
+                <Settings className="w-5 h-5 text-amber-500" />
+                <span>Super Admin Dynamic Control Center</span>
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                Customize every headline, section title, color theme, announcement ticker, contact detail, and policy dynamically across the live website.
+              </p>
             </div>
-
             <button
-              type="submit"
-              className="px-6 py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black rounded-xl shadow-md transition-all flex items-center gap-2 cursor-pointer"
+              type="button"
+              onClick={handleSaveSettings}
+              className="px-6 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-black rounded-xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer text-xs"
             >
               <Save className="w-4 h-4" />
-              <span>Save Portal Configuration</span>
+              <span>Save & Publish Live</span>
             </button>
+          </div>
+
+          <form onSubmit={handleSaveSettings} className="space-y-8 text-xs">
+            {/* 1. Theme & Color Palette Selector */}
+            <div className="bg-slate-50 dark:bg-slate-800/60 p-5 rounded-2xl border border-slate-200 dark:border-slate-700/80 space-y-4">
+              <h4 className="font-extrabold text-sm text-slate-900 dark:text-white flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-amber-500" />
+                <span>Global Site Color Theme & Palette</span>
+              </h4>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Choose the primary spiritual accent color scheme applied across buttons, badges, banners, and highlights.
+              </p>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                {[
+                  { id: 'amber', label: 'Sacred Amber', bg: 'bg-amber-500', border: 'border-amber-400' },
+                  { id: 'saffron', label: 'Spiritual Saffron', bg: 'bg-orange-500', border: 'border-orange-400' },
+                  { id: 'emerald', label: 'Temple Emerald', bg: 'bg-emerald-500', border: 'border-emerald-400' },
+                  { id: 'ruby', label: 'Ahimsa Ruby', bg: 'bg-rose-500', border: 'border-rose-400' },
+                  { id: 'sapphire', label: 'Celestial Sapphire', bg: 'bg-blue-500', border: 'border-blue-400' },
+                  { id: 'purple', label: 'Lotus Purple', bg: 'bg-purple-500', border: 'border-purple-400' },
+                ].map((item) => {
+                  const isSelected = themePrimaryColor === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => setThemePrimaryColor(item.id as any)}
+                      className={`p-3 rounded-2xl border-2 flex flex-col items-center justify-center gap-2 transition-all cursor-pointer ${
+                        isSelected
+                          ? `${item.border} bg-white dark:bg-slate-900 shadow-lg scale-105 ring-2 ring-amber-400/50 font-black text-slate-900 dark:text-white`
+                          : 'border-slate-200 dark:border-slate-700 bg-white/50 dark:bg-slate-900/50 text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-900'
+                      }`}
+                    >
+                      <div className={`w-8 h-8 rounded-full ${item.bg} shadow-md flex items-center justify-center text-white`}>
+                        {isSelected && <Check className="w-4 h-4 stroke-[3]" />}
+                      </div>
+                      <span className="text-[11px] font-bold">{item.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* 2. Core Portal Identity */}
+            <div className="bg-slate-50 dark:bg-slate-800/60 p-5 rounded-2xl border border-slate-200 dark:border-slate-700/80 space-y-4">
+              <h4 className="font-extrabold text-sm text-slate-900 dark:text-white flex items-center gap-2">
+                <Globe className="w-4 h-4 text-amber-500" />
+                <span>Core Portal Branding & Technology Partner</span>
+              </h4>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block font-bold mb-1 text-slate-700 dark:text-slate-300">Portal Name</label>
+                  <input
+                    type="text"
+                    value={appName}
+                    onChange={(e) => setAppName(e.target.value)}
+                    className="w-full p-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 font-bold"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold mb-1 text-slate-700 dark:text-slate-300">Tagline / Slogan</label>
+                  <input
+                    type="text"
+                    value={tagline}
+                    onChange={(e) => setTagline(e.target.value)}
+                    className="w-full p-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold mb-1 text-slate-700 dark:text-slate-300">Tech Partner / Developer Name</label>
+                  <input
+                    type="text"
+                    value={devName}
+                    onChange={(e) => setDevName(e.target.value)}
+                    className="w-full p-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 font-semibold"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* 3. Hero Banner & Announcement Control */}
+            <div className="bg-slate-50 dark:bg-slate-800/60 p-5 rounded-2xl border border-slate-200 dark:border-slate-700/80 space-y-4">
+              <h4 className="font-extrabold text-sm text-slate-900 dark:text-white flex items-center gap-2">
+                <Megaphone className="w-4 h-4 text-amber-500" />
+                <span>Hero Banner & Top Announcement Ticker</span>
+              </h4>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block font-bold mb-1 text-slate-700 dark:text-slate-300">Live Announcement Ticker Content</label>
+                  <input
+                    type="text"
+                    value={ticker}
+                    onChange={(e) => setTicker(e.target.value)}
+                    className="w-full p-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 font-mono text-amber-600 dark:text-amber-400 font-bold"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block font-bold mb-1 text-slate-700 dark:text-slate-300">Hero Main Headline</label>
+                    <input
+                      type="text"
+                      value={heroTitle}
+                      onChange={(e) => setHeroTitle(e.target.value)}
+                      className="w-full p-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 font-bold"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold mb-1 text-slate-700 dark:text-slate-300">Hero Subheadline</label>
+                    <input
+                      type="text"
+                      value={heroSub}
+                      onChange={(e) => setHeroSub(e.target.value)}
+                      className="w-full p-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 4. Dynamic Portal Section Titles & Subtitles */}
+            <div className="bg-slate-50 dark:bg-slate-800/60 p-5 rounded-2xl border border-slate-200 dark:border-slate-700/80 space-y-4">
+              <h4 className="font-extrabold text-sm text-slate-900 dark:text-white flex items-center gap-2">
+                <Building2 className="w-4 h-4 text-amber-500" />
+                <span>Portal Module Headings & Subtitles</span>
+              </h4>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2 p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
+                  <span className="text-[10px] font-black uppercase text-red-500">1. Matrimonial Section</span>
+                  <input
+                    type="text"
+                    value={matrimonialHeading}
+                    onChange={(e) => setMatrimonialHeading(e.target.value)}
+                    placeholder="Matrimonial Heading"
+                    className="w-full p-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 font-bold"
+                  />
+                  <input
+                    type="text"
+                    value={matrimonialSubtitle}
+                    onChange={(e) => setMatrimonialSubtitle(e.target.value)}
+                    placeholder="Matrimonial Subtitle"
+                    className="w-full p-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs"
+                  />
+                </div>
+
+                <div className="space-y-2 p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
+                  <span className="text-[10px] font-black uppercase text-amber-500">2. Business Directory</span>
+                  <input
+                    type="text"
+                    value={businessHeading}
+                    onChange={(e) => setBusinessHeading(e.target.value)}
+                    placeholder="Business Heading"
+                    className="w-full p-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 font-bold"
+                  />
+                  <input
+                    type="text"
+                    value={businessSubtitle}
+                    onChange={(e) => setBusinessSubtitle(e.target.value)}
+                    placeholder="Business Subtitle"
+                    className="w-full p-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs"
+                  />
+                </div>
+
+                <div className="space-y-2 p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
+                  <span className="text-[10px] font-black uppercase text-emerald-500">3. Temple Directory</span>
+                  <input
+                    type="text"
+                    value={templeHeading}
+                    onChange={(e) => setTempleHeading(e.target.value)}
+                    placeholder="Temple Heading"
+                    className="w-full p-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 font-bold"
+                  />
+                  <input
+                    type="text"
+                    value={templeSubtitle}
+                    onChange={(e) => setTempleSubtitle(e.target.value)}
+                    placeholder="Temple Subtitle"
+                    className="w-full p-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs"
+                  />
+                </div>
+
+                <div className="space-y-2 p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
+                  <span className="text-[10px] font-black uppercase text-blue-500">4. Community Directory</span>
+                  <input
+                    type="text"
+                    value={directoryHeading}
+                    onChange={(e) => setDirectoryHeading(e.target.value)}
+                    placeholder="Directory Heading"
+                    className="w-full p-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 font-bold"
+                  />
+                  <input
+                    type="text"
+                    value={directorySubtitle}
+                    onChange={(e) => setDirectorySubtitle(e.target.value)}
+                    placeholder="Directory Subtitle"
+                    className="w-full p-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* 5. About Us & Mission */}
+            <div className="bg-slate-50 dark:bg-slate-800/60 p-5 rounded-2xl border border-slate-200 dark:border-slate-700/80 space-y-4">
+              <h4 className="font-extrabold text-sm text-slate-900 dark:text-white flex items-center gap-2">
+                <FileText className="w-4 h-4 text-amber-500" />
+                <span>About Us & Platform Welcome Description</span>
+              </h4>
+
+              <div className="space-y-3">
+                <div>
+                  <label className="block font-bold mb-1 text-slate-700 dark:text-slate-300">About Title</label>
+                  <input
+                    type="text"
+                    value={aboutTitle}
+                    onChange={(e) => setAboutTitle(e.target.value)}
+                    className="w-full p-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 font-bold"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold mb-1 text-slate-700 dark:text-slate-300">About Description</label>
+                  <textarea
+                    rows={3}
+                    value={aboutDescription}
+                    onChange={(e) => setAboutDescription(e.target.value)}
+                    className="w-full p-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-xs leading-relaxed"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* 6. Support Contacts & HQ Address */}
+            <div className="bg-slate-50 dark:bg-slate-800/60 p-5 rounded-2xl border border-slate-200 dark:border-slate-700/80 space-y-4">
+              <h4 className="font-extrabold text-sm text-slate-900 dark:text-white flex items-center gap-2">
+                <Phone className="w-4 h-4 text-amber-500" />
+                <span>Support Contacts & Physical Headquarters Address</span>
+              </h4>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block font-bold mb-1 text-slate-700 dark:text-slate-300">Support Mobile / Phone</label>
+                  <input
+                    type="text"
+                    value={contactPhone}
+                    onChange={(e) => setContactPhone(e.target.value)}
+                    className="w-full p-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 font-semibold"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold mb-1 text-slate-700 dark:text-slate-300">Support Email</label>
+                  <input
+                    type="text"
+                    value={contactEmail}
+                    onChange={(e) => setContactEmail(e.target.value)}
+                    className="w-full p-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 font-semibold"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold mb-1 text-slate-700 dark:text-slate-300">HQ Address</label>
+                  <input
+                    type="text"
+                    value={address}
+                    onChange={(e) => setAddress(e.target.value)}
+                    className="w-full p-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* 7. Legal Policies & Terms */}
+            <div className="bg-slate-50 dark:bg-slate-800/60 p-5 rounded-2xl border border-slate-200 dark:border-slate-700/80 space-y-4">
+              <h4 className="font-extrabold text-sm text-slate-900 dark:text-white flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-amber-500" />
+                <span>Legal Policies (Terms & Privacy Policy)</span>
+              </h4>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block font-bold mb-1 text-slate-700 dark:text-slate-300">Terms & Conditions Document</label>
+                  <textarea
+                    rows={4}
+                    value={termsAndConditions}
+                    onChange={(e) => setTermsAndConditions(e.target.value)}
+                    placeholder="Enter custom terms & conditions..."
+                    className="w-full p-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 font-mono text-[11px]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold mb-1 text-slate-700 dark:text-slate-300">Privacy Policy Document</label>
+                  <textarea
+                    rows={4}
+                    value={privacyPolicy}
+                    onChange={(e) => setPrivacyPolicy(e.target.value)}
+                    placeholder="Enter custom privacy policy..."
+                    className="w-full p-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 font-mono text-[11px]"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-4">
+              <button
+                type="submit"
+                className="px-8 py-3 bg-gradient-to-r from-amber-500 via-amber-600 to-amber-700 hover:from-amber-600 hover:to-amber-800 text-slate-950 font-black text-sm rounded-2xl shadow-xl transition-all flex items-center gap-2 cursor-pointer ring-2 ring-amber-400/40"
+              >
+                <Save className="w-4 h-4" />
+                <span>Save All Changes Live</span>
+              </button>
+            </div>
           </form>
         </div>
       )}

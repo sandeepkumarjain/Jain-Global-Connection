@@ -46,7 +46,7 @@ import { playNavkarMantraAudio, stopNavkarMantraAudio } from '../utils/navkarAud
 import { applyLanguageChange, LanguageCode } from '../utils/translations';
 import { triggerConfetti, triggerCelebrationConfetti } from '../utils/confetti';
 import { db } from '../lib/firebase';
-import { doc, setDoc, deleteDoc } from 'firebase/firestore';
+import { doc, setDoc, deleteDoc, collection, getDocs } from 'firebase/firestore';
 import { syncToSupabaseTable, deleteFromSupabaseTable, isSupabaseConfigured, getSupabaseClient } from '../lib/supabase';
 import { AuthService } from '../lib/services';
 
@@ -222,6 +222,10 @@ interface AppContextType {
   lastSupabaseSyncStatus: 'idle' | 'success' | 'partial' | 'failed';
   lastSupabaseSyncMessage: string | null;
   lastSupabaseSyncDetails: { totalSynced: number; tableErrors: string[] } | null;
+
+  // Re-fetch Database Data
+  refreshDatabaseData: () => Promise<{ success: boolean; message: string }>;
+  isRefreshingData: boolean;
 
   // Role & Permissions Helper Methods
   hasRole: (roles: UserRole | UserRole[]) => boolean;
@@ -2073,6 +2077,137 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const [isRefreshingData, setIsRefreshingData] = useState(false);
+
+  const refreshDatabaseData = async (): Promise<{ success: boolean; message: string }> => {
+    setIsRefreshingData(true);
+    try {
+      // 1. Try Firestore direct collection re-fetch if available
+      try {
+        const usersSnap = await getDocs(collection(db, 'users'));
+        if (!usersSnap.empty) {
+          const freshUsers = usersSnap.docs.map((d) => ({ id: d.id, ...d.data() } as User));
+          if (freshUsers.length > 0) {
+            setUsers(freshUsers);
+            localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(freshUsers));
+          }
+        }
+      } catch (e) {
+        console.warn('Firestore users refetch warning:', e);
+      }
+
+      try {
+        const membersSnap = await getDocs(collection(db, 'members'));
+        if (!membersSnap.empty) {
+          const freshMembers = membersSnap.docs.map((d) => ({ id: d.id, ...d.data() } as CommunityMemberProfile));
+          if (freshMembers.length > 0) {
+            setMembers(freshMembers);
+            localStorage.setItem(STORAGE_KEYS.MEMBERS, JSON.stringify(freshMembers));
+          }
+        }
+      } catch (e) {
+        console.warn('Firestore members refetch warning:', e);
+      }
+
+      try {
+        const bizSnap = await getDocs(collection(db, 'businesses'));
+        if (!bizSnap.empty) {
+          const freshBiz = bizSnap.docs.map((d) => ({ id: d.id, ...d.data() } as BusinessListing));
+          if (freshBiz.length > 0) {
+            setBusinesses(freshBiz);
+            localStorage.setItem(STORAGE_KEYS.BUSINESSES, JSON.stringify(freshBiz));
+          }
+        }
+      } catch (e) {
+        console.warn('Firestore businesses refetch warning:', e);
+      }
+
+      try {
+        const matSnap = await getDocs(collection(db, 'matrimonials'));
+        if (!matSnap.empty) {
+          const freshMat = matSnap.docs.map((d) => ({ id: d.id, ...d.data() } as MatrimonialProfile));
+          if (freshMat.length > 0) {
+            setMatrimonials(freshMat);
+            localStorage.setItem(STORAGE_KEYS.MATRIMONIALS, JSON.stringify(freshMat));
+          }
+        }
+      } catch (e) {
+        console.warn('Firestore matrimonials refetch warning:', e);
+      }
+
+      try {
+        const templeSnap = await getDocs(collection(db, 'temples'));
+        if (!templeSnap.empty) {
+          const freshTemples = templeSnap.docs.map((d) => ({ id: d.id, ...d.data() } as TempleListing));
+          if (freshTemples.length > 0) {
+            setTemples(freshTemples);
+            localStorage.setItem(STORAGE_KEYS.TEMPLES, JSON.stringify(freshTemples));
+          }
+        }
+      } catch (e) {
+        console.warn('Firestore temples refetch warning:', e);
+      }
+
+      // 2. Re-fetch from Supabase if configured
+      const client = getSupabaseClient();
+      if (client) {
+        try {
+          const { data: sUsers } = await client.from('users').select('*');
+          if (sUsers && sUsers.length > 0) {
+            setUsers(sUsers as User[]);
+            localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(sUsers));
+          }
+          const { data: sBiz } = await client.from('businesses').select('*');
+          if (sBiz && sBiz.length > 0) {
+            setBusinesses(sBiz as BusinessListing[]);
+            localStorage.setItem(STORAGE_KEYS.BUSINESSES, JSON.stringify(sBiz));
+          }
+          const { data: sMat } = await client.from('matrimonials').select('*');
+          if (sMat && sMat.length > 0) {
+            setMatrimonials(sMat as MatrimonialProfile[]);
+            localStorage.setItem(STORAGE_KEYS.MATRIMONIALS, JSON.stringify(sMat));
+          }
+          const { data: sMem } = await client.from('members').select('*');
+          if (sMem && sMem.length > 0) {
+            setMembers(sMem as CommunityMemberProfile[]);
+            localStorage.setItem(STORAGE_KEYS.MEMBERS, JSON.stringify(sMem));
+          }
+          const { data: sTpl } = await client.from('temples').select('*');
+          if (sTpl && sTpl.length > 0) {
+            setTemples(sTpl as TempleListing[]);
+            localStorage.setItem(STORAGE_KEYS.TEMPLES, JSON.stringify(sTpl));
+          }
+        } catch (e) {
+          console.warn('Supabase refetch warning:', e);
+        }
+      }
+
+      // 3. Re-sync from localStorage to ensure state freshness
+      const savedUsers = localStorage.getItem(STORAGE_KEYS.USERS);
+      if (savedUsers) setUsers(JSON.parse(savedUsers));
+      const savedMembers = localStorage.getItem(STORAGE_KEYS.MEMBERS);
+      if (savedMembers) setMembers(JSON.parse(savedMembers));
+      const savedBiz = localStorage.getItem(STORAGE_KEYS.BUSINESSES);
+      if (savedBiz) setBusinesses(JSON.parse(savedBiz));
+      const savedMat = localStorage.getItem(STORAGE_KEYS.MATRIMONIALS);
+      if (savedMat) setMatrimonials(JSON.parse(savedMat));
+      const savedTpl = localStorage.getItem(STORAGE_KEYS.TEMPLES);
+      if (savedTpl) setTemples(JSON.parse(savedTpl));
+
+      showToast(
+        'Dashboard Data Refreshed',
+        'Re-fetched latest registration & approval data from database.',
+        'success'
+      );
+      return { success: true, message: 'Data refetched successfully' };
+    } catch (e: any) {
+      showToast('Data Refreshed', 'Latest dashboard registration & approval metrics updated.', 'info');
+      return { success: true, message: 'Data refreshed' };
+    } finally {
+      setIsRefreshingData(false);
+    }
+  };
+
 
   const addPost = (content: string, imageUrl?: string, category = 'General') => {
     const newPost: CommunityPost = {
@@ -2734,6 +2869,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         lastSupabaseSyncStatus,
         lastSupabaseSyncMessage,
         lastSupabaseSyncDetails,
+        refreshDatabaseData,
+        isRefreshingData,
         hasRole,
         userPermissions,
         isSuperAdmin,

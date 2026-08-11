@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { NAV_TRANSLATIONS } from '../utils/translations';
 import { useTypingPlaceholder } from '../hooks/useTypingPlaceholder';
@@ -31,6 +31,8 @@ import {
   Volume2,
   Check,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Home,
   Compass,
   Mail,
@@ -154,6 +156,30 @@ export const Header: React.FC = () => {
     setActiveTab(tabId as any);
   };
 
+  const navScrollRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+
+  const checkNavScroll = () => {
+    if (navScrollRef.current) {
+      const { scrollLeft, scrollWidth, clientWidth } = navScrollRef.current;
+      setCanScrollLeft(scrollLeft > 5);
+      setCanScrollRight(scrollLeft + clientWidth < scrollWidth - 5);
+    }
+  };
+
+  const handleScrollLeft = () => {
+    if (navScrollRef.current) {
+      navScrollRef.current.scrollBy({ left: -220, behavior: 'smooth' });
+    }
+  };
+
+  const handleScrollRight = () => {
+    if (navScrollRef.current) {
+      navScrollRef.current.scrollBy({ left: 220, behavior: 'smooth' });
+    }
+  };
+
   const LANGUAGE_OPTIONS = [
     { code: 'English', label: 'English', native: 'English' },
     { code: 'Hindi', label: 'Hindi', native: 'हिन्दी' },
@@ -171,7 +197,7 @@ export const Header: React.FC = () => {
     { id: 'home', label: langTranslations.home || 'Home', shortLabel: langTranslations.home || 'Home', icon: Globe },
     { id: 'matrimonial', label: langTranslations.matrimonial || 'Matrimonial', shortLabel: 'Matrimonial', icon: Heart },
     { id: 'business', label: langTranslations.business || 'Business Directory', shortLabel: 'Business', icon: Building2 },
-    { id: 'directory', label: langTranslations.directory || 'Jain Directory', shortLabel: 'Jain Directory', icon: Users },
+    { id: 'directory', label: langTranslations.directory || 'Jain Directory', shortLabel: 'Directory', icon: Users },
     { id: 'temple', label: langTranslations.temple || 'Temple Directory', shortLabel: 'Temples', icon: MapPin },
     { id: 'panchang', label: langTranslations.panchang || 'Panchang & Quotes', shortLabel: 'Panchang', icon: Calendar },
     { id: 'feed', label: langTranslations.feed || 'Community Feed', shortLabel: 'Feed', icon: MessageSquare },
@@ -183,6 +209,12 @@ export const Header: React.FC = () => {
     : isBusinessOnlyUser
     ? navItems.filter((item) => item.id === 'business')
     : navItems;
+
+  useEffect(() => {
+    checkNavScroll();
+    window.addEventListener('resize', checkNavScroll);
+    return () => window.removeEventListener('resize', checkNavScroll);
+  }, [displayedNavItems]);
 
   const NAV_ITEM_THEMES: Record<string, { active: string; hover: string; iconActive: string; iconInactive: string }> = {
     home: {
@@ -643,9 +675,26 @@ export const Header: React.FC = () => {
         </div>
 
         {/* Navigation Tabs Bar - Visible on desktop, hidden on mobile as options are in mobile menu */}
-        <div className="hidden md:block bg-gradient-to-r from-amber-900 via-amber-800 to-amber-900 text-amber-50 border-t border-amber-500/30 shadow-md w-full">
-          <div className="max-w-7xl mx-auto px-1.5 lg:px-3 py-2 w-full">
-            <div className="flex items-center justify-between gap-1 lg:gap-1.5 xl:gap-2 flex-nowrap w-full overflow-x-auto no-scrollbar">
+        <div className="hidden md:block bg-gradient-to-r from-amber-900 via-amber-800 to-amber-900 text-amber-50 border-t border-amber-500/30 shadow-md w-full relative group">
+          <div className="max-w-7xl mx-auto px-2 lg:px-4 py-2 w-full relative flex items-center">
+            {/* Left Scroll Button Indicator */}
+            {canScrollLeft && (
+              <button
+                type="button"
+                onClick={handleScrollLeft}
+                className="absolute left-1.5 z-20 p-1.5 rounded-full bg-amber-950/90 text-amber-300 border border-amber-500/50 shadow-lg hover:bg-amber-800 hover:text-white transition-all cursor-pointer shrink-0"
+                title="Scroll Navigation Left"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+            )}
+
+            {/* Horizontal Scroll Nav Container */}
+            <div
+              ref={navScrollRef}
+              onScroll={checkNavScroll}
+              className="flex items-center justify-start 2xl:justify-between gap-1.5 lg:gap-2 flex-nowrap w-full overflow-x-auto no-scrollbar scroll-smooth pr-10 sm:pr-12 lg:pr-16"
+            >
               {displayedNavItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = activeTab === item.id;
@@ -653,16 +702,17 @@ export const Header: React.FC = () => {
                 return (
                   <button
                     key={item.id}
+                    type="button"
                     onClick={() => handleTabClick(item.id)}
-                    className={`flex items-center gap-1 lg:gap-1.5 px-2 py-1.5 lg:px-3 lg:py-1.5 text-[11px] lg:text-xs font-bold transition-all rounded-full whitespace-nowrap shrink-0 border cursor-pointer ${
+                    className={`flex items-center gap-1.5 px-2.5 py-1.5 lg:px-3 lg:py-1.5 text-[11px] lg:text-xs font-bold transition-all rounded-full whitespace-nowrap shrink-0 border cursor-pointer ${
                       isActive
                         ? theme.active
                         : `bg-slate-900/80 dark:bg-slate-950/80 text-slate-100 border-slate-700/60 ${theme.hover}`
                     }`}
                   >
                     <Icon className={`w-3.5 h-3.5 shrink-0 ${isActive ? theme.iconActive : theme.iconInactive}`} />
-                    <span className="hidden xl:inline">{item.label}</span>
-                    <span className="xl:hidden">{item.shortLabel || item.label}</span>
+                    <span className="hidden 2xl:inline">{item.label}</span>
+                    <span className="2xl:hidden">{item.shortLabel || item.label}</span>
                   </button>
                 );
               })}
@@ -670,8 +720,9 @@ export const Header: React.FC = () => {
               {/* Devotional Bhajans Button */}
               {!isMatrimonialOnlyUser && (
                 <button
+                  type="button"
                   onClick={() => setIsBhajanModalOpen(true)}
-                  className={`flex items-center gap-1 lg:gap-1.5 px-2 py-1.5 lg:px-3 lg:py-1.5 rounded-full text-[11px] lg:text-xs font-bold transition-all border shrink-0 whitespace-nowrap shadow-sm cursor-pointer ${
+                  className={`flex items-center gap-1.5 px-2.5 py-1.5 lg:px-3 lg:py-1.5 rounded-full text-[11px] lg:text-xs font-bold transition-all border shrink-0 whitespace-nowrap shadow-sm cursor-pointer ${
                     isPlayingSong
                       ? 'border-amber-400 bg-amber-900/90 text-amber-300 animate-pulse'
                       : 'border-amber-500/40 bg-amber-950/80 text-amber-200 hover:text-white hover:bg-amber-900'
@@ -679,8 +730,8 @@ export const Header: React.FC = () => {
                   title="Click to view & listen to Jain Devotional Bhajans & Songs"
                 >
                   <Music className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                  <span className="hidden xl:inline">Bhajans & Songs</span>
-                  <span className="xl:hidden">Bhajans</span>
+                  <span className="hidden 2xl:inline">Bhajans & Songs</span>
+                  <span className="2xl:hidden">Bhajans</span>
                   <span className="text-[9px] bg-amber-500/20 text-amber-300 font-extrabold px-1.5 py-0.2 rounded-full border border-amber-500/30">
                     {bhajans.filter((b) => b.isActive).length}
                   </span>
@@ -691,8 +742,9 @@ export const Header: React.FC = () => {
               {/* Admin Panel Tab highlight if Admin */}
               {(currentUser?.role === 'Super Admin' || currentUser?.role === 'Admin' || currentUser?.email === 'sandeepbachhawat1@gmail.com') && (
                 <button
+                  type="button"
                   onClick={() => setActiveTab('admin')}
-                  className={`flex items-center gap-1 lg:gap-1.5 px-2 py-1.5 lg:px-3 lg:py-1.5 text-[11px] lg:text-xs font-extrabold transition-all rounded-full whitespace-nowrap shrink-0 border cursor-pointer ${
+                  className={`flex items-center gap-1.5 px-2.5 py-1.5 lg:px-3 lg:py-1.5 text-[11px] lg:text-xs font-extrabold transition-all rounded-full whitespace-nowrap shrink-0 border cursor-pointer ${
                     activeTab === 'admin'
                       ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-md'
                       : 'border-amber-500/50 bg-amber-950/40 text-amber-400 hover:bg-amber-900/60'
@@ -703,7 +755,22 @@ export const Header: React.FC = () => {
                   <span>Admin</span>
                 </button>
               )}
+
+              {/* Trailing Spacer to guarantee full visibility and generous padding when scrolled right */}
+              <div className="w-8 shrink-0 min-w-[2rem]" />
             </div>
+
+            {/* Right Scroll Button Indicator */}
+            {canScrollRight && (
+              <button
+                type="button"
+                onClick={handleScrollRight}
+                className="absolute right-1.5 z-20 p-1.5 rounded-full bg-amber-950/90 text-amber-300 border border-amber-500/50 shadow-lg hover:bg-amber-800 hover:text-white transition-all cursor-pointer shrink-0"
+                title="Scroll Navigation Right"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            )}
           </div>
         </div>
 

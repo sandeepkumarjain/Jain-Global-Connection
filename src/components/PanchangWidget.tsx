@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { playNavkarMantraAudio, stopNavkarMantraAudio } from '../utils/navkarAudio';
 import { JainEventsCalendar } from './JainEventsCalendar';
 import { FeaturedAdsSection } from './FeaturedAdsSection';
 import { createGoogleCalendarEvent, getGoogleCalendarWebUrl } from '../lib/googleCalendar';
 import { getAccessToken, googleSignIn } from '../lib/googleAuth';
-import { JAIN_AGAM_QUOTES, getCityPachkanTimings, CityPachkanTiming, findNearestCity, getGPSCustomTiming } from '../utils/jainPanchang';
+import { JAIN_AGAM_QUOTES, getCityPachkanTimings, CityPachkanTiming, findNearestCity, getGPSCustomTiming, getDailyJainPanchang } from '../utils/jainPanchang';
 import {
   Calendar,
   Sun,
@@ -23,40 +23,102 @@ import {
   Compass,
   RefreshCw,
   CalendarPlus,
-  Flame
+  Flame,
+  ChevronLeft,
+  ChevronRight,
+  RotateCcw
 } from 'lucide-react';
 
 export const PanchangWidget: React.FC = () => {
-  const { panchang, showToast } = useApp();
+  const { panchang: defaultTodayPanchang, showToast } = useApp();
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [selectedCityKey, setSelectedCityKey] = useState<string>('Bikaner');
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const [copiedQuote, setCopiedQuote] = useState(false);
   const [isDetectingLoc, setIsDetectingLoc] = useState(false);
 
-  const [customGpsTiming, setCustomGpsTiming] = useState<CityPachkanTiming | null>(null);
+  const [gpsCoords, setGpsCoords] = useState<{ lat: number; lng: number } | null>(null);
 
-  // Auto-calculate daily index based on current date
-  const dayOfYear = Math.floor((new Date().getTime() - new Date(new Date().getFullYear(), 0, 0).getTime()) / (1000 * 60 * 60 * 24));
-  const defaultQuoteIdx = dayOfYear % JAIN_AGAM_QUOTES.length;
-  const [currentQuoteIndex, setCurrentQuoteIndex] = useState(defaultQuoteIdx);
-  const [isSyncingToday, setIsSyncingToday] = useState(false);
-  const [isTodaySynced, setIsTodaySynced] = useState(false);
+  // Helper date conversions for <input type="date">
+  const toInputDateStr = (d: Date): string => {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
 
-  const baseCityTimings = getCityPachkanTimings(new Date());
+  const parseInputDateStr = (str: string): Date => {
+    if (!str) return new Date();
+    const [y, m, d] = str.split('-').map(Number);
+    return new Date(y, m - 1, d);
+  };
+
+  const selectedDateStr = toInputDateStr(selectedDate);
+  const todayStr = toInputDateStr(new Date());
+
+  const isToday = selectedDateStr === todayStr;
+  const isFuture = selectedDateStr > todayStr;
+  const isPast = selectedDateStr < todayStr;
+
+  const handlePrevDay = () => {
+    const prev = new Date(selectedDate);
+    prev.setDate(prev.getDate() - 1);
+    setSelectedDate(prev);
+  };
+
+  const handleNextDay = () => {
+    const next = new Date(selectedDate);
+    next.setDate(next.getDate() + 1);
+    setSelectedDate(next);
+  };
+
+  const handleToday = () => {
+    setSelectedDate(new Date());
+  };
+
+  // Compute active Panchang for selected target date
+  const activePanchang = useMemo(() => {
+    if (isToday && defaultTodayPanchang) return defaultTodayPanchang;
+    return getDailyJainPanchang(selectedDate);
+  }, [selectedDate, isToday, defaultTodayPanchang]);
+
+  // Compute pachkan timings for selected target date & selected city
+  const baseCityTimings = useMemo(() => getCityPachkanTimings(selectedDate), [selectedDate]);
+
+  const customGpsTiming = useMemo(() => {
+    if (!gpsCoords) return null;
+    return getGPSCustomTiming(gpsCoords.lat, gpsCoords.lng, selectedDate);
+  }, [gpsCoords, selectedDate]);
+
   const cityTimingsMap: Record<string, CityPachkanTiming> = {
     ...baseCityTimings,
     ...(customGpsTiming ? { [customGpsTiming.city + ' (GPS Synced)']: customGpsTiming } : {})
   };
-  const activeTiming: CityPachkanTiming = cityTimingsMap[selectedCityKey] || customGpsTiming || baseCityTimings['Bikaner'];
+
+  const activeTiming: CityPachkanTiming =
+    cityTimingsMap[selectedCityKey] || customGpsTiming || baseCityTimings['Bikaner'] || Object.values(baseCityTimings)[0];
+
+  // Auto-calculate daily quote index based on selected date
+  const [currentQuoteIndex, setCurrentQuoteIndex] = useState(0);
+  const [isSyncingToday, setIsSyncingToday] = useState(false);
+  const [isTodaySynced, setIsTodaySynced] = useState(false);
+
+  useEffect(() => {
+    const startOfYear = new Date(selectedDate.getFullYear(), 0, 0);
+    const diff = selectedDate.getTime() - startOfYear.getTime();
+    const dayOfYear = Math.floor(diff / (1000 * 60 * 60 * 24));
+    setCurrentQuoteIndex(Math.abs(dayOfYear) % JAIN_AGAM_QUOTES.length);
+    setIsTodaySynced(false);
+  }, [selectedDate]);
+
   const activeQuote = JAIN_AGAM_QUOTES[currentQuoteIndex] || JAIN_AGAM_QUOTES[0];
 
-  const handleSyncTodayTithi = async () => {
+  const handleSyncTithi = async () => {
     let token = getAccessToken();
-    const todayStr = new Date().toISOString().split('T')[0];
     const eventPayload = {
-      title: `📿 Jain Tithi: ${panchang.tithi}`,
-      description: `📅 Masa: ${panchang.month}\n🌅 Sunrise (${activeTiming.city}): ${activeTiming.sunrise}\n🌇 Sunset: ${activeTiming.sunset}\n⏰ Navkarshi: ${activeTiming.navkarshi}\n⏰ Chouvihar: ${activeTiming.chouvihar}\n\nSaved via Jain Connect Global Panchang Widget`,
-      startDate: todayStr,
+      title: `📿 Jain Tithi (${activePanchang.date}): ${activePanchang.tithi}`,
+      description: `📅 Masa: ${activePanchang.month}\n🌅 Sunrise (${activeTiming.city}): ${activeTiming.sunrise}\n🌇 Sunset: ${activeTiming.sunset}\n⏰ Navkarshi: ${activeTiming.navkarshi}\n⏰ Chouvihar: ${activeTiming.chouvihar}\n\nSaved via Jain Connect Global Panchang Widget`,
+      startDate: selectedDateStr,
       location: `${activeTiming.city}, ${activeTiming.state}`,
     };
 
@@ -75,19 +137,19 @@ export const PanchangWidget: React.FC = () => {
         setIsTodaySynced(true);
         showToast(
           'Tithi Saved to Google Calendar!',
-          `Today's Tithi (${panchang.tithi}) and pachkan timings synced to your Google Calendar.`,
+          `Tithi (${activePanchang.tithi}) for ${activePanchang.date} synced to your Google Calendar.`,
           'success'
         );
       } else {
         const webUrl = getGoogleCalendarWebUrl(eventPayload);
         window.open(webUrl, '_blank');
-        showToast('Opening Google Calendar', 'Opened calendar link for today\'s Tithi.', 'info');
+        showToast('Opening Google Calendar', `Opened calendar link for ${activePanchang.date} Tithi.`, 'info');
       }
     } catch (err: any) {
       console.warn('Calendar API sync warning, using web fallback:', err);
       const webUrl = getGoogleCalendarWebUrl(eventPayload);
       window.open(webUrl, '_blank');
-      showToast('Calendar Sync', 'Opened Google Calendar link for today\'s Tithi.', 'info');
+      showToast('Calendar Sync', `Opened Google Calendar link for ${activePanchang.date} Tithi.`, 'info');
     } finally {
       setIsSyncingToday(false);
     }
@@ -103,7 +165,7 @@ export const PanchangWidget: React.FC = () => {
   const handleChangeQuote = () => {
     const nextIdx = (currentQuoteIndex + 1) % JAIN_AGAM_QUOTES.length;
     setCurrentQuoteIndex(nextIdx);
-    showToast('Daily Quote Changed', JAIN_AGAM_QUOTES[nextIdx].source, 'success');
+    showToast('Agam Quote Changed', JAIN_AGAM_QUOTES[nextIdx].source, 'success');
   };
 
   const handleCopyQuote = () => {
@@ -131,8 +193,8 @@ export const PanchangWidget: React.FC = () => {
     setIsDetectingLoc(true);
 
     const applyGpsPosition = (lat: number, lng: number, placeName?: string) => {
-      const customTiming = getGPSCustomTiming(lat, lng);
-      setCustomGpsTiming(customTiming);
+      setGpsCoords({ lat, lng });
+      const customTiming = getGPSCustomTiming(lat, lng, selectedDate);
       const nearest = findNearestCity(lat, lng);
       const keyName = customTiming.city + ' (GPS Synced)';
       setSelectedCityKey(keyName);
@@ -211,7 +273,7 @@ export const PanchangWidget: React.FC = () => {
                 {activeTiming.city}
               </span>
             </h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400">{panchang.date}</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400 font-semibold">{activePanchang.date}</p>
           </div>
         </div>
 
@@ -237,7 +299,7 @@ export const PanchangWidget: React.FC = () => {
           <button
             onClick={handleDetectLocation}
             disabled={isDetectingLoc}
-            className="px-3 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5"
+            className="px-3 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
             title="Use current GPS Location"
           >
             <Navigation className={`w-3.5 h-3.5 ${isDetectingLoc ? 'animate-spin' : ''}`} />
@@ -247,7 +309,7 @@ export const PanchangWidget: React.FC = () => {
           {/* Audio Player Button */}
           <button
             onClick={toggleNavkarMantra}
-            className={`px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 border shadow-sm ${
+            className={`px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 border shadow-sm cursor-pointer ${
               isPlayingAudio
                 ? 'bg-amber-500 text-amber-950 border-amber-400 animate-pulse'
                 : 'bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-700/60 hover:bg-amber-100'
@@ -257,16 +319,16 @@ export const PanchangWidget: React.FC = () => {
             <span className="hidden sm:inline">{isPlayingAudio ? 'Navkar Audio' : 'Play Navkar'}</span>
           </button>
 
-          {/* Sync Today's Tithi to Google Calendar Button */}
+          {/* Sync Tithi to Google Calendar Button */}
           <button
-            onClick={handleSyncTodayTithi}
+            onClick={handleSyncTithi}
             disabled={isSyncingToday}
-            className={`px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 border shadow-sm ${
+            className={`px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 border shadow-sm cursor-pointer ${
               isTodaySynced
                 ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border-emerald-300'
                 : 'bg-amber-600 hover:bg-amber-700 text-white border-amber-500'
             }`}
-            title="Sync Today's Jain Tithi & Pachkan Timings to your Google Calendar"
+            title="Sync Jain Tithi & Pachkan Timings to your Google Calendar"
           >
             <CalendarPlus className={`w-3.5 h-3.5 ${isSyncingToday ? 'animate-spin' : ''}`} />
             <span className="hidden sm:inline">{isTodaySynced ? 'Tithi Saved' : 'Sync Tithi'}</span>
@@ -274,16 +336,139 @@ export const PanchangWidget: React.FC = () => {
         </div>
       </div>
 
+      {/* Date Picker & Quick Date Navigation Controls Bar */}
+      <div className="bg-amber-50/80 dark:bg-amber-950/30 border-2 border-amber-300/80 dark:border-amber-800/80 rounded-2xl p-3.5 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-sm">
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+          {/* Day Navigation Controls & Date Selector */}
+          <div className="flex items-center bg-white dark:bg-slate-800 border border-amber-300 dark:border-amber-700/80 rounded-xl p-1 shadow-xs">
+            <button
+              type="button"
+              onClick={handlePrevDay}
+              className="p-1.5 hover:bg-amber-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg transition-colors cursor-pointer"
+              title="Previous Day Panchang"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+
+            <div className="flex items-center gap-1.5 px-2.5">
+              <Calendar className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+              <input
+                type="date"
+                value={selectedDateStr}
+                onChange={(e) => {
+                  if (e.target.value) {
+                    setSelectedDate(parseInputDateStr(e.target.value));
+                  }
+                }}
+                className="bg-transparent font-black text-slate-900 dark:text-white text-xs focus:outline-none cursor-pointer"
+              />
+            </div>
+
+            <button
+              type="button"
+              onClick={handleNextDay}
+              className="p-1.5 hover:bg-amber-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg transition-colors cursor-pointer"
+              title="Next Day Panchang"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* Quick Jump to Today */}
+          {!isToday && (
+            <button
+              type="button"
+              onClick={handleToday}
+              className="px-3 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-xs shrink-0 cursor-pointer"
+              title="Return to Today's Panchang"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>Jump to Today</span>
+            </button>
+          )}
+        </div>
+
+        {/* Quick Date Presets */}
+        <div className="flex items-center gap-1.5 text-xs font-bold w-full sm:w-auto justify-end">
+          <span className="text-[10px] uppercase text-slate-500 dark:text-slate-400 mr-1 hidden lg:inline">Presets:</span>
+          <button
+            type="button"
+            onClick={() => {
+              const d = new Date();
+              d.setDate(d.getDate() - 1);
+              setSelectedDate(d);
+            }}
+            className={`px-2.5 py-1 rounded-lg text-[11px] transition-all cursor-pointer ${
+              selectedDateStr === toInputDateStr(new Date(Date.now() - 86400000))
+                ? 'bg-amber-500 text-slate-950 font-black shadow-xs'
+                : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-amber-100 dark:hover:bg-slate-700'
+            }`}
+          >
+            Yesterday
+          </button>
+
+          <button
+            type="button"
+            onClick={handleToday}
+            className={`px-2.5 py-1 rounded-lg text-[11px] transition-all cursor-pointer ${
+              isToday
+                ? 'bg-amber-500 text-slate-950 font-black shadow-xs'
+                : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-amber-100 dark:hover:bg-slate-700'
+            }`}
+          >
+            Today
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              const d = new Date();
+              d.setDate(d.getDate() + 1);
+              setSelectedDate(d);
+            }}
+            className={`px-2.5 py-1 rounded-lg text-[11px] transition-all cursor-pointer ${
+              selectedDateStr === toInputDateStr(new Date(Date.now() + 86400000))
+                ? 'bg-amber-500 text-slate-950 font-black shadow-xs'
+                : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-amber-100 dark:hover:bg-slate-700'
+            }`}
+          >
+            Tomorrow
+          </button>
+        </div>
+      </div>
+
+      {/* Notice Banner for Non-Today Dates */}
+      {!isToday && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-4 py-2.5 bg-amber-100/90 dark:bg-amber-950/70 border border-amber-300 dark:border-amber-800 rounded-xl text-xs font-bold text-amber-900 dark:text-amber-200 shadow-xs">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-amber-500 shrink-0" />
+            <span>
+              {isFuture ? '📅 Future Date Panchang Lookup: ' : '📜 Past Date Panchang Lookup: '}
+              <strong className="underline decoration-amber-400 font-extrabold">{activePanchang.date}</strong> ({activePanchang.tithi})
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={handleToday}
+            className="underline hover:text-amber-600 font-black cursor-pointer text-[11px] shrink-0"
+          >
+            Reset to Today
+          </button>
+        </div>
+      )}
+
       {/* Main Tithi & Solar Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
         <div className="p-3.5 rounded-xl bg-gradient-to-br from-amber-50 to-amber-100/50 dark:from-amber-950/40 dark:to-slate-900 border border-amber-200 dark:border-amber-900/40">
-          <p className="text-[10px] font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wider">Today's Tithi</p>
-          <p className="text-xs font-black text-slate-900 dark:text-amber-100 mt-1 font-serif">{panchang.tithi}</p>
+          <p className="text-[10px] font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wider">
+            {isToday ? "Today's Tithi" : 'Selected Date Tithi'}
+          </p>
+          <p className="text-xs font-black text-slate-900 dark:text-amber-100 mt-1 font-serif">{activePanchang.tithi}</p>
         </div>
 
         <div className="p-3.5 rounded-xl bg-gradient-to-br from-amber-50 to-amber-100/50 dark:from-amber-950/40 dark:to-slate-900 border border-amber-200 dark:border-amber-900/40">
           <p className="text-[10px] font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wider">Masa / Month</p>
-          <p className="text-xs font-black text-slate-900 dark:text-amber-100 mt-1 font-serif">{panchang.month}</p>
+          <p className="text-xs font-black text-slate-900 dark:text-amber-100 mt-1 font-serif">{activePanchang.month}</p>
         </div>
 
         <div className="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 flex items-center gap-3">
@@ -316,10 +501,10 @@ export const PanchangWidget: React.FC = () => {
         <div className="flex items-center justify-between">
           <h3 className="text-xs font-bold text-amber-900 dark:text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
             <Flame className="w-4 h-4 text-amber-500" />
-            Daily Pachkan Timings ({activeTiming.city}, {activeTiming.state})
+            Pachkan Timings ({activeTiming.city}, {activeTiming.state})
           </h3>
           <span className="text-[10px] bg-amber-200 dark:bg-amber-900 text-amber-900 dark:text-amber-100 font-bold px-2 py-0.5 rounded-full">
-            Auto-Updated Daily
+            {isToday ? 'Live Date' : activePanchang.date}
           </span>
         </div>
 
@@ -355,10 +540,10 @@ export const PanchangWidget: React.FC = () => {
       <div>
         <h3 className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider mb-3 flex items-center gap-1.5">
           <Clock className="w-3.5 h-3.5 text-amber-500" />
-          Today's Day Choghadiya Schedule ({activeTiming.city})
+          Day Choghadiya Schedule ({activeTiming.city} • {activePanchang.date})
         </h3>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-          {panchang.choghadiyaDay.map((c, idx) => {
+          {activePanchang.choghadiyaDay.map((c, idx) => {
             const isGood = c.type === 'Auspicious';
             return (
               <div
@@ -418,7 +603,7 @@ export const PanchangWidget: React.FC = () => {
           <div className="flex items-center gap-2 shrink-0">
             <button
               onClick={handleChangeQuote}
-              className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-white font-bold text-xs flex items-center gap-1.5 shadow-md transition-all active:scale-95"
+              className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-white font-bold text-xs flex items-center gap-1.5 shadow-md transition-all active:scale-95 cursor-pointer"
               title="Click to change and read next Agam quote"
             >
               <RefreshCw className="w-3.5 h-3.5" />
@@ -427,7 +612,7 @@ export const PanchangWidget: React.FC = () => {
 
             <button
               onClick={handleCopyQuote}
-              className="p-2.5 rounded-xl bg-white dark:bg-slate-800 border border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-200 hover:bg-amber-100 dark:hover:bg-amber-950 transition-colors shadow-sm"
+              className="p-2.5 rounded-xl bg-white dark:bg-slate-800 border border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-200 hover:bg-amber-100 dark:hover:bg-amber-950 transition-colors shadow-sm cursor-pointer"
               title="Copy Quote"
             >
               {copiedQuote ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
@@ -436,7 +621,7 @@ export const PanchangWidget: React.FC = () => {
         </div>
       </div>
 
-      {/* Featured Business Advertisements & Promotions (Placed directly below Daily Jain Agam) */}
+      {/* Featured Business Advertisements & Promotions */}
       <FeaturedAdsSection />
 
       {/* Interactive Jain Events Calendar with Event Filters & Tithi Fasting Guidance */}
@@ -446,3 +631,4 @@ export const PanchangWidget: React.FC = () => {
     </div>
   );
 };
+

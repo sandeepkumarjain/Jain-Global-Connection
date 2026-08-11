@@ -130,7 +130,8 @@ export const BusinessSection: React.FC = () => {
     updateBusinessListing,
     endorseBusiness,
     isLoadingData,
-    initiateCall
+    initiateCall,
+    systemSettings
   } = useApp();
 
   // Community Endorsement Modal State
@@ -587,11 +588,11 @@ END:VCARD`;
         <div className="relative z-10 max-w-3xl space-y-3">
           <div className="inline-flex items-center gap-2 px-3 py-1 bg-amber-500/20 border border-amber-500/40 rounded-full text-amber-300 text-xs font-bold uppercase tracking-wider">
             <Building2 className="w-3.5 h-3.5 text-amber-400" />
-            <span>Jain Business Directory & Global Trade Network</span>
+            <span>{systemSettings.businessSubtitle || 'Jain Business Directory & Global Trade Network'}</span>
           </div>
 
           <h2 className="text-2xl sm:text-3xl font-extrabold font-serif text-white">
-            Promote & Discover Verified Jain Businesses Worldwide
+            {systemSettings.businessHeading || 'Promote & Discover Verified Jain Businesses Worldwide'}
           </h2>
 
           <p className="text-xs sm:text-sm text-slate-300">

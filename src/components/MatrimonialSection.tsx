@@ -43,7 +43,8 @@ export const MatrimonialSection: React.FC = () => {
     matrimonialMessages,
     sendMatrimonialMessage,
     isLoadingData,
-    initiateCall
+    initiateCall,
+    systemSettings
   } = useApp();
 
   const [genderFilter, setGenderFilter] = useState<'All' | 'Bride' | 'Groom'>('All');
@@ -411,11 +412,11 @@ export const MatrimonialSection: React.FC = () => {
         <div className="relative z-10 space-y-3 max-w-3xl">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[11px] font-bold rounded-full">
             <Heart className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-            <span>Sacred Jain Matrimonial Directory</span>
+            <span>{systemSettings.matrimonialSubtitle || 'Sacred Jain Matrimonial Directory'}</span>
           </div>
 
           <h2 className="text-2xl sm:text-3xl font-extrabold font-serif text-white">
-            Connecting Suitable Jain Brides & Grooms Worldwide
+            {systemSettings.matrimonialHeading || 'Connecting Suitable Jain Brides & Grooms Worldwide'}
           </h2>
 
           <p className="text-xs sm:text-sm text-slate-300">

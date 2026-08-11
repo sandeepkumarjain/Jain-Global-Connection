@@ -36,7 +36,8 @@ export const DirectorySection: React.FC = () => {
     currentUser,
     initiateCall,
     sendProfileViewAlert,
-    sendConnectionRequestAlert
+    sendConnectionRequestAlert,
+    systemSettings
   } = useApp();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedBadgeFilter, setSelectedBadgeFilter] = useState<string>('All');
@@ -234,11 +235,11 @@ export const DirectorySection: React.FC = () => {
         <div className="relative z-10 max-w-3xl space-y-3">
           <div className="inline-flex items-center gap-2 px-3 py-1 bg-amber-500/20 border border-amber-500/40 rounded-full text-amber-300 text-xs font-bold uppercase tracking-wider">
             <Users className="w-3.5 h-3.5 text-amber-400" />
-            <span>Jain Community Members Directory</span>
+            <span>{systemSettings.directorySubtitle || 'Jain Community Members Directory'}</span>
           </div>
 
           <h2 className="text-2xl sm:text-3xl font-extrabold font-serif text-white">
-            Connecting Every Jain Family & Member Worldwide
+            {systemSettings.directoryHeading || 'Connecting Every Jain Family & Member Worldwide'}
           </h2>
 
           <p className="text-xs sm:text-sm text-slate-300">
