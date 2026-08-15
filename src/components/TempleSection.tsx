@@ -30,6 +30,8 @@ import { TempleMapView } from './TempleMapView';
 import { TempleSkeleton } from './Skeletons';
 import { Virtual3DTourModal } from './Virtual3DTourModal';
 import { VirtualTourButton } from './VirtualTourButton';
+import { HolySiteVirtualTourCarouselModal } from './HolySiteVirtualTourCarouselModal';
+import { HOLY_SITE_VIRTUAL_TOUR_SLIDES } from '../data/templeImages';
 
 export const TempleSection: React.FC = () => {
   const { temples, openRegistrationModal, showToast, isLoadingData, systemSettings } = useApp();
@@ -42,6 +44,21 @@ export const TempleSection: React.FC = () => {
   const [showLiveDarshan, setShowLiveDarshan] = useState(false);
   const [showDonationModal, setShowDonationModal] = useState(false);
   const [donationAmount, setDonationAmount] = useState('1100');
+  const [showVirtualTourCarousel, setShowVirtualTourCarousel] = useState(false);
+  const [carouselSlideIndex, setCarouselSlideIndex] = useState(0);
+
+  // Helper to open virtual tour carousel
+  const handleOpenHolySiteTour = (temple?: TempleListing) => {
+    if (temple) {
+      const foundIdx = HOLY_SITE_VIRTUAL_TOUR_SLIDES.findIndex(
+        (s) => s.templeId === temple.id || s.title.toLowerCase().includes(temple.templeName.toLowerCase())
+      );
+      setCarouselSlideIndex(foundIdx >= 0 ? foundIdx : 0);
+    } else {
+      setCarouselSlideIndex(0);
+    }
+    setShowVirtualTourCarousel(true);
+  };
 
   // AI Semantic Search State
   const [isAiSearching, setIsAiSearching] = useState(false);
@@ -168,12 +185,20 @@ export const TempleSection: React.FC = () => {
             Palitana, Shikharji, Ranakpur, Pawapuri, Girnar, and hundreds of city Jain Mandirs with Aarti schedules, lodging, and Google Maps directions.
           </p>
 
-          <div className="pt-2">
+          <div className="pt-2 flex flex-wrap items-center gap-3">
+            <button
+              onClick={() => handleOpenHolySiteTour()}
+              className="px-5 py-3 min-h-[44px] bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 hover:from-amber-500 hover:to-amber-700 text-slate-950 font-black text-xs rounded-xl shadow-xl hover:shadow-amber-500/25 transition-all flex items-center justify-center gap-2 cursor-pointer border border-amber-200"
+            >
+              <Compass className="w-4 h-4 text-slate-950 animate-spin-slow" />
+              <span>🌟 Virtual Tour of Holy Tirths (HD Carousel)</span>
+            </button>
+
             <button
               onClick={() => openRegistrationModal('temple')}
-              className="px-5 py-3 min-h-[44px] bg-gradient-to-r from-amber-500 to-amber-700 text-amber-950 font-bold text-xs rounded-xl shadow-lg hover:from-amber-600 hover:to-amber-800 transition-all flex items-center justify-center gap-2"
+              className="px-5 py-3 min-h-[44px] bg-slate-900/80 hover:bg-slate-800 text-amber-300 border border-amber-500/40 font-bold text-xs rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer"
             >
-              <Plus className="w-4 h-4" />
+              <Plus className="w-4 h-4 text-amber-400" />
               <span>Register Your Local Temple</span>
             </button>
           </div>
@@ -425,19 +450,24 @@ export const TempleSection: React.FC = () => {
               >
             <div>
               {/* Image Banner */}
-              <div className="relative h-48 overflow-hidden bg-slate-950">
+              <div 
+                className="relative h-48 overflow-hidden bg-slate-950 cursor-pointer group"
+                onClick={() => handleOpenHolySiteTour(t)}
+                title="Click to launch HD Virtual Tour of this Holy Site"
+              >
                 <img
                   src={t.images[0]}
                   alt={t.templeName}
+                  referrerPolicy="no-referrer"
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/20 to-transparent" />
                 
                 {/* 3D Virtual Tour Badge Overlay */}
-                <div className="absolute top-3 right-3 z-10">
+                <div className="absolute top-3 right-3 z-10" onClick={(e) => e.stopPropagation()}>
                   <VirtualTourButton
                     temple={t}
-                    onOpenTour={(temp) => setSelected360Temple(temp)}
+                    onOpenTour={(temp) => handleOpenHolySiteTour(temp)}
                     showToast={showToast}
                     size="sm"
                   />
@@ -648,6 +678,26 @@ export const TempleSection: React.FC = () => {
         <Virtual3DTourModal
           temple={selected360Temple}
           onClose={() => setSelected360Temple(null)}
+          showToast={showToast}
+        />
+      )}
+
+      {/* Holy Sites Virtual Tour Carousel Modal */}
+      {showVirtualTourCarousel && (
+        <HolySiteVirtualTourCarouselModal
+          isOpen={showVirtualTourCarousel}
+          onClose={() => setShowVirtualTourCarousel(false)}
+          initialSlideIndex={carouselSlideIndex}
+          temples={temples}
+          onOpen360Tour={(temp) => {
+            setShowVirtualTourCarousel(false);
+            setSelected360Temple(temp);
+          }}
+          onOpenDonation={(temp) => {
+            setShowVirtualTourCarousel(false);
+            setSelectedTemple(temp);
+            setShowDonationModal(true);
+          }}
           showToast={showToast}
         />
       )}

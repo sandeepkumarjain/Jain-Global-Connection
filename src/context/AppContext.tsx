@@ -22,8 +22,18 @@ import {
   MatrimonialMessage,
   MatrimonialSuccessStory,
   EndorsementCategory,
-  Endorsement
+  Endorsement,
+  DashboardWidgetConfig,
+  DashboardWidgetId
 } from '../types';
+import {
+  loadUserDashboardWidgets,
+  saveUserDashboardWidgets,
+  DEFAULT_DASHBOARD_WIDGETS,
+  togglePinWidgetHelper,
+  toggleVisibilityHelper,
+  reorderWidgets
+} from '../utils/dashboardWidgets';
 import {
   INITIAL_SYSTEM_SETTINGS,
   INITIAL_USERS,
@@ -233,6 +243,16 @@ interface AppContextType {
   isSuperAdmin: boolean;
   isAdmin: boolean;
   isVerifiedBusiness: boolean;
+
+  // Personalized Dashboard Widget Customization
+  dashboardWidgets: DashboardWidgetConfig[];
+  updateDashboardWidgets: (widgets: DashboardWidgetConfig[]) => void;
+  resetDashboardLayout: () => void;
+  togglePinWidget: (id: DashboardWidgetId) => void;
+  toggleWidgetVisibility: (id: DashboardWidgetId) => void;
+  reorderDashboardWidgets: (sourceIndex: number, destIndex: number) => void;
+  isDashboardCustomizerOpen: boolean;
+  setIsDashboardCustomizerOpen: (open: boolean) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -479,6 +499,71 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setPhoneCallTarget({ phone: cleanDigits, recipientName });
       setIsPhoneModalOpen(true);
     }
+  };
+
+  // Dashboard Widget Customization State
+  const [isDashboardCustomizerOpen, setIsDashboardCustomizerOpen] = useState(false);
+  const [dashboardWidgets, setDashboardWidgets] = useState<DashboardWidgetConfig[]>(() =>
+    loadUserDashboardWidgets(currentUser?.id)
+  );
+
+  useEffect(() => {
+    setDashboardWidgets(loadUserDashboardWidgets(currentUser?.id));
+  }, [currentUser?.id]);
+
+  const updateDashboardWidgets = (newWidgets: DashboardWidgetConfig[]) => {
+    setDashboardWidgets(newWidgets);
+    if (currentUser?.id) {
+      saveUserDashboardWidgets(currentUser.id, newWidgets);
+    } else {
+      saveUserDashboardWidgets('guest', newWidgets);
+    }
+  };
+
+  const resetDashboardLayout = () => {
+    const resetWidgets = [...DEFAULT_DASHBOARD_WIDGETS];
+    setDashboardWidgets(resetWidgets);
+    if (currentUser?.id) {
+      saveUserDashboardWidgets(currentUser.id, resetWidgets);
+    } else {
+      saveUserDashboardWidgets('guest', resetWidgets);
+    }
+  };
+
+  const togglePinWidget = (id: DashboardWidgetId) => {
+    setDashboardWidgets((prev) => {
+      const updated = togglePinWidgetHelper(prev, id);
+      if (currentUser?.id) {
+        saveUserDashboardWidgets(currentUser.id, updated);
+      } else {
+        saveUserDashboardWidgets('guest', updated);
+      }
+      return updated;
+    });
+  };
+
+  const toggleWidgetVisibility = (id: DashboardWidgetId) => {
+    setDashboardWidgets((prev) => {
+      const updated = toggleVisibilityHelper(prev, id);
+      if (currentUser?.id) {
+        saveUserDashboardWidgets(currentUser.id, updated);
+      } else {
+        saveUserDashboardWidgets('guest', updated);
+      }
+      return updated;
+    });
+  };
+
+  const reorderDashboardWidgets = (sourceIndex: number, destIndex: number) => {
+    setDashboardWidgets((prev) => {
+      const updated = reorderWidgets(prev, sourceIndex, destIndex);
+      if (currentUser?.id) {
+        saveUserDashboardWidgets(currentUser.id, updated);
+      } else {
+        saveUserDashboardWidgets('guest', updated);
+      }
+      return updated;
+    });
   };
 
   // Sync to localStorage
@@ -2878,6 +2963,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         isVerifiedBusiness,
         endorseBusiness,
         initiateCall,
+        dashboardWidgets,
+        updateDashboardWidgets,
+        resetDashboardLayout,
+        togglePinWidget,
+        toggleWidgetVisibility,
+        reorderDashboardWidgets,
+        isDashboardCustomizerOpen,
+        setIsDashboardCustomizerOpen,
       }}
     >
       {children}

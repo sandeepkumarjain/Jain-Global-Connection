@@ -484,3 +484,34 @@ export interface MatrimonialMessage {
   read?: boolean;
 }
 
+export type DashboardWidgetId =
+  | 'panchang'
+  | 'audio_player'
+  | 'community_feed'
+  | 'daily_wisdom'
+  | 'sangh_highlights'
+  | 'matrimonial_matches'
+  | 'business_directory'
+  | 'temple_directory'
+  | 'vivah_stories';
+
+export interface DashboardWidgetConfig {
+  id: DashboardWidgetId;
+  title: string;
+  subtitle: string;
+  description: string;
+  category: 'Spiritual' | 'Media' | 'Community' | 'Directory';
+  icon: string;
+  isPinned: boolean;
+  isVisible: boolean;
+  order: number;
+  badgeText?: string;
+  badgeColor?: string;
+}
+
+export interface UserDashboardPreferences {
+  userId: string;
+  widgets: DashboardWidgetConfig[];
+  updatedAt: string;
+}
+

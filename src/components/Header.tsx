@@ -36,7 +36,9 @@ import {
   Home,
   Compass,
   Mail,
-  QrCode
+  QrCode,
+  SlidersHorizontal,
+  LayoutGrid
 } from 'lucide-react';
 
 export const Header: React.FC = () => {
@@ -74,6 +76,7 @@ export const Header: React.FC = () => {
     currentSong,
     isPlayingSong,
     togglePlaySong,
+    setIsDashboardCustomizerOpen,
   } = useApp();
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -615,6 +618,19 @@ export const Header: React.FC = () => {
                       >
                         <UserCheck className="w-4 h-4 text-amber-600 shrink-0" />
                         <span>My Profile & Blood Donor Settings</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveTab('home');
+                          setIsDashboardCustomizerOpen(true);
+                          setIsUserMenuOpen(false);
+                        }}
+                        className="w-full text-left px-3 py-2 hover:bg-amber-50 dark:hover:bg-slate-800 text-amber-700 dark:text-amber-300 font-bold flex items-center gap-2 cursor-pointer"
+                      >
+                        <SlidersHorizontal className="w-4 h-4 text-amber-600 shrink-0" />
+                        <span>Customize Home Dashboard</span>
                       </button>
 
                       <button

@@ -1,4 +1,5 @@
 import { getDailyJainPanchang } from '../utils/jainPanchang';
+import { GENERATED_TEMPLE_IMAGES } from './templeImages';
 import {
   User,
   MatrimonialProfile,
@@ -588,8 +589,9 @@ export const INITIAL_TEMPLES: TempleListing[] = [
     sect: 'Swetambar Murtipujak',
     mainDeity: 'Lord Adinath (Rishabhdev Bhagwan)',
     images: [
+      GENERATED_TEMPLE_IMAGES.palitana,
+      GENERATED_TEMPLE_IMAGES.sanctum,
       'https://images.unsplash.com/photo-1548013146-72479768bada?auto=format&fit=crop&w=1200&q=80',
-      'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80',
     ],
     history: 'Shatrunjaya Hill in Palitana is considered the holiest of all Jain pilgrimage places (Tirthraj). It features over 863 marble temples carved exquisitely across the hill peak.',
     timings: '5:30 AM - 7:00 PM (No night stay permitted on hill)',
@@ -624,8 +626,9 @@ export const INITIAL_TEMPLES: TempleListing[] = [
     sect: 'Swetambar Murtipujak',
     mainDeity: 'Lord Adinath (Chaumukha Mandir)',
     images: [
+      GENERATED_TEMPLE_IMAGES.ranakpur,
+      GENERATED_TEMPLE_IMAGES.palitana,
       'https://images.unsplash.com/photo-1564507592333-c60657eea523?auto=format&fit=crop&w=1200&q=80',
-      'https://images.unsplash.com/photo-1590059208106-96a84c8a2efd?auto=format&fit=crop&w=800&q=80',
     ],
     history: 'Built in the 15th century during the reign of Rana Kumbha, renowned worldwide for its 1,444 uniquely carved marble pillars, where no two pillars are identical.',
     timings: '6:00 AM - 7:00 PM',
@@ -654,6 +657,8 @@ export const INITIAL_TEMPLES: TempleListing[] = [
     sect: 'Swetambar & Digambar',
     mainDeity: 'Lord Parshvanath & 20 Tirthankaras',
     images: [
+      GENERATED_TEMPLE_IMAGES.shikharji,
+      GENERATED_TEMPLE_IMAGES.sanctum,
       'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1200&q=80',
     ],
     history: 'Sammed Shikharji is the supreme holy land where 20 out of 24 Jain Tirthankaras attained Nirvana (salvation). The 27-km parikrama is revered across all Jain sects.',
@@ -683,6 +688,8 @@ export const INITIAL_TEMPLES: TempleListing[] = [
     sect: 'Swetambar & Digambar',
     mainDeity: 'Lord Mahavira Nirvana Sthal',
     images: [
+      GENERATED_TEMPLE_IMAGES.pawapuri,
+      GENERATED_TEMPLE_IMAGES.palitana,
       'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=1200&q=80',
     ],
     history: 'Holy land where Bhagwan Mahavira attained Nirvana in 527 BCE. The majestic white marble temple stands in the center of a lotus lake filled with red lotus flowers.',
@@ -712,6 +719,8 @@ export const INITIAL_TEMPLES: TempleListing[] = [
     sect: 'Swetambar Murtipujak',
     mainDeity: 'Lord Parshvanath Bhagwan',
     images: [
+      GENERATED_TEMPLE_IMAGES.sanctum,
+      GENERATED_TEMPLE_IMAGES.ranakpur,
       'https://images.unsplash.com/photo-1548013146-72479768bada?auto=format&fit=crop&w=1200&q=80',
     ],
     history: 'Famous Jain temple in Malabar Hill, South Mumbai built in 1905, celebrated for its intricate carvings, painted marble ceilings, and serene spiritual environment.',
@@ -740,6 +749,8 @@ export const INITIAL_TEMPLES: TempleListing[] = [
     sect: 'Digambar',
     mainDeity: 'Lord Parshvanath',
     images: [
+      GENERATED_TEMPLE_IMAGES.sanctum,
+      GENERATED_TEMPLE_IMAGES.shikharji,
       'https://images.unsplash.com/photo-1564507592333-c60657eea523?auto=format&fit=crop&w=1200&q=80',
     ],
     history: 'Oldest Digambar Jain temple in Delhi, built in 1656 during Shah Jahan’s reign, located right opposite the historic Red Fort in Chandni Chowk.',
@@ -759,6 +770,7 @@ export const INITIAL_TEMPLES: TempleListing[] = [
     trustContactPerson: 'Shri Digambar Jain Temple Managing Committee',
     trustPhone: '+91 11 2327 1234',
     donationUpi: 'lalmandir.delhi@upi',
+    is360Available: true,
     isVerified: true,
     rating: 4.9,
   },
@@ -768,6 +780,8 @@ export const INITIAL_TEMPLES: TempleListing[] = [
     sect: 'Swetambar Murtipujak',
     mainDeity: 'Lord Dharmanath (15th Tirthankara)',
     images: [
+      GENERATED_TEMPLE_IMAGES.ranakpur,
+      GENERATED_TEMPLE_IMAGES.palitana,
       'https://images.unsplash.com/photo-1590059208106-96a84c8a2efd?auto=format&fit=crop&w=1200&q=80',
     ],
     history: 'Constructed in 1848 by Seth Hutheesing Kesarisinh, built with white marble featuring 52 shrines dedicated to various Tirthankaras and a unique Manastambha.',
@@ -787,6 +801,7 @@ export const INITIAL_TEMPLES: TempleListing[] = [
     trustContactPerson: 'Seth Hutheesing Trust',
     trustPhone: '+91 79 2218 0000',
     donationUpi: 'hutheesing.trust@upi',
+    is360Available: true,
     isVerified: true,
     rating: 4.8,
   },
@@ -796,6 +811,8 @@ export const INITIAL_TEMPLES: TempleListing[] = [
     sect: 'Digambar',
     mainDeity: 'Lord Adinath (4000-year old idol)',
     images: [
+      GENERATED_TEMPLE_IMAGES.shikharji,
+      GENERATED_TEMPLE_IMAGES.sanctum,
       'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1200&q=80',
     ],
     history: 'Famous ancient Digambar Jain temple in Sanganer near Jaipur, known for its seven-storey underground shrine guarded by Yakshas and miraculous architectural beauty.',
@@ -815,6 +832,7 @@ export const INITIAL_TEMPLES: TempleListing[] = [
     trustContactPerson: 'Sanghiji Digambar Jain Trust',
     trustPhone: '+91 141 273 1111',
     donationUpi: 'sanghiji.jaipur@upi',
+    is360Available: true,
     isVerified: true,
     rating: 4.9,
   },
@@ -824,6 +842,8 @@ export const INITIAL_TEMPLES: TempleListing[] = [
     sect: 'Digambar',
     mainDeity: 'Lord Bahubali (57 ft Monolithic Statue)',
     images: [
+      GENERATED_TEMPLE_IMAGES.pawapuri,
+      GENERATED_TEMPLE_IMAGES.shikharji,
       'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=1200&q=80',
     ],
     history: 'World-famous 57-foot monolithic statue of Lord Bahubali carved out of a single granite rock on Vindhyagiri Hill in 981 CE. Host to the legendary Mahamastakabhisheka.',
@@ -843,6 +863,7 @@ export const INITIAL_TEMPLES: TempleListing[] = [
     trustContactPerson: 'S D J M Managing Committee',
     trustPhone: '+91 8176 257226',
     donationUpi: 'shravanabelagola.trust@upi',
+    is360Available: true,
     isVerified: true,
     rating: 5.0,
   }

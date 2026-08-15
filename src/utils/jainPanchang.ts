@@ -229,19 +229,94 @@ export interface BaseCityInfo {
 }
 
 export const BASE_CITIES: BaseCityInfo[] = [
-  { name: 'Bikaner', state: 'Rajasthan', lat: 28.0229, lng: 73.3119, srMin: 364, ssMin: 1160 },
-  { name: 'Mumbai', state: 'Maharashtra', lat: 19.0760, lng: 72.8777, srMin: 378, ssMin: 1151 },
-  { name: 'Ahmedabad', state: 'Gujarat', lat: 23.0225, lng: 72.5714, srMin: 375, ssMin: 1157 },
-  { name: 'Jaipur', state: 'Rajasthan', lat: 26.9124, lng: 75.7873, srMin: 354, ssMin: 1152 },
-  { name: 'Delhi', state: 'NCR', lat: 28.6139, lng: 77.2090, srMin: 347, ssMin: 1148 },
-  { name: 'Surat', state: 'Gujarat', lat: 21.1702, lng: 72.8311, srMin: 376, ssMin: 1154 },
-  { name: 'Kolkata', state: 'West Bengal', lat: 22.5726, lng: 88.3639, srMin: 312, ssMin: 1090 },
-  { name: 'Indore', state: 'Madhya Pradesh', lat: 22.7196, lng: 75.8577, srMin: 362, ssMin: 1148 },
-  { name: 'Bangalore', state: 'Karnataka', lat: 12.9716, lng: 77.5946, srMin: 366, ssMin: 1128 },
+  // Tamil Nadu
+  { name: 'Madurai', state: 'Tamil Nadu', lat: 9.9252, lng: 78.1198, srMin: 367, ssMin: 1115 },
   { name: 'Chennai', state: 'Tamil Nadu', lat: 13.0827, lng: 80.2707, srMin: 356, ssMin: 1118 },
+  { name: 'Coimbatore', state: 'Tamil Nadu', lat: 11.0168, lng: 76.9558, srMin: 369, ssMin: 1121 },
+  { name: 'Tiruchirappalli', state: 'Tamil Nadu', lat: 10.7905, lng: 78.7047, srMin: 364, ssMin: 1116 },
+  { name: 'Salem', state: 'Tamil Nadu', lat: 11.6643, lng: 78.1460, srMin: 363, ssMin: 1118 },
+  { name: 'Tiruppur', state: 'Tamil Nadu', lat: 11.1085, lng: 77.3411, srMin: 368, ssMin: 1120 },
+  { name: 'Erode', state: 'Tamil Nadu', lat: 11.3410, lng: 77.7172, srMin: 366, ssMin: 1119 },
+  { name: 'Vellore', state: 'Tamil Nadu', lat: 12.9165, lng: 79.1325, srMin: 358, ssMin: 1119 },
+
+  // Karnataka
+  { name: 'Bangalore', state: 'Karnataka', lat: 12.9716, lng: 77.5946, srMin: 366, ssMin: 1128 },
+  { name: 'Mysore', state: 'Karnataka', lat: 12.2958, lng: 76.6394, srMin: 370, ssMin: 1128 },
+  { name: 'Mangalore', state: 'Karnataka', lat: 12.9141, lng: 74.8560, srMin: 376, ssMin: 1133 },
+  { name: 'Hubli-Dharwad', state: 'Karnataka', lat: 15.3647, lng: 75.1240, srMin: 372, ssMin: 1137 },
+  { name: 'Belgaum', state: 'Karnataka', lat: 15.8497, lng: 74.4977, srMin: 374, ssMin: 1140 },
+  { name: 'Shravanabelagola', state: 'Karnataka', lat: 12.8584, lng: 76.4856, srMin: 369, ssMin: 1129 },
+
+  // Rajasthan
+  { name: 'Bikaner', state: 'Rajasthan', lat: 28.0229, lng: 73.3119, srMin: 364, ssMin: 1160 },
+  { name: 'Jaipur', state: 'Rajasthan', lat: 26.9124, lng: 75.7873, srMin: 354, ssMin: 1152 },
+  { name: 'Jodhpur', state: 'Rajasthan', lat: 26.2389, lng: 73.0243, srMin: 362, ssMin: 1159 },
   { name: 'Udaipur', state: 'Rajasthan', lat: 24.5854, lng: 73.7125, srMin: 363, ssMin: 1156 },
+  { name: 'Kota', state: 'Rajasthan', lat: 25.2138, lng: 75.8648, srMin: 356, ssMin: 1149 },
+  { name: 'Ajmer', state: 'Rajasthan', lat: 26.4499, lng: 74.6399, srMin: 357, ssMin: 1155 },
+  { name: 'Bhilwara', state: 'Rajasthan', lat: 25.3463, lng: 74.6364, srMin: 359, ssMin: 1154 },
+  { name: 'Pali', state: 'Rajasthan', lat: 25.7781, lng: 73.3311, srMin: 362, ssMin: 1158 },
+  { name: 'Sumerpur', state: 'Rajasthan', lat: 25.1524, lng: 73.0847, srMin: 364, ssMin: 1158 },
+  { name: 'Mount Abu', state: 'Rajasthan', lat: 24.5926, lng: 72.7156, srMin: 366, ssMin: 1159 },
+  { name: 'Ranakpur', state: 'Rajasthan', lat: 25.1167, lng: 73.4736, srMin: 362, ssMin: 1157 },
+  { name: 'Nakoda (Balotra)', state: 'Rajasthan', lat: 25.8344, lng: 72.2427, srMin: 365, ssMin: 1162 },
+  { name: 'Osian', state: 'Rajasthan', lat: 26.7262, lng: 72.9097, srMin: 361, ssMin: 1160 },
+
+  // Maharashtra
+  { name: 'Mumbai', state: 'Maharashtra', lat: 19.0760, lng: 72.8777, srMin: 378, ssMin: 1151 },
   { name: 'Pune', state: 'Maharashtra', lat: 18.5204, lng: 73.8567, srMin: 376, ssMin: 1147 },
+  { name: 'Nagpur', state: 'Maharashtra', lat: 21.1458, lng: 79.0882, srMin: 352, ssMin: 1133 },
+  { name: 'Nashik', state: 'Maharashtra', lat: 19.9975, lng: 73.7898, srMin: 374, ssMin: 1149 },
+  { name: 'Chhatrapati Sambhajinagar', state: 'Maharashtra', lat: 19.8762, lng: 75.3433, srMin: 368, ssMin: 1144 },
+  { name: 'Kolhapur', state: 'Maharashtra', lat: 16.7050, lng: 74.2433, srMin: 377, ssMin: 1143 },
+  { name: 'Solapur', state: 'Maharashtra', lat: 17.6599, lng: 75.9064, srMin: 369, ssMin: 1139 },
+
+  // Gujarat
+  { name: 'Ahmedabad', state: 'Gujarat', lat: 23.0225, lng: 72.5714, srMin: 375, ssMin: 1157 },
+  { name: 'Surat', state: 'Gujarat', lat: 21.1702, lng: 72.8311, srMin: 376, ssMin: 1154 },
+  { name: 'Vadodara', state: 'Gujarat', lat: 22.3072, lng: 73.1812, srMin: 373, ssMin: 1155 },
+  { name: 'Rajkot', state: 'Gujarat', lat: 22.3039, lng: 70.8022, srMin: 381, ssMin: 1162 },
+  { name: 'Bhavnagar', state: 'Gujarat', lat: 21.7645, lng: 72.1519, srMin: 377, ssMin: 1158 },
+  { name: 'Jamnagar', state: 'Gujarat', lat: 22.4707, lng: 70.0577, srMin: 383, ssMin: 1164 },
+  { name: 'Palitana', state: 'Gujarat', lat: 21.5236, lng: 71.8285, srMin: 378, ssMin: 1159 },
+  { name: 'Shankheshwar', state: 'Gujarat', lat: 23.5134, lng: 71.8026, srMin: 376, ssMin: 1159 },
+  { name: 'Junagadh (Girnar)', state: 'Gujarat', lat: 21.5222, lng: 70.4579, srMin: 382, ssMin: 1163 },
+
+  // Madhya Pradesh
+  { name: 'Indore', state: 'Madhya Pradesh', lat: 22.7196, lng: 75.8577, srMin: 362, ssMin: 1148 },
+  { name: 'Bhopal', state: 'Madhya Pradesh', lat: 23.2599, lng: 77.4126, srMin: 356, ssMin: 1142 },
+  { name: 'Ujjain', state: 'Madhya Pradesh', lat: 23.1765, lng: 75.7885, srMin: 361, ssMin: 1147 },
+  { name: 'Gwalior', state: 'Madhya Pradesh', lat: 26.2183, lng: 78.1828, srMin: 348, ssMin: 1144 },
+  { name: 'Jabalpur', state: 'Madhya Pradesh', lat: 23.1815, lng: 79.9864, srMin: 347, ssMin: 1133 },
+
+  // Delhi NCR & North
+  { name: 'Delhi', state: 'NCR', lat: 28.6139, lng: 77.2090, srMin: 347, ssMin: 1148 },
+  { name: 'Noida', state: 'Uttar Pradesh', lat: 28.5355, lng: 77.3910, srMin: 346, ssMin: 1148 },
+  { name: 'Gurgaon', state: 'Haryana', lat: 28.4595, lng: 77.0266, srMin: 348, ssMin: 1149 },
+  { name: 'Chandigarh', state: 'Punjab / Haryana', lat: 30.7333, lng: 76.7794, srMin: 345, ssMin: 1152 },
+  { name: 'Ludhiana', state: 'Punjab', lat: 30.9010, lng: 75.8573, srMin: 348, ssMin: 1155 },
+  { name: 'Amritsar', state: 'Punjab', lat: 31.6340, lng: 74.8723, srMin: 351, ssMin: 1158 },
+  { name: 'Lucknow', state: 'Uttar Pradesh', lat: 26.8467, lng: 80.9462, srMin: 337, ssMin: 1134 },
+  { name: 'Kanpur', state: 'Uttar Pradesh', lat: 26.4499, lng: 80.3319, srMin: 339, ssMin: 1136 },
+  { name: 'Varanasi', state: 'Uttar Pradesh', lat: 25.3176, lng: 82.9739, srMin: 330, ssMin: 1125 },
+  { name: 'Agra', state: 'Uttar Pradesh', lat: 27.1767, lng: 78.0081, srMin: 347, ssMin: 1146 },
+  { name: 'Hastinapur (Meerut)', state: 'Uttar Pradesh', lat: 28.9845, lng: 77.7064, srMin: 345, ssMin: 1147 },
+
+  // East & Central
+  { name: 'Kolkata', state: 'West Bengal', lat: 22.5726, lng: 88.3639, srMin: 312, ssMin: 1090 },
+  { name: 'Siliguri', state: 'West Bengal', lat: 26.7271, lng: 88.3953, srMin: 308, ssMin: 1094 },
+  { name: 'Patna', state: 'Bihar', lat: 25.5941, lng: 85.1376, srMin: 323, ssMin: 1115 },
+  { name: 'Shikharji (Parasnath)', state: 'Jharkhand', lat: 23.9625, lng: 86.1360, srMin: 319, ssMin: 1105 },
+  { name: 'Ranchi', state: 'Jharkhand', lat: 23.3441, lng: 85.3096, srMin: 323, ssMin: 1109 },
+  { name: 'Raipur', state: 'Chhattisgarh', lat: 21.2514, lng: 81.6296, srMin: 343, ssMin: 1125 },
+  { name: 'Guwahati', state: 'Assam', lat: 26.1445, lng: 91.7362, srMin: 295, ssMin: 1081 },
+
+  // South & Others
   { name: 'Hyderabad', state: 'Telangana', lat: 17.3850, lng: 78.4867, srMin: 356, ssMin: 1128 },
+  { name: 'Vijayawada', state: 'Andhra Pradesh', lat: 16.5062, lng: 80.6480, srMin: 349, ssMin: 1121 },
+  { name: 'Visakhapatnam', state: 'Andhra Pradesh', lat: 17.6868, lng: 83.2185, srMin: 338, ssMin: 1111 },
+  { name: 'Kochi', state: 'Kerala', lat: 9.9312, lng: 76.2673, srMin: 373, ssMin: 1123 },
+  { name: 'Thiruvananthapuram', state: 'Kerala', lat: 8.5241, lng: 76.9366, srMin: 372, ssMin: 1120 },
 ];
 
 /**
@@ -302,8 +377,17 @@ export function getCityPachkanTimings(date: Date = new Date()): Record<string, C
 /**
  * Generates exact Pachkan timing for user's GPS coordinates
  */
-export function getGPSCustomTiming(lat: number, lng: number, date: Date = new Date()): CityPachkanTiming {
+export function getGPSCustomTiming(
+  lat: number,
+  lng: number,
+  date: Date = new Date(),
+  customCityName?: string,
+  customStateName?: string
+): CityPachkanTiming {
   const nearest = findNearestCity(lat, lng);
+  const cityName = customCityName || nearest.name;
+  const stateName = customStateName || nearest.state;
+
   const { sunriseMin, sunsetMin } = calculateSolarSunriseSunset(lat, lng, date);
 
   const sunriseStr = formatMinutesToTime(sunriseMin);
@@ -316,8 +400,8 @@ export function getGPSCustomTiming(lat: number, lng: number, date: Date = new Da
   const chouviharStr = formatMinutesToTime(sunsetMin - 20);
 
   return {
-    city: nearest.name,
-    state: `${nearest.state} (GPS: ${lat.toFixed(2)}°, ${lng.toFixed(2)}°)`,
+    city: cityName,
+    state: `${stateName} (GPS: ${lat.toFixed(2)}°, ${lng.toFixed(2)}°)`,
     sunrise: sunriseStr,
     sunset: sunsetStr,
     navkarshi: `${navkarshiStr} (+48m)`,

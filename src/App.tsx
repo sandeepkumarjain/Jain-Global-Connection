@@ -32,6 +32,8 @@ import { GlobalSanghHighlights } from './components/GlobalSanghHighlights';
 import { JainPrinciplesSection } from './components/JainPrinciplesSection';
 import { VivahSuccessStoriesSection } from './components/VivahSuccessStoriesSection';
 import { ScrollReveal } from './components/ScrollReveal';
+import { CustomizableHomeDashboard } from './components/CustomizableHomeDashboard';
+import { DashboardCustomizerModal } from './components/DashboardCustomizerModal';
 import {
   CheckCircle2,
   AlertCircle,
@@ -118,6 +120,8 @@ const MainContent: React.FC = () => {
     gmailModalData,
     isCentralNotifOpen,
     setIsCentralNotifOpen,
+    isDashboardCustomizerOpen,
+    setIsDashboardCustomizerOpen,
     systemSettings
   } = useApp();
 
@@ -178,24 +182,23 @@ const MainContent: React.FC = () => {
             {/* Hero Banner Carousel */}
             <HeroBanner />
 
-            {/* Daily Jain Panchang & Tithi Summary with Agam & Promotions */}
-            <ScrollReveal>
-              <PanchangWidget />
-            </ScrollReveal>
-
-            {/* Global Sangh Hub & Quick Directory Explorer */}
-            <ScrollReveal>
-              <GlobalSanghHighlights />
-            </ScrollReveal>
-
-            {/* Daily Jain Wisdom Scriptures & Quotes Carousel */}
-            <ScrollReveal>
-              <DailyJainWisdom />
-            </ScrollReveal>
-
             {/* GUEST VISITORS HOME VIEW (LOGGED OUT) */}
             {!currentUser ? (
               <div className="space-y-12">
+                {/* Daily Jain Panchang & Tithi Summary with Agam & Promotions */}
+                <ScrollReveal>
+                  <PanchangWidget />
+                </ScrollReveal>
+
+                {/* Global Sangh Hub & Quick Directory Explorer */}
+                <ScrollReveal>
+                  <GlobalSanghHighlights />
+                </ScrollReveal>
+
+                {/* Daily Jain Wisdom Scriptures & Quotes Carousel */}
+                <ScrollReveal>
+                  <DailyJainWisdom />
+                </ScrollReveal>
                 
                 {/* Website Overview Banner */}
                 <motion.div
@@ -448,68 +451,8 @@ const MainContent: React.FC = () => {
                 </div>
               </div>
             ) : (
-              /* AUTHENTICATED LOGGED-IN HOME VIEW */
-              <div className="space-y-10">
-                {/* Matrimonial Preview Section */}
-                <section className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Heart className="w-5 h-5 text-red-500 fill-red-500" />
-                      <h2 className="text-xl font-bold font-serif text-slate-900 dark:text-white">
-                        Featured Jain Matrimonial Matches
-                      </h2>
-                    </div>
-                    <button
-                      onClick={() => setActiveTab('matrimonial')}
-                      className="text-xs font-bold text-amber-600 dark:text-amber-400 hover:underline"
-                    >
-                      View All Profiles →
-                    </button>
-                  </div>
-                  <MatrimonialSection />
-                </section>
-
-                {/* Vivah Success Stories & Marriage Feedback Section */}
-                <VivahSuccessStoriesSection />
-
-                {/* Business Directory Section */}
-                <section className="space-y-4 pt-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Building2 className="w-5 h-5 text-amber-500" />
-                      <h2 className="text-xl font-bold font-serif text-slate-900 dark:text-white">
-                        Verified Jain Businesses & Trade Directory
-                      </h2>
-                    </div>
-                    <button
-                      onClick={() => setActiveTab('business')}
-                      className="text-xs font-bold text-amber-600 dark:text-amber-400 hover:underline"
-                    >
-                      Explore Directory →
-                    </button>
-                  </div>
-                  <BusinessSection />
-                </section>
-
-                {/* Temple Directory Section */}
-                <section className="space-y-4 pt-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <MapPin className="w-5 h-5 text-emerald-500" />
-                      <h2 className="text-xl font-bold font-serif text-slate-900 dark:text-white">
-                        Holy Jain Temples, Tirths & Live Darshan
-                      </h2>
-                    </div>
-                    <button
-                      onClick={() => setActiveTab('temple')}
-                      className="text-xs font-bold text-amber-600 dark:text-amber-400 hover:underline"
-                    >
-                      Browse All Temples →
-                    </button>
-                  </div>
-                  <TempleSection />
-                </section>
-              </div>
+              /* AUTHENTICATED LOGGED-IN CUSTOMIZABLE DASHBOARD */
+              <CustomizableHomeDashboard />
             )}
           </div>
         )}
@@ -609,6 +552,10 @@ const MainContent: React.FC = () => {
       <CentralNotificationCenterModal
         isOpen={isCentralNotifOpen}
         onClose={() => setIsCentralNotifOpen(false)}
+      />
+      <DashboardCustomizerModal
+        isOpen={isDashboardCustomizerOpen}
+        onClose={() => setIsDashboardCustomizerOpen(false)}
       />
       <AudioPlayer />
 

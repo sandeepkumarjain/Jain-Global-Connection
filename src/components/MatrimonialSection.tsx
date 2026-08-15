@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { useApp } from '../context/AppContext';
 import { VerifiedBadge } from './VerifiedBadge';
 import {
@@ -770,16 +771,26 @@ export const MatrimonialSection: React.FC = () => {
         <MatrimonialSkeleton />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {filtered.map((p) => {
-          const hasInterest = currentUser && p.interestsReceived?.includes(currentUser.id);
-          const unlocked = isContactUnlocked(p);
-          const isShortlisted = shortlistedIds.includes(p.id);
+          <AnimatePresence mode="popLayout">
+            {filtered.map((p, index) => {
+            const hasInterest = currentUser && p.interestsReceived?.includes(currentUser.id);
+            const unlocked = isContactUnlocked(p);
+            const isShortlisted = shortlistedIds.includes(p.id);
 
-          return (
-            <div
-              key={p.id}
-              className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-lg hover:border-amber-500/50 transition-all flex flex-col justify-between"
-            >
+            return (
+              <motion.div
+                key={p.id}
+                initial={{ opacity: 0, y: 16, scale: 0.985 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.97 }}
+                transition={{
+                  duration: 0.35,
+                  delay: Math.min(index * 0.04, 0.28),
+                  ease: [0.22, 1, 0.36, 1],
+                }}
+                whileHover={{ y: -3, transition: { duration: 0.2 } }}
+                className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-lg hover:border-amber-500/50 hover:shadow-xl transition-all flex flex-col justify-between"
+              >
               <div className="p-5 space-y-4">
                 {/* Candidate Header Info */}
                 <div className="flex items-start justify-between gap-3">
@@ -972,9 +983,10 @@ export const MatrimonialSection: React.FC = () => {
                   <span>{hasInterest ? 'Interest Sent' : 'Express Interest'}</span>
                 </button>
               </div>
-            </div>
+            </motion.div>
           );
         })}
+        </AnimatePresence>
         </div>
       )}
 

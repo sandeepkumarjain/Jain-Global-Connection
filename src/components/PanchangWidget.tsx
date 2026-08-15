@@ -3,6 +3,7 @@ import { useApp } from '../context/AppContext';
 import { playNavkarMantraAudio, stopNavkarMantraAudio } from '../utils/navkarAudio';
 import { JainEventsCalendar } from './JainEventsCalendar';
 import { FeaturedAdsSection } from './FeaturedAdsSection';
+import { LocationPermissionModal } from './LocationPermissionModal';
 import { createGoogleCalendarEvent, getGoogleCalendarWebUrl } from '../lib/googleCalendar';
 import { getAccessToken, googleSignIn } from '../lib/googleAuth';
 import { JAIN_AGAM_QUOTES, getCityPachkanTimings, CityPachkanTiming, findNearestCity, getGPSCustomTiming, getDailyJainPanchang } from '../utils/jainPanchang';
@@ -26,18 +27,48 @@ import {
   Flame,
   ChevronLeft,
   ChevronRight,
-  RotateCcw
+  RotateCcw,
+  HelpCircle,
+  ShieldCheck,
+  AlertCircle
 } from 'lucide-react';
 
 export const PanchangWidget: React.FC = () => {
   const { panchang: defaultTodayPanchang, showToast } = useApp();
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [selectedCityKey, setSelectedCityKey] = useState<string>('Bikaner');
+  const [selectedCityKey, setSelectedCityKey] = useState<string>(() => {
+    try {
+      return localStorage.getItem('jcg_panchang_city') || 'Madurai';
+    } catch {
+      return 'Madurai';
+    }
+  });
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const [copiedQuote, setCopiedQuote] = useState(false);
   const [isDetectingLoc, setIsDetectingLoc] = useState(false);
+  const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
+  const [isPermissionDenied, setIsPermissionDenied] = useState(false);
+  const [isBannerDismissed, setIsBannerDismissed] = useState(() => {
+    try {
+      return localStorage.getItem('jcg_dismiss_loc_banner') === 'true';
+    } catch {
+      return false;
+    }
+  });
 
-  const [gpsCoords, setGpsCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [gpsCoords, setGpsCoords] = useState<{
+    lat: number;
+    lng: number;
+    detectedCity?: string;
+    detectedState?: string;
+  } | null>(() => {
+    try {
+      const saved = localStorage.getItem('jcg_panchang_gps');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
 
   // Helper date conversions for <input type="date">
   const toInputDateStr = (d: Date): string => {
@@ -87,16 +118,24 @@ export const PanchangWidget: React.FC = () => {
 
   const customGpsTiming = useMemo(() => {
     if (!gpsCoords) return null;
-    return getGPSCustomTiming(gpsCoords.lat, gpsCoords.lng, selectedDate);
+    return getGPSCustomTiming(
+      gpsCoords.lat,
+      gpsCoords.lng,
+      selectedDate,
+      gpsCoords.detectedCity,
+      gpsCoords.detectedState
+    );
   }, [gpsCoords, selectedDate]);
 
-  const cityTimingsMap: Record<string, CityPachkanTiming> = {
-    ...baseCityTimings,
-    ...(customGpsTiming ? { [customGpsTiming.city + ' (GPS Synced)']: customGpsTiming } : {})
-  };
+  const cityTimingsMap: Record<string, CityPachkanTiming> = useMemo(() => {
+    return {
+      ...(customGpsTiming ? { [customGpsTiming.city + ' (GPS Synced)']: customGpsTiming } : {}),
+      ...baseCityTimings
+    };
+  }, [baseCityTimings, customGpsTiming]);
 
   const activeTiming: CityPachkanTiming =
-    cityTimingsMap[selectedCityKey] || customGpsTiming || baseCityTimings['Bikaner'] || Object.values(baseCityTimings)[0];
+    cityTimingsMap[selectedCityKey] || customGpsTiming || baseCityTimings['Madurai'] || baseCityTimings['Bikaner'] || Object.values(baseCityTimings)[0];
 
   // Auto-calculate daily quote index based on selected date
   const [currentQuoteIndex, setCurrentQuoteIndex] = useState(0);
@@ -192,17 +231,56 @@ export const PanchangWidget: React.FC = () => {
   const handleDetectLocation = async () => {
     setIsDetectingLoc(true);
 
-    const applyGpsPosition = (lat: number, lng: number, placeName?: string) => {
-      setGpsCoords({ lat, lng });
-      const customTiming = getGPSCustomTiming(lat, lng, selectedDate);
+    const applyGpsPosition = async (lat: number, lng: number, fallbackCity?: string, fallbackState?: string) => {
+      let resolvedCity = fallbackCity;
+      let resolvedState = fallbackState;
+
+      // 1. Try high-precision client reverse-geocoding
+      if (!resolvedCity) {
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 2600);
+          const geoRes = await fetch(
+            `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=en`,
+            { signal: controller.signal }
+          );
+          clearTimeout(timeoutId);
+          if (geoRes.ok) {
+            const geoData = await geoRes.json();
+            const detected = geoData.city || geoData.locality || geoData.principalSubdivision;
+            if (detected) {
+              resolvedCity = detected;
+              resolvedState = geoData.principalSubdivision || geoData.countryName;
+            }
+          }
+        } catch {
+          // Fallback to nearest city lookup
+        }
+      }
+
+      // 2. Exact astronomical solar match against nearest center if not resolved
       const nearest = findNearestCity(lat, lng);
-      const keyName = customTiming.city + ' (GPS Synced)';
+      const finalCity = resolvedCity || nearest.name;
+      const finalState = resolvedState || nearest.state;
+
+      const newGpsData = { lat, lng, detectedCity: finalCity, detectedState: finalState };
+      setGpsCoords(newGpsData);
+
+      const customTiming = getGPSCustomTiming(lat, lng, selectedDate, finalCity, finalState);
+      const keyName = finalCity + ' (GPS Synced)';
       setSelectedCityKey(keyName);
       setIsDetectingLoc(false);
 
+      try {
+        localStorage.setItem('jcg_panchang_city', keyName);
+        localStorage.setItem('jcg_panchang_gps', JSON.stringify(newGpsData));
+      } catch {
+        // storage ignored
+      }
+
       showToast(
         'GPS Location Synced!',
-        `Coordinates (${lat.toFixed(2)}°, ${lng.toFixed(2)}°). Matched region: ${placeName || nearest.name}, ${nearest.state}. Sunrise: ${customTiming.sunrise}, Sunset: ${customTiming.sunset}.`,
+        `Synced to ${finalCity}, ${finalState} (${lat.toFixed(2)}°, ${lng.toFixed(2)}°). Sunrise: ${customTiming.sunrise}, Sunset: ${customTiming.sunset}.`,
         'success'
       );
     };
@@ -213,11 +291,11 @@ export const PanchangWidget: React.FC = () => {
         if (res.ok) {
           const data = await res.json();
           if (data && typeof data.latitude === 'number' && typeof data.longitude === 'number') {
-            applyGpsPosition(data.latitude, data.longitude, data.city);
+            await applyGpsPosition(data.latitude, data.longitude, data.city, data.region);
             return true;
           }
         }
-      } catch (e) {
+      } catch {
         // IP geolocation fallback error ignored
       }
       return false;
@@ -226,35 +304,62 @@ export const PanchangWidget: React.FC = () => {
     if ('geolocation' in navigator) {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
+          setIsPermissionDenied(false);
           applyGpsPosition(pos.coords.latitude, pos.coords.longitude);
         },
         async (err) => {
           console.warn('Browser geolocation denied/timed out, trying network IP fallback...', err);
+          if (err.code === err.PERMISSION_DENIED) {
+            setIsPermissionDenied(true);
+          }
           const fallbackSuccess = await tryIpFallback();
           if (!fallbackSuccess) {
             setIsDetectingLoc(false);
-            let reason = 'Defaulted to Bikaner Pachkan timings.';
+            let reason = 'Defaulted to Madurai Pachkan timings.';
             if (err.code === err.PERMISSION_DENIED) {
-              reason = 'Browser location permission denied. Defaulted to Bikaner.';
+              reason = 'Browser location permission was denied. Tap "Why Location?" to learn more or unblock.';
             } else if (err.code === err.TIMEOUT) {
-              reason = 'Location detection timed out. Defaulted to Bikaner.';
+              reason = 'Location detection timed out. Defaulted to Madurai.';
             }
-            showToast('GPS Location Warning', reason, 'info');
+            showToast('GPS Location Notice', reason, 'info');
           }
         },
         {
-          enableHighAccuracy: false, // Fast network/cell/IP positioning
-          timeout: 8000,
-          maximumAge: 300000
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0 // force prompt check
         }
       );
     } else {
       const fallbackSuccess = await tryIpFallback();
       if (!fallbackSuccess) {
         setIsDetectingLoc(false);
-        showToast('Location Error', 'Geolocation is not supported by your browser.', 'error');
+        showToast('Location Notice', 'Geolocation is not supported by your browser.', 'error');
       }
     }
+  };
+
+  const handleModalLocationSuccess = (lat: number, lng: number, cityName: string, stateName: string) => {
+    setIsPermissionDenied(false);
+    const newGpsData = { lat, lng, detectedCity: cityName, detectedState: stateName };
+    setGpsCoords(newGpsData);
+
+    const customTiming = getGPSCustomTiming(lat, lng, selectedDate, cityName, stateName);
+    const keyName = cityName + ' (GPS Synced)';
+    setSelectedCityKey(keyName);
+
+    try {
+      localStorage.setItem('jcg_panchang_city', keyName);
+      localStorage.setItem('jcg_panchang_gps', JSON.stringify(newGpsData));
+    } catch {
+      // storage ignored
+    }
+
+    showToast(
+      'Location Updated!',
+      `Timings calculated for ${cityName}, ${stateName}. Sunrise: ${customTiming.sunrise}, Sunset: ${customTiming.sunset}.`,
+      'success'
+    );
   };
 
   return (
@@ -284,27 +389,45 @@ export const PanchangWidget: React.FC = () => {
             <MapPin className="w-3.5 h-3.5 text-amber-500 ml-1" />
             <select
               value={selectedCityKey}
-              onChange={(e) => setSelectedCityKey(e.target.value)}
-              className="bg-transparent font-bold text-slate-800 dark:text-slate-200 focus:outline-none text-xs cursor-pointer"
+              onChange={(e) => {
+                const val = e.target.value;
+                setSelectedCityKey(val);
+                try {
+                  localStorage.setItem('jcg_panchang_city', val);
+                } catch {
+                  // ignored
+                }
+              }}
+              className="bg-transparent font-bold text-slate-800 dark:text-slate-200 focus:outline-none text-xs cursor-pointer max-w-[180px] sm:max-w-xs truncate"
             >
               {Object.keys(cityTimingsMap).map((c) => (
                 <option key={c} value={c} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">
-                  {c} ({cityTimingsMap[c].state})
+                  {c.includes('(GPS Synced)') ? `📍 ${c}` : c} ({cityTimingsMap[c].state})
                 </option>
               ))}
             </select>
           </div>
 
-          {/* GPS Auto Detect */}
-          <button
-            onClick={handleDetectLocation}
-            disabled={isDetectingLoc}
-            className="px-3 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
-            title="Use current GPS Location"
-          >
-            <Navigation className={`w-3.5 h-3.5 ${isDetectingLoc ? 'animate-spin' : ''}`} />
-            <span className="hidden sm:inline">GPS Sync</span>
-          </button>
+          {/* GPS Auto Detect & Help */}
+          <div className="flex items-center gap-1">
+            <button
+              onClick={handleDetectLocation}
+              disabled={isDetectingLoc}
+              className="px-3 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
+              title="Use current GPS Location"
+            >
+              <Navigation className={`w-3.5 h-3.5 ${isDetectingLoc ? 'animate-spin' : ''}`} />
+              <span className="hidden sm:inline">GPS Sync</span>
+            </button>
+
+            <button
+              onClick={() => setIsLocationModalOpen(true)}
+              className="p-2 bg-amber-100 hover:bg-amber-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-amber-900 dark:text-amber-300 rounded-xl text-xs font-bold transition-all cursor-pointer"
+              title="Why is location needed? / Unblock guide"
+            >
+              <HelpCircle className="w-3.5 h-3.5" />
+            </button>
+          </div>
 
           {/* Audio Player Button */}
           <button
@@ -335,6 +458,83 @@ export const PanchangWidget: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {/* Friendly Location Access Notification Banner */}
+      {(!isBannerDismissed || isPermissionDenied) && (
+        <div
+          className={`p-4 rounded-2xl border transition-all flex flex-col md:flex-row items-start md:items-center justify-between gap-3 text-xs ${
+            isPermissionDenied
+              ? 'bg-amber-500/10 border-amber-500/30 text-amber-950 dark:text-amber-200'
+              : 'bg-amber-50/70 dark:bg-amber-950/20 border-amber-200 dark:border-amber-900/50 text-slate-700 dark:text-slate-300'
+          }`}
+        >
+          <div className="flex items-start gap-3">
+            <div
+              className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${
+                isPermissionDenied
+                  ? 'bg-amber-500 text-slate-950'
+                  : 'bg-amber-100 dark:bg-amber-900/60 text-amber-700 dark:text-amber-300'
+              }`}
+            >
+              {isPermissionDenied ? <AlertCircle className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
+            </div>
+            <div className="space-y-0.5">
+              <div className="flex items-center gap-2">
+                <strong className="font-bold text-slate-900 dark:text-white text-xs">
+                  {isPermissionDenied
+                    ? 'Location Access Blocked in Browser'
+                    : 'Why Location Access is Used in Panchang'}
+                </strong>
+                {gpsCoords && (
+                  <span className="text-[10px] bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 font-bold px-2 py-0.2 rounded-full">
+                    GPS Active
+                  </span>
+                )}
+              </div>
+              <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed max-w-2xl">
+                {isPermissionDenied
+                  ? 'In Jain tradition, daily Pachkan (Navkarshi, Chauvihar) strictly depends on local Surya Uday and Ast. If you blocked access, click below to trigger the browser prompt or follow the unblock steps.'
+                  : 'Pachkan fast timings (Navkarshi, Chauvihar, etc.) are computed mathematically from exact astronomical Sunrise and Sunset at your location. Your coordinates stay private on your device.'}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 w-full md:w-auto shrink-0 pt-2 md:pt-0 justify-end">
+            <button
+              onClick={handleDetectLocation}
+              disabled={isDetectingLoc}
+              className="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-600 active:scale-95 text-slate-950 font-black rounded-xl text-xs flex items-center gap-1.5 shadow-xs transition-all cursor-pointer"
+            >
+              <RotateCcw className={`w-3.5 h-3.5 ${isDetectingLoc ? 'animate-spin' : ''}`} />
+              <span>{isDetectingLoc ? 'Prompting...' : isPermissionDenied ? 'Retry Location Prompt' : 'Sync My Location'}</span>
+            </button>
+
+            <button
+              onClick={() => setIsLocationModalOpen(true)}
+              className="px-3 py-1.5 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-bold transition-all cursor-pointer"
+            >
+              {isPermissionDenied ? 'Unblock Guide' : 'Learn More'}
+            </button>
+
+            {!isPermissionDenied && (
+              <button
+                onClick={() => {
+                  setIsBannerDismissed(true);
+                  try {
+                    localStorage.setItem('jcg_dismiss_loc_banner', 'true');
+                  } catch {
+                    // ignored
+                  }
+                }}
+                className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors cursor-pointer"
+                title="Dismiss banner"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Date Picker & Quick Date Navigation Controls Bar */}
       <div className="bg-amber-50/80 dark:bg-amber-950/30 border-2 border-amber-300/80 dark:border-amber-800/80 rounded-2xl p-3.5 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-sm">
@@ -628,6 +828,15 @@ export const PanchangWidget: React.FC = () => {
       <div className="pt-4 border-t border-amber-200/50 dark:border-slate-800">
         <JainEventsCalendar />
       </div>
+
+      {/* Location Permission & Unblock Guidance Modal */}
+      <LocationPermissionModal
+        isOpen={isLocationModalOpen}
+        onClose={() => setIsLocationModalOpen(false)}
+        onLocationSuccess={handleModalLocationSuccess}
+        currentCityName={activeTiming.city}
+        isGpsSynced={Boolean(gpsCoords || selectedCityKey.includes('(GPS Synced)'))}
+      />
     </div>
   );
 };
