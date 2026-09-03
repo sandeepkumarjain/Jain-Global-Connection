@@ -25,6 +25,7 @@ import { BhajanLibraryModal } from './components/BhajanLibraryModal';
 import { GmailCenterModal } from './components/GmailCenterModal';
 import { CentralNotificationCenterModal } from './components/CentralNotificationCenterModal';
 import { ReadingProgressBar } from './components/ReadingProgressBar';
+import { DailyTithiNotificationToast } from './components/DailyTithiNotificationToast';
 import { AudioPlayer } from './components/AudioPlayer';
 import { LoginRequiredView } from './components/LoginRequiredView';
 import { DailyJainWisdom } from './components/DailyJainWisdom';
@@ -34,6 +35,9 @@ import { VivahSuccessStoriesSection } from './components/VivahSuccessStoriesSect
 import { ScrollReveal } from './components/ScrollReveal';
 import { CustomizableHomeDashboard } from './components/CustomizableHomeDashboard';
 import { DashboardCustomizerModal } from './components/DashboardCustomizerModal';
+import { SitemapModal } from './components/SitemapModal';
+import { PolicyModal } from './components/PolicyModal';
+import { PrayerReminderEngine } from './components/PrayerReminderEngine';
 import {
   CheckCircle2,
   AlertCircle,
@@ -122,8 +126,14 @@ const MainContent: React.FC = () => {
     setIsCentralNotifOpen,
     isDashboardCustomizerOpen,
     setIsDashboardCustomizerOpen,
+    isDailyTithiAlertOpen,
+    setIsDailyTithiAlertOpen,
+    isSitemapOpen,
+    setIsSitemapOpen,
     systemSettings
   } = useApp();
+
+  const [policyType, setPolicyType] = React.useState<'terms' | 'privacy' | null>(null);
 
   const tabMeta = getTabMetaData(activeTab);
 
@@ -152,7 +162,7 @@ const MainContent: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col font-sans transition-colors duration-300 w-full max-w-full overflow-x-hidden bg-slate-50 text-slate-900">
+    <div className="min-h-screen flex flex-col font-sans transition-colors duration-300 w-full max-w-full overflow-x-hidden bg-[#faf9f6] dark:bg-slate-950 text-stone-900 dark:text-stone-100">
       <ReadingProgressBar />
       <Helmet>
         <title>{tabMeta.title}</title>
@@ -557,6 +567,21 @@ const MainContent: React.FC = () => {
         isOpen={isDashboardCustomizerOpen}
         onClose={() => setIsDashboardCustomizerOpen(false)}
       />
+      <DailyTithiNotificationToast
+        forceOpen={isDailyTithiAlertOpen}
+        onClose={() => setIsDailyTithiAlertOpen(false)}
+      />
+      <SitemapModal
+        isOpen={isSitemapOpen}
+        onClose={() => setIsSitemapOpen(false)}
+        onOpenPolicy={(type) => setPolicyType(type)}
+      />
+      <PolicyModal
+        isOpen={Boolean(policyType)}
+        type={policyType}
+        onClose={() => setPolicyType(null)}
+      />
+      <PrayerReminderEngine />
       <AudioPlayer />
 
       {/* Toast Notification Banner */}

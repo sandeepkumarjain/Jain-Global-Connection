@@ -535,13 +535,26 @@ export const TempleSection: React.FC = () => {
             </div>
 
             {/* Actions */}
-            <div className="bg-slate-50 dark:bg-slate-800/60 p-3 border-t border-slate-200 dark:border-slate-800 grid grid-cols-3 gap-2 text-xs font-bold">
+            <div className="bg-slate-50 dark:bg-slate-800/60 p-3 border-t border-slate-200 dark:border-slate-800 grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs font-bold">
+              <button
+                onClick={() => {
+                  setSelectedTemple(t);
+                  setViewMode('map');
+                  window.scrollTo({ top: 380, behavior: 'smooth' });
+                }}
+                className="py-2.5 min-h-[44px] bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-lg flex items-center justify-center gap-1 shadow-xs font-black cursor-pointer transition-colors"
+                title="Visualize this temple on the interactive Leaflet map"
+              >
+                <MapIcon className="w-3.5 h-3.5" />
+                <span>View on Map</span>
+              </button>
+
               <button
                 onClick={() => {
                   setSelectedTemple(t);
                   setShowLiveDarshan(true);
                 }}
-                className="py-2.5 min-h-[44px] bg-red-600 hover:bg-red-700 text-white rounded-lg flex items-center justify-center gap-1 shadow-sm"
+                className="py-2.5 min-h-[44px] bg-red-600 hover:bg-red-700 text-white rounded-lg flex items-center justify-center gap-1 shadow-xs cursor-pointer transition-colors"
               >
                 <Video className="w-3.5 h-3.5" />
                 <span>Live Darshan</span>
@@ -552,7 +565,7 @@ export const TempleSection: React.FC = () => {
                   setSelectedTemple(t);
                   setShowDonationModal(true);
                 }}
-                className="py-2.5 min-h-[44px] bg-amber-600 hover:bg-amber-700 text-white rounded-lg flex items-center justify-center gap-1 shadow-sm"
+                className="py-2.5 min-h-[44px] bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg flex items-center justify-center gap-1 shadow-xs cursor-pointer transition-colors"
               >
                 <Heart className="w-3.5 h-3.5 fill-white" />
                 <span>Donate</span>
@@ -566,10 +579,10 @@ export const TempleSection: React.FC = () => {
                 }
                 target="_blank"
                 rel="noreferrer"
-                className="py-2.5 min-h-[44px] bg-slate-900 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-white rounded-lg flex items-center justify-center gap-1 hover:bg-slate-800"
+                className="py-2.5 min-h-[44px] bg-slate-900 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-white rounded-lg flex items-center justify-center gap-1 hover:bg-slate-800 cursor-pointer transition-colors"
               >
                 <Navigation className="w-3.5 h-3.5 text-amber-400" />
-                <span>Get Directions</span>
+                <span>Directions</span>
               </a>
             </div>
           </div>

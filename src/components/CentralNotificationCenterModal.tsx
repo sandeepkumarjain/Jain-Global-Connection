@@ -47,7 +47,8 @@ export const CentralNotificationCenterModal: React.FC<CentralNotificationCenterM
     sendCommunityAnnouncement,
     setActiveTab,
     showToast,
-    users
+    users,
+    openDailyTithiAlert
   } = useApp();
 
   const [activeCategory, setActiveCategory] = useState<string>('all');
@@ -247,7 +248,7 @@ export const CentralNotificationCenterModal: React.FC<CentralNotificationCenterM
                     Click buttons to trigger real-time simulated alerts
                   </span>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
                   <button
                     onClick={handleSimulateProfileView}
                     className="p-2 text-xs font-semibold bg-white dark:bg-slate-900 border border-amber-300 dark:border-amber-800 text-amber-900 dark:text-amber-200 rounded-xl hover:bg-amber-100/60 dark:hover:bg-amber-900/50 transition-all flex items-center justify-center gap-1.5 text-center shadow-xs"
@@ -261,7 +262,7 @@ export const CentralNotificationCenterModal: React.FC<CentralNotificationCenterM
                     className="p-2 text-xs font-semibold bg-white dark:bg-slate-900 border border-amber-300 dark:border-amber-800 text-amber-900 dark:text-amber-200 rounded-xl hover:bg-amber-100/60 dark:hover:bg-amber-900/50 transition-all flex items-center justify-center gap-1.5 text-center shadow-xs"
                   >
                     <UserPlus className="w-3.5 h-3.5 text-emerald-600" />
-                    Simulate Connection Request
+                    Simulate Connection
                   </button>
 
                   <button
@@ -269,12 +270,50 @@ export const CentralNotificationCenterModal: React.FC<CentralNotificationCenterM
                     className="p-2 text-xs font-semibold bg-white dark:bg-slate-900 border border-amber-300 dark:border-amber-800 text-amber-900 dark:text-amber-200 rounded-xl hover:bg-amber-100/60 dark:hover:bg-amber-900/50 transition-all flex items-center justify-center gap-1.5 text-center shadow-xs"
                   >
                     <Megaphone className="w-3.5 h-3.5 text-amber-600" />
-                    Simulate Sangh Notice
+                    Simulate Notice
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      onClose();
+                      openDailyTithiAlert();
+                    }}
+                    className="p-2 text-xs font-semibold bg-amber-600 text-white border border-amber-500 rounded-xl hover:bg-amber-700 transition-all flex items-center justify-center gap-1.5 text-center shadow-xs"
+                  >
+                    <Bell className="w-3.5 h-3.5 text-amber-200 animate-pulse" />
+                    Trigger Tithi Alert
                   </button>
                 </div>
               </motion.div>
             )}
           </AnimatePresence>
+
+          {/* Category Tabs */}
+          <div className="mx-4 mt-3 p-3 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-amber-600/10 border border-amber-300 dark:border-amber-800/60 rounded-xl flex items-center justify-between gap-3 text-xs shrink-0">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-8 h-8 rounded-lg bg-amber-500/20 text-amber-700 dark:text-amber-300 flex items-center justify-center shrink-0">
+                <Bell className="w-4 h-4 text-amber-600 dark:text-amber-400 animate-bounce" />
+              </div>
+              <div className="min-w-0">
+                <div className="font-bold text-amber-950 dark:text-amber-100 flex items-center gap-1.5">
+                  <span>Daily Tithi & Mahaparv Alert</span>
+                  <span className="text-[9px] px-1.5 py-0.2 bg-amber-500/20 text-amber-800 dark:text-amber-200 font-extrabold rounded-full">Live</span>
+                </div>
+                <div className="text-[11px] text-amber-800/80 dark:text-amber-300/80 truncate">
+                  View today's Tithi, dietary observance, sunrise/sunset & upcoming festivals.
+                </div>
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                onClose();
+                openDailyTithiAlert();
+              }}
+              className="px-2.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold text-[11px] shrink-0 transition-all shadow-xs cursor-pointer active:scale-95"
+            >
+              Open Alert
+            </button>
+          </div>
 
           {/* Category Tabs */}
           <div className="px-4 pt-2 bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 flex items-center gap-1 overflow-x-auto shrink-0 scrollbar-none">

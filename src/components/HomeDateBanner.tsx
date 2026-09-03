@@ -1,10 +1,11 @@
 import React from 'react';
 import { motion } from 'motion/react';
 import { useApp } from '../context/AppContext';
-import { Calendar, Sparkles, Sun, Moon, Compass, ChevronRight } from 'lucide-react';
+import { Calendar, Sparkles, Sun, Moon, Compass, ChevronRight, Bell } from 'lucide-react';
+import { ThemeSwitcher } from './ThemeSwitcher';
 
 export const HomeDateBanner: React.FC = () => {
-  const { panchang, setActiveTab } = useApp();
+  const { panchang, setActiveTab, openDailyTithiAlert } = useApp();
 
   return (
     <motion.div
@@ -16,9 +17,9 @@ export const HomeDateBanner: React.FC = () => {
       {/* Decorative Radial Background Pattern */}
       <div className="absolute inset-0 bg-[radial-gradient(#f59e0b_1px,transparent_1px)] [background-size:14px_14px] opacity-10 pointer-events-none" />
 
-      <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-3">
+      <div className="relative z-10 flex flex-col md:flex-row flex-wrap items-center justify-between gap-3">
         {/* Left: Gregorian Date & Jain Tithi Info */}
-        <div className="flex flex-wrap items-center justify-center md:justify-start gap-2.5 text-xs sm:text-sm w-full md:w-auto">
+        <div className="flex flex-wrap items-center justify-between sm:justify-start gap-2.5 text-xs sm:text-sm w-full md:w-auto">
           {/* Gregorian Date Pill */}
           <div className="flex items-center gap-2 bg-amber-900/80 px-3 py-1.5 rounded-xl border border-amber-500/40 text-amber-100 font-bold shadow-xs">
             <Calendar className="w-4 h-4 text-amber-400 shrink-0" />
@@ -37,7 +38,7 @@ export const HomeDateBanner: React.FC = () => {
         </div>
 
         {/* Right: Sunrise/Sunset & Navigation CTA */}
-        <div className="flex items-center justify-between md:justify-end gap-3 text-xs w-full md:w-auto shrink-0 pt-1 md:pt-0 border-t md:border-t-0 border-amber-800/60">
+        <div className="flex flex-wrap items-center justify-between md:justify-end gap-3 text-xs w-full md:w-auto shrink-0 pt-1 md:pt-0 border-t md:border-t-0 border-amber-800/60">
           <div className="flex items-center gap-2.5 text-amber-200/90 font-medium text-[11px] sm:text-xs">
             <span className="flex items-center gap-1 bg-amber-950/60 px-2 py-1 rounded-lg border border-amber-500/20">
               <Sun className="w-3.5 h-3.5 text-amber-400" />
@@ -48,6 +49,18 @@ export const HomeDateBanner: React.FC = () => {
               <span>{panchang.sunset}</span>
             </span>
           </div>
+
+          {/* Time-Based Automatic Solar Theme Switcher */}
+          <ThemeSwitcher variant="banner" />
+
+          <button
+            onClick={openDailyTithiAlert}
+            className="px-2.5 py-1.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 hover:text-white border border-amber-400/40 font-bold text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
+            title="Show Daily Jain Tithi & Significant Upcoming Festivals Alert"
+          >
+            <Bell className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
+            <span className="hidden sm:inline">Daily</span> Alert
+          </button>
 
           <button
             onClick={() => setActiveTab('panchang')}

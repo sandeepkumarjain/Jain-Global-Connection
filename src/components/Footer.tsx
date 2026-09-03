@@ -11,11 +11,12 @@ import {
   Mail,
   Lock,
   FileText,
-  ArrowUp
+  ArrowUp,
+  Map
 } from 'lucide-react';
 
 export const Footer: React.FC = () => {
-  const { systemSettings, setActiveTab, setIsAuthModalOpen, isMatrimonialOnlyUser } = useApp();
+  const { systemSettings, setActiveTab, setIsAuthModalOpen, isMatrimonialOnlyUser, openSitemap } = useApp();
   const [policyType, setPolicyType] = useState<'terms' | 'privacy' | null>(null);
 
   return (
@@ -93,6 +94,16 @@ export const Footer: React.FC = () => {
                   </li>
                 </>
               )}
+              <li className="pt-2 border-t border-slate-800/80 mt-2">
+                <button
+                  id="footer-open-sitemap-btn"
+                  onClick={openSitemap}
+                  className="w-full text-left text-amber-300 hover:text-amber-200 font-bold transition-colors flex items-center gap-1.5 py-1.5 px-2.5 rounded-lg bg-amber-950/50 hover:bg-amber-900/60 border border-amber-500/30 text-xs cursor-pointer"
+                >
+                  <Map className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                  <span>All Sections & Sitemap</span>
+                </button>
+              </li>
             </ul>
           </div>
 
@@ -183,7 +194,16 @@ export const Footer: React.FC = () => {
         <div className="pt-6 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 gap-3">
           <p>© 2026 SKJ Tech World. All rights reserved.</p>
           <div className="flex items-center gap-4 text-xs font-medium">
-            <button onClick={() => setPolicyType('terms')} className="hover:text-amber-400 transition">
+            <button
+              id="footer-bottom-sitemap-link"
+              onClick={openSitemap}
+              className="hover:text-amber-400 transition flex items-center gap-1 text-slate-400 font-semibold cursor-pointer"
+            >
+              <Map className="w-3 h-3 text-amber-400" />
+              <span>Sitemap</span>
+            </button>
+            <span>•</span>
+            <button onClick={() => setPolicyType('terms')} className="hover:text-amber-400 transition cursor-pointer">
               Terms & Conditions
             </button>
             <span>•</span>

@@ -1,13 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import {
-  APIProvider,
-  Map,
-  AdvancedMarker,
-  Pin,
-  InfoWindow,
-  useMap,
-  useMapsLibrary
-} from '@vis.gl/react-google-maps';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 import { TempleListing } from '../types';
 import { VirtualTourButton } from './VirtualTourButton';
 import { Virtual3DTourModal } from './Virtual3DTourModal';
@@ -20,22 +13,21 @@ import {
   Clock,
   ExternalLink,
   Sparkles,
-  AlertCircle,
   Search,
   Route as RouteIcon,
   Layers,
   Phone,
   Building2,
-  X
+  X,
+  Maximize2,
+  Minimize2,
+  ZoomIn,
+  ZoomOut,
+  RotateCcw,
+  CheckCircle2,
+  Home,
+  Utensils
 } from 'lucide-react';
-
-const API_KEY =
-  process.env.GOOGLE_MAPS_PLATFORM_KEY ||
-  (import.meta as any).env?.VITE_GOOGLE_MAPS_PLATFORM_KEY ||
-  (globalThis as any).GOOGLE_MAPS_PLATFORM_KEY ||
-  '';
-
-const hasValidKey = Boolean(API_KEY) && API_KEY !== 'YOUR_API_KEY';
 
 interface TempleMapViewProps {
   temples: TempleListing[];
@@ -60,101 +52,147 @@ export function calculateDistanceKm(lat1: number, lon1: number, lat2: number, lo
   return Math.round(R * c * 10) / 10;
 }
 
-// Helper component to pan map smoothly when center/zoom changes
-function MapPanController({ center, zoom }: { center: { lat: number; lng: number }; zoom: number }) {
-  const map = useMap();
-  useEffect(() => {
-    if (!map || !center) return;
-    map.panTo(center);
-    if (typeof zoom === 'number') {
-      map.setZoom(zoom);
-    }
-  }, [map, center.lat, center.lng, zoom]);
-  return null;
+// Helper to estimate driving time
+function estimateDrivingTime(distanceKm: number): string {
+  if (distanceKm <= 0) return 'Immediate';
+  const averageSpeedKmH = distanceKm < 30 ? 35 : 55; // slower in city, faster on highway
+  const hours = distanceKm / averageSpeedKmH;
+  const totalMins = Math.round(hours * 60);
+  if (totalMins < 60) return `${totalMins} mins`;
+  const hrs = Math.floor(totalMins / 60);
+  const mins = totalMins % 60;
+  return mins > 0 ? `${hrs}h ${mins}m` : `${hrs} hrs`;
 }
 
-// Helper component to compute & display route polylines using Google Maps Routes API
-function RouteDisplay({
-  origin,
-  destination,
-}: {
-  origin: { lat: number; lng: number };
-  destination: { lat: number; lng: number };
-}) {
-  const map = useMap();
-  const routesLib = useMapsLibrary('routes');
-  const polylinesRef = useRef<google.maps.Polyline[]>([]);
+// Create custom SVG Leaflet divIcon based on temple sect and active selection state
+function createTempleIcon(temple: TempleListing, isSelected: boolean) {
+  const isSwetambar = temple.sect.toLowerCase().includes('swetambar');
+  const isDigambar = temple.sect.toLowerCase().includes('digambar');
 
-  useEffect(() => {
-    if (!routesLib || !map || !origin || !destination) return;
+  let primaryColor = '#d97706'; // Amber 600
+  let secondaryColor = '#b45309'; // Amber 700
+  let badgeLabel = 'S';
 
-    // Clear previous route polylines
-    polylinesRef.current.forEach((p) => p.setMap(null));
-    polylinesRef.current = [];
+  if (isDigambar && !isSwetambar) {
+    primaryColor = '#059669'; // Emerald 600
+    secondaryColor = '#047857'; // Emerald 700
+    badgeLabel = 'D';
+  } else if (isSwetambar && isDigambar) {
+    primaryColor = '#7c3aed'; // Purple 600
+    secondaryColor = '#6d28d9';
+    badgeLabel = 'J';
+  }
 
-    routesLib.Route.computeRoutes({
-      origin,
-      destination,
-      travelMode: 'DRIVING',
-      fields: ['path', 'viewport', 'distanceMeters', 'durationMillis'],
-    })
-      .then(({ routes }) => {
-        if (routes?.[0]) {
-          const polylines = routes[0].createPolylines();
-          polylines.forEach((p) => p.setMap(map));
-          polylinesRef.current = polylines;
-          if (routes[0].viewport) {
-            map.fitBounds(routes[0].viewport);
-          }
-        }
-      })
-      .catch((err) => {
-        console.warn('Routes API error or quota limit:', err);
-      });
+  if (isSelected) {
+    primaryColor = '#ea580c'; // Vibrant Orange
+    secondaryColor = '#c2410c';
+  }
 
-    return () => {
-      polylinesRef.current.forEach((p) => p.setMap(null));
-      polylinesRef.current = [];
-    };
-  }, [routesLib, map, origin, destination]);
+  const pinSize = isSelected ? 42 : 34;
+  const iconHtml = `
+    <div style="
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      cursor: pointer;
+      ${isSelected ? 'filter: drop-shadow(0 0 10px rgba(234, 88, 12, 0.85)); transform: scale(1.12);' : 'filter: drop-shadow(0 3px 5px rgba(0,0,0,0.35));'}
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    ">
+      <div style="
+        width: ${pinSize}px;
+        height: ${pinSize}px;
+        background: linear-gradient(135deg, ${primaryColor}, ${secondaryColor});
+        border: ${isSelected ? '3px solid #ffffff' : '2px solid #ffffff'};
+        border-radius: 50% 50% 50% 0;
+        transform: rotate(-45deg);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 4px 6px -1px rgba(0,0,0,0.25);
+      ">
+        <div style="transform: rotate(45deg); display: flex; flex-direction: column; align-items: center; justify-content: center;">
+          <svg style="width: ${isSelected ? '16px' : '13px'}; height: ${isSelected ? '16px' : '13px'}; fill: #ffffff;" viewBox="0 0 24 24">
+            <path d="M12 2L9 8h6l-3-6zm-7 8v2h14v-2H5zm1 4v6h12v-6H6zm2 2h8v2H8v-2z"/>
+          </svg>
+        </div>
+      </div>
+      <div style="
+        width: 10px;
+        height: 4px;
+        background: rgba(0,0,0,0.35);
+        border-radius: 50%;
+        margin-top: -2px;
+        filter: blur(1px);
+      "></div>
+    </div>
+  `;
 
-  return null;
+  return L.divIcon({
+    className: 'temple-map-marker',
+    html: iconHtml,
+    iconSize: [pinSize, pinSize + 6],
+    iconAnchor: [pinSize / 2, pinSize + 4],
+    popupAnchor: [0, -(pinSize + 4)],
+  });
 }
 
-// Live Places API Search Overlay for Jain Temples near current location
-function LivePlacesSearchOverlay({
-  location,
-  onPlacesFound,
-  isSearching,
-}: {
-  location: { lat: number; lng: number } | null;
-  onPlacesFound: (places: any[]) => void;
-  isSearching: boolean;
-}) {
-  const placesLib = useMapsLibrary('places');
-  const map = useMap();
+// Create custom SVG user location pulsating beacon
+function createUserLocationIcon() {
+  const iconHtml = `
+    <div style="position: relative; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center;">
+      <div style="
+        position: absolute;
+        width: 34px;
+        height: 34px;
+        background: rgba(14, 165, 233, 0.35);
+        border-radius: 50%;
+        animation: leafletPing 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+      "></div>
+      <div style="
+        width: 15px;
+        height: 15px;
+        background: #0284c7;
+        border: 2.5px solid #ffffff;
+        border-radius: 50%;
+        box-shadow: 0 0 10px rgba(2, 132, 199, 0.9);
+      "></div>
+    </div>
+  `;
 
-  useEffect(() => {
-    if (!placesLib || !isSearching || !location) return;
-
-    placesLib.Place.searchByText({
-      textQuery: 'Jain temple derasar',
-      fields: ['displayName', 'location', 'formattedAddress', 'rating', 'userRatingCount', 'id'],
-      locationBias: location || map?.getCenter() || { lat: 18.9560, lng: 72.8080 },
-      maxResultCount: 10,
-    })
-      .then(({ places }) => {
-        if (places && places.length > 0) {
-          onPlacesFound(places);
-        }
-      })
-      .catch((err) => {
-        console.warn('Places API Search error:', err);
-      });
-  }, [placesLib, isSearching, location, map]);
-
-  return null;
+  return L.divIcon({
+    className: 'user-location-marker',
+    html: iconHtml,
+    iconSize: [34, 34],
+    iconAnchor: [17, 17],
+    popupAnchor: [0, -17],
+  });
 }
+
+// Available tile layers
+type TileLayerType = 'clean' | 'streets' | 'satellite' | 'dark';
+
+const TILE_LAYERS: Record<TileLayerType, { url: string; attribution: string; name: string }> = {
+  clean: {
+    name: 'Clean Light',
+    url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+    attribution: '&copy; <a href="https://carto.com/">CARTO</a>, &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+  },
+  streets: {
+    name: 'OpenStreetMap',
+    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+  },
+  satellite: {
+    name: 'Satellite',
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community',
+  },
+  dark: {
+    name: 'Dark Mode',
+    url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+    attribution: '&copy; <a href="https://carto.com/">CARTO</a>, &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+  },
+};
 
 export const TempleMapView: React.FC<TempleMapViewProps> = ({
   temples,
@@ -163,26 +201,30 @@ export const TempleMapView: React.FC<TempleMapViewProps> = ({
   onOpenLiveDarshan,
   onOpenDonation,
 }) => {
-  // Default reference center: Mumbai (18.9560, 72.8080)
-  const defaultCenter = { lat: 18.9560, lng: 72.8080 };
+  // Reference center: Palitana / Central Western India
+  const defaultCenter = { lat: 21.5222, lng: 71.8383 };
+
+  // Map DOM & Leaflet References
+  const mapContainerRef = useRef<HTMLDivElement | null>(null);
+  const mapInstanceRef = useRef<L.Map | null>(null);
+  const tileLayerRef = useRef<L.TileLayer | null>(null);
+  const markersLayerGroupRef = useRef<L.LayerGroup | null>(null);
+  const routePolylineRef = useRef<L.Polyline | null>(null);
+  const userMarkerRef = useRef<L.Marker | null>(null);
+  const templeMarkersMapRef = useRef<Map<string, L.Marker>>(new Map());
+
+  // State variables
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [isLocating, setIsLocating] = useState(false);
   const [locationStatus, setLocationStatus] = useState<string>('Detecting location...');
-  const [maxRadiusKm, setMaxRadiusKm] = useState<number>(0); // 0 = All distances
-  const [activeInfoWindowId, setActiveInfoWindowId] = useState<string | null>(selectedTemple?.id || null);
-  const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number }>(defaultCenter);
-  const [mapZoom, setMapZoom] = useState<number>(6);
-  const [mapTypeId, setMapTypeId] = useState<'roadmap' | 'satellite' | 'hybrid' | 'terrain'>('roadmap');
-
-  // Route & Places API States
-  const [activeRouteTarget, setActiveRouteTarget] = useState<{ lat: number; lng: number } | null>(null);
-  const [enableLivePlaces, setEnableLivePlaces] = useState(false);
-  const [livePlaces, setLivePlaces] = useState<any[]>([]);
-  const [activePlaceInfoWindowId, setActivePlaceInfoWindowId] = useState<string | null>(null);
+  const [maxRadiusKm, setMaxRadiusKm] = useState<number>(0); // 0 = All India
   const [mapSearchTerm, setMapSearchTerm] = useState('');
+  const [selectedLayer, setSelectedLayer] = useState<TileLayerType>('clean');
+  const [activeRouteTarget, setActiveRouteTarget] = useState<TempleListing | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const [selected360Temple, setSelected360Temple] = useState<TempleListing | null>(null);
 
-  // Request browser geolocation
+  // Detect user geolocation
   const handleDetectLocation = useCallback(() => {
     setIsLocating(true);
     setLocationStatus('Locating your position...');
@@ -190,10 +232,12 @@ export const TempleMapView: React.FC<TempleMapViewProps> = ({
     const applyPosition = (lat: number, lng: number) => {
       const userPos = { lat, lng };
       setUserLocation(userPos);
-      setMapCenter(userPos);
-      setMapZoom(11);
       setIsLocating(false);
-      setLocationStatus('Current location detected successfully!');
+      setLocationStatus('Current location active');
+
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.flyTo([lat, lng], 11, { duration: 1.2 });
+      }
     };
 
     const tryIpFallback = async () => {
@@ -207,7 +251,7 @@ export const TempleMapView: React.FC<TempleMapViewProps> = ({
           }
         }
       } catch (e) {
-        // IP fallback error ignored
+        // IP fallback ignored
       }
       return false;
     };
@@ -222,7 +266,7 @@ export const TempleMapView: React.FC<TempleMapViewProps> = ({
           const fallbackSuccess = await tryIpFallback();
           if (!fallbackSuccess) {
             setIsLocating(false);
-            setLocationStatus('Location access denied. Showing temples across India.');
+            setLocationStatus('Showing temples across India');
           }
         },
         { enableHighAccuracy: true, timeout: 8000, maximumAge: 300000 }
@@ -231,43 +275,55 @@ export const TempleMapView: React.FC<TempleMapViewProps> = ({
       tryIpFallback().then((fallbackSuccess) => {
         if (!fallbackSuccess) {
           setIsLocating(false);
-          setLocationStatus('Geolocation unsupported. Showing default region.');
+          setLocationStatus('Geolocation unsupported');
         }
       });
     }
   }, []);
 
+  // Request location on first mount
   useEffect(() => {
     handleDetectLocation();
   }, [handleDetectLocation]);
 
-  // Sync selected temple from parent props with map center & info window
-  useEffect(() => {
-    if (selectedTemple && selectedTemple.lat && selectedTemple.lng) {
-      setMapCenter({ lat: selectedTemple.lat, lng: selectedTemple.lng });
-      setMapZoom(12);
-      setActiveInfoWindowId(selectedTemple.id);
-    }
-  }, [selectedTemple]);
-
-  // Calculate distance for all directory temples relative to user location or default center
+  // Normalize temple coordinates and calculate distance from user location or default reference
   const templesWithDistance = useMemo(() => {
     const referencePos = userLocation || defaultCenter;
     return temples.map((t) => {
-      const tLat = t.lat || (t.city === 'Palitana' ? 21.5222 : t.city === 'Mumbai' ? 18.9560 : 25.1158);
-      const tLng = t.lng || (t.city === 'Palitana' ? 71.8383 : t.city === 'Mumbai' ? 72.8080 : 73.4735);
+      const tLat =
+        t.lat ||
+        (t.city === 'Palitana'
+          ? 21.5222
+          : t.city === 'Mumbai'
+          ? 18.9560
+          : t.city === 'Ranakpur'
+          ? 25.1158
+          : t.city === 'Delhi'
+          ? 28.6562
+          : 21.5222);
+      const tLng =
+        t.lng ||
+        (t.city === 'Palitana'
+          ? 71.8383
+          : t.city === 'Mumbai'
+          ? 72.8080
+          : t.city === 'Ranakpur'
+          ? 73.4735
+          : t.city === 'Delhi'
+          ? 77.2345
+          : 71.8383);
 
-      const computedDist = calculateDistanceKm(referencePos.lat, referencePos.lng, tLat, tLng);
+      const dist = calculateDistanceKm(referencePos.lat, referencePos.lng, tLat, tLng);
       return {
         ...t,
         lat: tLat,
         lng: tLng,
-        computedDistanceKm: computedDist,
+        computedDistanceKm: dist,
       };
     });
   }, [temples, userLocation]);
 
-  // Filter temples by search term & radius
+  // Filter temples by search query and radius
   const filteredTemples = useMemo(() => {
     return templesWithDistance.filter((t) => {
       if (
@@ -275,7 +331,8 @@ export const TempleMapView: React.FC<TempleMapViewProps> = ({
         !t.templeName.toLowerCase().includes(mapSearchTerm.toLowerCase()) &&
         !t.city.toLowerCase().includes(mapSearchTerm.toLowerCase()) &&
         !t.mainDeity.toLowerCase().includes(mapSearchTerm.toLowerCase()) &&
-        !t.state.toLowerCase().includes(mapSearchTerm.toLowerCase())
+        !t.state.toLowerCase().includes(mapSearchTerm.toLowerCase()) &&
+        !t.sect.toLowerCase().includes(mapSearchTerm.toLowerCase())
       ) {
         return false;
       }
@@ -286,10 +343,398 @@ export const TempleMapView: React.FC<TempleMapViewProps> = ({
     });
   }, [templesWithDistance, mapSearchTerm, maxRadiusKm]);
 
-  // Sorted by nearest distance first
+  // Sorted by proximity
   const sortedTemples = useMemo(() => {
     return [...filteredTemples].sort((a, b) => a.computedDistanceKm - b.computedDistanceKm);
   }, [filteredTemples]);
+
+  // Initialize Leaflet Map Instance
+  useEffect(() => {
+    if (!mapContainerRef.current) return;
+    if (mapInstanceRef.current) return;
+
+    // Create map
+    const map = L.map(mapContainerRef.current, {
+      center: [defaultCenter.lat, defaultCenter.lng],
+      zoom: 6,
+      zoomControl: false,
+      attributionControl: false,
+    });
+
+    // Add selected Tile Layer
+    const layerConfig = TILE_LAYERS[selectedLayer];
+    const tileLayer = L.tileLayer(layerConfig.url, {
+      attribution: layerConfig.attribution,
+      maxZoom: 19,
+    }).addTo(map);
+
+    tileLayerRef.current = tileLayer;
+
+    // Add Layer Group for Markers
+    const markersGroup = L.layerGroup().addTo(map);
+    markersLayerGroupRef.current = markersGroup;
+
+    mapInstanceRef.current = map;
+
+    // Trigger map invalidation once fully rendered
+    const timer = setTimeout(() => {
+      map.invalidateSize();
+    }, 250);
+
+    return () => {
+      clearTimeout(timer);
+      map.remove();
+      mapInstanceRef.current = null;
+    };
+  }, []);
+
+  // Update Tile Layer when user switches layers
+  useEffect(() => {
+    if (!mapInstanceRef.current || !tileLayerRef.current) return;
+    const map = mapInstanceRef.current;
+    map.removeLayer(tileLayerRef.current);
+
+    const layerConfig = TILE_LAYERS[selectedLayer];
+    const newTileLayer = L.tileLayer(layerConfig.url, {
+      attribution: layerConfig.attribution,
+      maxZoom: 19,
+    }).addTo(map);
+
+    tileLayerRef.current = newTileLayer;
+  }, [selectedLayer]);
+
+  // ResizeObserver for dynamic container adjustments
+  useEffect(() => {
+    if (!mapContainerRef.current || !mapInstanceRef.current) return;
+    const observer = new ResizeObserver(() => {
+      mapInstanceRef.current?.invalidateSize();
+    });
+    observer.observe(mapContainerRef.current);
+    return () => observer.disconnect();
+  }, [isFullscreen]);
+
+  // Update User Location Marker on Map
+  useEffect(() => {
+    if (!mapInstanceRef.current) return;
+    const map = mapInstanceRef.current;
+
+    if (userLocation) {
+      if (!userMarkerRef.current) {
+        const marker = L.marker([userLocation.lat, userLocation.lng], {
+          icon: createUserLocationIcon(),
+          zIndexOffset: 1000,
+        }).addTo(map);
+
+        marker.bindPopup(
+          `<div class="p-2 text-center text-xs font-bold text-slate-900">
+            <span class="text-sky-600">📍 You are here</span>
+            <p class="text-[10px] text-slate-500 font-normal">Accurate GPS Reference</p>
+          </div>`,
+          { className: 'custom-temple-popup', closeButton: false }
+        );
+
+        userMarkerRef.current = marker;
+      } else {
+        userMarkerRef.current.setLatLng([userLocation.lat, userLocation.lng]);
+      }
+    } else if (userMarkerRef.current) {
+      map.removeLayer(userMarkerRef.current);
+      userMarkerRef.current = null;
+    }
+  }, [userLocation]);
+
+  // Generate Interactive HTML Popup for a Temple
+  const generatePopupContent = useCallback((temple: any, isTargetRoute: boolean) => {
+    const googleMapsDirUrl = userLocation
+      ? `https://www.google.com/maps/dir/?api=1&origin=${userLocation.lat},${userLocation.lng}&destination=${temple.lat},${temple.lng}`
+      : `https://www.google.com/maps/dir/?api=1&destination=${temple.lat},${temple.lng}`;
+
+    const hasAccommodation = temple.hasAccommodation;
+    const hasParking = temple.hasParking;
+    const hasLiveDarshan = Boolean(temple.liveDarshanUrl);
+    const has360 = Boolean(temple.is360Available);
+
+    const imageUrl = temple.images?.[0] || 'https://images.unsplash.com/photo-1548013146-72479768bada?auto=format&fit=crop&w=600&q=80';
+
+    return `
+      <div class="w-72 max-w-xs text-slate-900 dark:text-slate-100 overflow-hidden font-sans">
+        <!-- Temple Banner Image -->
+        <div class="relative h-28 w-full overflow-hidden bg-slate-900">
+          <img src="${imageUrl}" alt="${temple.templeName}" class="w-full h-full object-cover" />
+          <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent"></div>
+          
+          <div class="absolute top-2 left-2 flex items-center gap-1">
+            <span class="px-2 py-0.5 bg-amber-500/90 text-slate-950 text-[10px] font-black uppercase rounded-md shadow-xs backdrop-blur-xs">
+              ${temple.sect}
+            </span>
+          </div>
+
+          <div class="absolute bottom-2 left-2 right-2 flex items-center justify-between text-white">
+            <span class="text-[11px] font-extrabold flex items-center gap-1 text-amber-300">
+              📍 ${temple.computedDistanceKm} km away
+            </span>
+            <span class="text-[10px] bg-slate-900/80 px-1.5 py-0.5 rounded text-slate-200">
+              ${estimateDrivingTime(temple.computedDistanceKm)} drive
+            </span>
+          </div>
+        </div>
+
+        <!-- Content Body -->
+        <div class="p-3 space-y-2 bg-white dark:bg-slate-900">
+          <div>
+            <h4 class="font-serif font-extrabold text-sm text-slate-900 dark:text-white leading-tight">
+              ${temple.templeName}
+            </h4>
+            <p class="text-[11px] text-amber-600 dark:text-amber-400 font-bold mt-0.5">
+              ${temple.mainDeity}
+            </p>
+            <p class="text-[10px] text-slate-500 dark:text-slate-400 flex items-center gap-1 mt-0.5">
+              <span>📍 ${temple.city}, ${temple.state}</span>
+            </p>
+          </div>
+
+          <!-- Badges -->
+          <div class="flex flex-wrap gap-1 text-[9px] font-bold">
+            ${
+              hasAccommodation
+                ? `<span class="px-1.5 py-0.5 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 rounded border border-emerald-200 dark:border-emerald-800 flex items-center gap-0.5">🏠 Dharamshala (${temple.dharamshalaRooms || 'Yes'})</span>`
+                : ''
+            }
+            ${
+              hasParking
+                ? `<span class="px-1.5 py-0.5 bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 rounded border border-sky-200 dark:border-sky-800">🅿️ Parking</span>`
+                : ''
+            }
+            ${
+              hasLiveDarshan
+                ? `<span class="px-1.5 py-0.5 bg-red-50 dark:bg-red-950/60 text-red-700 dark:text-red-300 rounded border border-red-200 dark:border-red-800">📹 Live Feed</span>`
+                : ''
+            }
+          </div>
+
+          <!-- Action Buttons -->
+          <div class="pt-2 border-t border-slate-100 dark:border-slate-800 flex flex-col gap-1.5">
+            <div class="flex items-center gap-1.5">
+              <button
+                type="button"
+                data-action="map-route"
+                data-temple-id="${temple.id}"
+                class="btn-action-map-route flex-1 px-2.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 text-[11px] font-black rounded-lg shadow-xs flex items-center justify-center gap-1 cursor-pointer transition-colors"
+                title="Draw direct route on map"
+              >
+                <span>${isTargetRoute ? '✓ Route Active' : '📍 Map Route'}</span>
+              </button>
+
+              <a
+                href="${googleMapsDirUrl}"
+                target="_blank"
+                rel="noreferrer"
+                class="flex-1 px-2.5 py-1.5 bg-slate-900 hover:bg-black text-amber-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-[11px] font-bold rounded-lg shadow-xs flex items-center justify-center gap-1 cursor-pointer transition-colors"
+                title="Open turn-by-turn navigation in Google Maps"
+              >
+                <span>🚗 Navigate</span>
+                <span class="text-[9px]">↗</span>
+              </a>
+            </div>
+
+            <div class="flex items-center gap-1 text-[10px] font-bold">
+              ${
+                has360
+                  ? `<button
+                      type="button"
+                      data-action="tour"
+                      data-temple-id="${temple.id}"
+                      class="btn-action-tour flex-1 py-1 bg-amber-100 dark:bg-amber-950/60 hover:bg-amber-200 text-amber-900 dark:text-amber-200 rounded border border-amber-300 dark:border-amber-800 flex items-center justify-center gap-0.5 cursor-pointer"
+                    >
+                      🌟 360° Tour
+                    </button>`
+                  : ''
+              }
+              ${
+                hasLiveDarshan
+                  ? `<button
+                      type="button"
+                      data-action="darshan"
+                      data-temple-id="${temple.id}"
+                      class="btn-action-darshan flex-1 py-1 bg-red-600 hover:bg-red-700 text-white rounded flex items-center justify-center gap-0.5 cursor-pointer"
+                    >
+                      📹 Darshan
+                    </button>`
+                  : ''
+              }
+              <button
+                type="button"
+                data-action="donate"
+                data-temple-id="${temple.id}"
+                class="btn-action-donate flex-1 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded flex items-center justify-center gap-0.5 cursor-pointer"
+              >
+                💛 Seva
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }, [userLocation]);
+
+  // Handle drawing navigation route between user and temple
+  const handleDrawRoute = useCallback((temple: TempleListing) => {
+    if (!mapInstanceRef.current) return;
+    const map = mapInstanceRef.current;
+
+    const tLat = temple.lat || 21.5222;
+    const tLng = temple.lng || 71.8383;
+
+    setActiveRouteTarget(temple);
+
+    // If user location is not active, prompt location
+    const startPoint = userLocation || defaultCenter;
+
+    // Remove existing polyline
+    if (routePolylineRef.current) {
+      map.removeLayer(routePolylineRef.current);
+      routePolylineRef.current = null;
+    }
+
+    // Draw stylized route polyline
+    const polyline = L.polyline(
+      [
+        [startPoint.lat, startPoint.lng],
+        [tLat, tLng],
+      ],
+      {
+        color: '#f59e0b',
+        weight: 4,
+        opacity: 0.9,
+        dashArray: '8, 8',
+        lineCap: 'round',
+        lineJoin: 'round',
+      }
+    ).addTo(map);
+
+    routePolylineRef.current = polyline;
+
+    // Fit map bounds to show full route with comfortable padding
+    const bounds = L.latLngBounds(
+      [startPoint.lat, startPoint.lng],
+      [tLat, tLng]
+    );
+    map.fitBounds(bounds, { padding: [60, 60] });
+  }, [userLocation, defaultCenter]);
+
+  // Clear current route
+  const handleClearRoute = useCallback(() => {
+    if (routePolylineRef.current && mapInstanceRef.current) {
+      mapInstanceRef.current.removeLayer(routePolylineRef.current);
+      routePolylineRef.current = null;
+    }
+    setActiveRouteTarget(null);
+  }, []);
+
+  // Update Leaflet Temple Markers whenever filteredTemples or selectedTemple changes
+  useEffect(() => {
+    if (!mapInstanceRef.current || !markersLayerGroupRef.current) return;
+
+    const markersGroup = markersLayerGroupRef.current;
+    markersGroup.clearLayers();
+    templeMarkersMapRef.current.clear();
+
+    sortedTemples.forEach((temple) => {
+      if (!temple.lat || !temple.lng) return;
+
+      const isSelected = selectedTemple?.id === temple.id;
+      const isTargetRoute = activeRouteTarget?.id === temple.id;
+
+      const marker = L.marker([temple.lat, temple.lng], {
+        icon: createTempleIcon(temple, isSelected),
+        zIndexOffset: isSelected ? 500 : 10,
+      });
+
+      // Bind popup
+      const popupHtml = generatePopupContent(temple, isTargetRoute);
+      marker.bindPopup(popupHtml, {
+        className: 'custom-temple-popup',
+        maxWidth: 320,
+        minWidth: 280,
+      });
+
+      // Handle popup action button events
+      marker.on('popupopen', (e) => {
+        const el = e.popup.getElement();
+        if (!el) return;
+
+        // Route button
+        const routeBtn = el.querySelector<HTMLButtonElement>('.btn-action-map-route');
+        if (routeBtn) {
+          routeBtn.onclick = () => {
+            handleDrawRoute(temple);
+            onSelectTemple(temple);
+          };
+        }
+
+        // 360 Tour button
+        const tourBtn = el.querySelector<HTMLButtonElement>('.btn-action-tour');
+        if (tourBtn) {
+          tourBtn.onclick = () => {
+            setSelected360Temple(temple);
+          };
+        }
+
+        // Live Darshan button
+        const darshanBtn = el.querySelector<HTMLButtonElement>('.btn-action-darshan');
+        if (darshanBtn) {
+          darshanBtn.onclick = () => {
+            onOpenLiveDarshan(temple);
+          };
+        }
+
+        // Donation button
+        const donateBtn = el.querySelector<HTMLButtonElement>('.btn-action-donate');
+        if (donateBtn) {
+          donateBtn.onclick = () => {
+            onOpenDonation(temple);
+          };
+        }
+      });
+
+      // Marker click handler
+      marker.on('click', () => {
+        onSelectTemple(temple);
+      });
+
+      marker.addTo(markersGroup);
+      templeMarkersMapRef.current.set(temple.id, marker);
+    });
+  }, [sortedTemples, selectedTemple, activeRouteTarget, generatePopupContent, handleDrawRoute, onSelectTemple, onOpenLiveDarshan, onOpenDonation]);
+
+  // When selectedTemple changes externally (e.g. from parent props or list click), pan map and open popup
+  useEffect(() => {
+    if (!selectedTemple || !mapInstanceRef.current) return;
+    const targetMarker = templeMarkersMapRef.current.get(selectedTemple.id);
+
+    if (targetMarker) {
+      mapInstanceRef.current.flyTo(targetMarker.getLatLng(), 13, { duration: 1.0 });
+      targetMarker.openPopup();
+    } else if (selectedTemple.lat && selectedTemple.lng) {
+      mapInstanceRef.current.flyTo([selectedTemple.lat, selectedTemple.lng], 13, { duration: 1.0 });
+    }
+  }, [selectedTemple]);
+
+  // Fit all visible temples in map view
+  const handleFitAllTemples = useCallback(() => {
+    if (!mapInstanceRef.current || sortedTemples.length === 0) return;
+    const bounds = L.latLngBounds(
+      sortedTemples.map((t) => [t.lat!, t.lng!] as [number, number])
+    );
+    if (userLocation) {
+      bounds.extend([userLocation.lat, userLocation.lng]);
+    }
+    mapInstanceRef.current.fitBounds(bounds, { padding: [40, 40] });
+  }, [sortedTemples, userLocation]);
+
+  // Map Zoom Controls
+  const handleZoomIn = () => mapInstanceRef.current?.zoomIn();
+  const handleZoomOut = () => mapInstanceRef.current?.zoomOut();
 
   return (
     <div className="space-y-4">
@@ -304,11 +749,12 @@ export const TempleMapView: React.FC<TempleMapViewProps> = ({
               className="px-4 py-2.5 min-h-[44px] bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-bold text-xs rounded-xl shadow transition-all flex items-center justify-center gap-2 shrink-0 cursor-pointer"
             >
               <Navigation className={`w-4 h-4 ${isLocating ? 'animate-spin' : ''}`} />
-              <span>{isLocating ? 'Locating...' : 'Use My Current Location'}</span>
+              <span>{isLocating ? 'Detecting GPS...' : 'Use My Current Location'}</span>
             </button>
 
-            <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium truncate">
-              {userLocation ? '📍 Current Location Active' : locationStatus}
+            <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium truncate flex items-center gap-1">
+              <span className={`w-2 h-2 rounded-full ${userLocation ? 'bg-emerald-500 animate-pulse' : 'bg-amber-400'}`} />
+              {userLocation ? 'GPS Position Active' : locationStatus}
             </span>
           </div>
 
@@ -316,7 +762,7 @@ export const TempleMapView: React.FC<TempleMapViewProps> = ({
           <div className="relative flex-1 max-w-md">
             <input
               type="text"
-              placeholder="Search map tirths, deity, or city..."
+              placeholder="Search map tirths, deity, city, or sect..."
               value={mapSearchTerm}
               onChange={(e) => setMapSearchTerm(e.target.value)}
               className="w-full pl-9 pr-8 py-2.5 min-h-[44px] text-xs rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-500"
@@ -333,20 +779,22 @@ export const TempleMapView: React.FC<TempleMapViewProps> = ({
           </div>
         </div>
 
-        {/* Radius Filter Pills & Live Places Toggle */}
+        {/* Radius Filter Pills & Map Actions */}
         <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
           <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
             <span className="text-[10px] font-bold uppercase text-slate-400 shrink-0">Radius:</span>
             {[
               { label: 'All India', value: 0 },
               { label: '< 25 km', value: 25 },
+              { label: '< 50 km', value: 50 },
               { label: '< 100 km', value: 100 },
+              { label: '< 250 km', value: 250 },
               { label: '< 500 km', value: 500 },
             ].map((pill) => (
               <button
                 key={pill.value}
                 onClick={() => setMaxRadiusKm(pill.value)}
-                className={`px-3 py-2 min-h-[44px] text-xs font-bold rounded-xl border transition-all shrink-0 flex items-center justify-center cursor-pointer ${
+                className={`px-3 py-1.5 min-h-[36px] text-xs font-bold rounded-xl border transition-all shrink-0 flex items-center justify-center cursor-pointer ${
                   maxRadiusKm === pill.value
                     ? 'bg-amber-600 text-white border-amber-600 shadow'
                     : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700'
@@ -357,292 +805,147 @@ export const TempleMapView: React.FC<TempleMapViewProps> = ({
             ))}
           </div>
 
-          {/* Live Google Places Toggle */}
           <div className="flex items-center gap-2 shrink-0">
             <button
-              onClick={() => setEnableLivePlaces(!enableLivePlaces)}
-              className={`px-3 py-2 min-h-[44px] text-xs font-bold rounded-xl border transition-all flex items-center gap-1.5 cursor-pointer ${
-                enableLivePlaces
-                  ? 'bg-sky-600 text-white border-sky-600 shadow-md'
-                  : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'
-              }`}
-              title="Search Google Maps Places API for additional local Jain temples near your position"
+              onClick={handleFitAllTemples}
+              className="px-3 py-1.5 min-h-[36px] bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 text-xs font-bold rounded-xl flex items-center gap-1.5 cursor-pointer"
+              title="Fit all visible temples into map bounds"
             >
-              <Building2 className="w-3.5 h-3.5" />
-              <span>{enableLivePlaces ? 'Live Google Places Active' : 'Find Places API Temples'}</span>
+              <Maximize2 className="w-3.5 h-3.5 text-amber-500" />
+              <span>Fit All ({sortedTemples.length})</span>
             </button>
+
+            {activeRouteTarget && (
+              <button
+                onClick={handleClearRoute}
+                className="px-3 py-1.5 min-h-[36px] bg-amber-100 dark:bg-amber-950/60 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-800 text-xs font-bold rounded-xl flex items-center gap-1 cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5" />
+                <span>Clear Route</span>
+              </button>
+            )}
           </div>
         </div>
       </div>
 
       {/* Interactive Map & Nearby List Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-        {/* Interactive Google Map Box */}
-        <div className="lg:col-span-8 bg-slate-950 rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-xl relative min-h-[480px] h-[540px]">
-          {!hasValidKey ? (
-            <div className="h-full flex items-center justify-center p-6 text-center text-white bg-slate-900">
-              <div className="max-w-md space-y-4">
-                <div className="p-3 bg-amber-500/20 border border-amber-500/40 rounded-full w-fit mx-auto text-amber-400">
-                  <AlertCircle className="w-8 h-8" />
-                </div>
-                <h3 className="text-lg font-bold font-serif text-amber-300">
-                  Google Maps API Key Required
-                </h3>
-                <p className="text-xs text-slate-300 leading-relaxed">
-                  To view interactive satellite and road map views of sacred Jain Tirths & Derasars with live markers:
+        {/* Leaflet Map Canvas Box */}
+        <div
+          className={`lg:col-span-8 bg-slate-950 rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-xl relative isolate ${
+            isFullscreen ? 'fixed inset-4 z-50 h-[calc(100vh-2rem)]' : 'min-h-[480px] h-[540px]'
+          }`}
+        >
+          {/* Leaflet Map Container */}
+          <div ref={mapContainerRef} className="w-full h-full z-0" />
+
+          {/* Floating Route Info HUD Banner (when a route is drawn) */}
+          {activeRouteTarget && (
+            <div className="absolute top-3 left-1/2 -translate-x-1/2 bg-slate-950/90 backdrop-blur-md border border-amber-500/60 text-white px-4 py-2 rounded-2xl shadow-2xl z-40 flex items-center gap-3 animate-fadeIn max-w-[90%] pointer-events-auto">
+              <div className="p-1.5 bg-amber-500 text-slate-950 rounded-lg">
+                <RouteIcon className="w-4 h-4" />
+              </div>
+              <div className="text-xs">
+                <p className="font-bold text-white flex items-center gap-1">
+                  <span>Navigation Route:</span>
+                  <span className="text-amber-400 truncate max-w-[160px] sm:max-w-[220px]">
+                    {activeRouteTarget.templeName}
+                  </span>
                 </p>
-                <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 text-left text-xs space-y-2 text-slate-300">
-                  <p><strong>Step 1:</strong> Get an API key from Google Maps Platform Console:</p>
-                  <a
-                    href="https://console.cloud.google.com/google/maps-apis/start?utm_campaign=gmp-code-assist-ais"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-amber-400 underline break-all inline-block font-bold"
-                  >
-                    Get Google Maps API Key
-                  </a>
-                  <p className="pt-2"><strong>Step 2:</strong> Add key as secret in AI Studio:</p>
-                  <ul className="list-disc pl-5 space-y-1 text-[11px] text-amber-200">
-                    <li>Open <strong>Settings</strong> (⚙️ gear icon, top right)</li>
-                    <li>Select <strong>Secrets</strong></li>
-                    <li>Type secret name: <code className="bg-slate-800 px-1 py-0.5 rounded text-amber-400">GOOGLE_MAPS_PLATFORM_KEY</code></li>
-                    <li>Paste your key & press <strong>Enter</strong></li>
-                  </ul>
-                  <p className="text-[10px] text-slate-400 italic pt-1">
-                    The app rebuilds automatically after adding the secret.
-                  </p>
-                </div>
+                <p className="text-[11px] text-slate-300">
+                  Distance: <strong className="text-amber-300">{activeRouteTarget.computedDistanceKm} km</strong> • Est. Drive: <strong className="text-amber-300">{estimateDrivingTime(activeRouteTarget.computedDistanceKm)}</strong>
+                </p>
+              </div>
+
+              <div className="flex items-center gap-1.5 ml-1">
+                <a
+                  href={
+                    userLocation
+                      ? `https://www.google.com/maps/dir/?api=1&origin=${userLocation.lat},${userLocation.lng}&destination=${activeRouteTarget.lat},${activeRouteTarget.lng}`
+                      : `https://www.google.com/maps/dir/?api=1&destination=${activeRouteTarget.lat},${activeRouteTarget.lng}`
+                  }
+                  target="_blank"
+                  rel="noreferrer"
+                  className="px-2.5 py-1 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 text-[10px] font-black rounded-lg shadow flex items-center gap-1 shrink-0"
+                  title="Open Google Maps turn-by-turn navigation"
+                >
+                  <Navigation className="w-3 h-3" /> Turn-by-Turn
+                </a>
+                <button
+                  onClick={handleClearRoute}
+                  className="p-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg"
+                  title="Close route overlay"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
               </div>
             </div>
-          ) : (
-            <APIProvider apiKey={API_KEY} version="weekly">
-              <Map
-                center={mapCenter}
-                zoom={mapZoom}
-                mapTypeId={mapTypeId}
-                mapId="DEMO_MAP_ID"
-                internalUsageAttributionIds={['gmp_mcp_codeassist_v1_aistudio']}
-                style={{ width: '100%', height: '100%' }}
-              >
-                {/* Map Smooth Pan Controller */}
-                <MapPanController center={mapCenter} zoom={mapZoom} />
-
-                {/* Google Routes API Polyline Renderer */}
-                {userLocation && activeRouteTarget && (
-                  <RouteDisplay origin={userLocation} destination={activeRouteTarget} />
-                )}
-
-                {/* Live Places API Finder Overlay */}
-                <LivePlacesSearchOverlay
-                  location={userLocation || defaultCenter}
-                  isSearching={enableLivePlaces}
-                  onPlacesFound={(places) => setLivePlaces(places)}
-                />
-
-                {/* Current User Location Marker */}
-                {userLocation && (
-                  <AdvancedMarker position={userLocation} title="Your Current Location">
-                    <div className="relative flex items-center justify-center">
-                      <span className="animate-ping absolute inline-flex h-8 w-8 rounded-full bg-sky-400 opacity-75"></span>
-                      <div className="w-5 h-5 bg-sky-500 border-2 border-white rounded-full shadow-lg flex items-center justify-center">
-                        <div className="w-2 h-2 bg-white rounded-full" />
-                      </div>
-                    </div>
-                  </AdvancedMarker>
-                )}
-
-                {/* Directory Temple Advanced Markers */}
-                {sortedTemples.map((temple) => {
-                  const isSelected = selectedTemple?.id === temple.id;
-                  const isSwetambar = temple.sect.toLowerCase().includes('swetambar');
-                  const isDigambar = temple.sect.toLowerCase().includes('digambar');
-                  
-                  let pinBg = '#f59e0b'; // Gold Swetambar
-                  if (isDigambar && !isSwetambar) pinBg = '#059669'; // Green Digambar
-                  if (isSwetambar && isDigambar) pinBg = '#7c3aed'; // Purple Joint
-                  if (isSelected) pinBg = '#dc2626'; // Selected Red
-
-                  return (
-                    <React.Fragment key={temple.id}>
-                      <AdvancedMarker
-                        position={{ lat: temple.lat!, lng: temple.lng! }}
-                        onClick={() => {
-                          onSelectTemple(temple);
-                          setActiveInfoWindowId(temple.id);
-                          setMapCenter({ lat: temple.lat!, lng: temple.lng! });
-                          setMapZoom(13);
-                        }}
-                      >
-                        <Pin
-                          background={pinBg}
-                          borderColor="#ffffff"
-                          glyphColor="#ffffff"
-                          scale={isSelected ? 1.25 : 1.0}
-                        />
-                      </AdvancedMarker>
-
-                      {/* Interactive InfoWindow */}
-                      {activeInfoWindowId === temple.id && (
-                        <InfoWindow
-                          position={{ lat: temple.lat!, lng: temple.lng! }}
-                          onCloseClick={() => setActiveInfoWindowId(null)}
-                        >
-                          <div className="p-1 max-w-xs text-slate-900 space-y-2">
-                            <div className="flex items-center justify-between gap-1">
-                              <span className="px-1.5 py-0.5 bg-amber-100 text-amber-900 text-[9px] font-black uppercase rounded">
-                                {temple.sect}
-                              </span>
-                              <span className="text-[10px] text-amber-700 font-bold flex items-center gap-0.5">
-                                <MapPin className="w-3 h-3" /> {temple.computedDistanceKm} km away
-                              </span>
-                            </div>
-
-                            <div>
-                              <h4 className="font-bold text-xs text-slate-900 font-serif leading-tight">
-                                {temple.templeName}
-                              </h4>
-                              <p className="text-[10px] text-slate-600 mt-0.5">
-                                <strong>Main Deity:</strong> {temple.mainDeity}
-                              </p>
-                              <p className="text-[10px] text-slate-500">
-                                📍 {temple.city}, {temple.state}
-                              </p>
-                            </div>
-
-                            {temple.hasAccommodation && (
-                              <div className="text-[9px] bg-emerald-50 text-emerald-800 p-1 rounded font-semibold flex items-center gap-1">
-                                🏠 Dharamshala Available ({temple.dharamshalaRooms || 'Yes'} Rooms)
-                              </div>
-                            )}
-
-                            {/* InfoWindow Action Buttons */}
-                            <div className="pt-1 flex items-center gap-1 text-[10px] font-bold">
-                              {userLocation && (
-                                <button
-                                  onClick={() => setActiveRouteTarget({ lat: temple.lat!, lng: temple.lng! })}
-                                  className="px-2 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded flex items-center justify-center gap-1 shadow cursor-pointer text-[10px]"
-                                  title="Show Route on Map"
-                                >
-                                  <RouteIcon className="w-3 h-3" /> Map Route
-                                </button>
-                              )}
-                              <a
-                                href={
-                                  userLocation
-                                    ? `https://www.google.com/maps/dir/?api=1&origin=${userLocation.lat},${userLocation.lng}&destination=${temple.lat},${temple.lng}`
-                                    : `https://www.google.com/maps/dir/?api=1&destination=${temple.lat},${temple.lng}`
-                                }
-                                target="_blank"
-                                rel="noreferrer"
-                                className="flex-1 px-2 py-1.5 bg-slate-900 hover:bg-black text-white rounded flex items-center justify-center gap-1 cursor-pointer text-[10px] font-bold shadow"
-                                title="Open directions in Google Maps in a new tab"
-                              >
-                                <Navigation className="w-3 h-3 text-amber-400" /> Get Directions
-                              </a>
-                            </div>
-
-                            <div className="flex items-center gap-1 pt-0.5">
-                              <VirtualTourButton
-                                temple={temple}
-                                onOpenTour={(t) => setSelected360Temple(t)}
-                                size="sm"
-                              />
-                              <button
-                                onClick={() => onOpenLiveDarshan(temple)}
-                                className="flex-1 py-1 bg-red-600 text-white rounded text-[9px] font-bold flex items-center justify-center gap-1 cursor-pointer"
-                              >
-                                <Video className="w-2.5 h-2.5" /> Live Darshan
-                              </button>
-                              <button
-                                onClick={() => onOpenDonation(temple)}
-                                className="flex-1 py-1 bg-emerald-600 text-white rounded text-[9px] font-bold flex items-center justify-center gap-1 cursor-pointer"
-                              >
-                                <Heart className="w-2.5 h-2.5" /> Donate
-                              </button>
-                            </div>
-                          </div>
-                        </InfoWindow>
-                      )}
-                    </React.Fragment>
-                  );
-                })}
-
-                {/* Google Places API Live Search Markers */}
-                {enableLivePlaces &&
-                  livePlaces.map((p) => {
-                    if (!p.location) return null;
-                    const pLat = typeof p.location.lat === 'function' ? p.location.lat() : p.location.lat;
-                    const pLng = typeof p.location.lng === 'function' ? p.location.lng() : p.location.lng;
-                    const name = typeof p.displayName === 'string' ? p.displayName : p.displayName?.text || 'Jain Temple';
-
-                    return (
-                      <React.Fragment key={p.id || name}>
-                        <AdvancedMarker
-                          position={{ lat: pLat, lng: pLng }}
-                          onClick={() => setActivePlaceInfoWindowId(p.id || name)}
-                        >
-                          <Pin background="#0284c7" borderColor="#ffffff" glyphColor="#ffffff" scale={0.9} />
-                        </AdvancedMarker>
-
-                        {activePlaceInfoWindowId === (p.id || name) && (
-                          <InfoWindow
-                            position={{ lat: pLat, lng: pLng }}
-                            onCloseClick={() => setActivePlaceInfoWindowId(null)}
-                          >
-                            <div className="p-1 max-w-xs text-slate-900 space-y-1">
-                              <span className="px-1.5 py-0.5 bg-sky-100 text-sky-900 text-[9px] font-bold uppercase rounded">
-                                Google Places Result
-                              </span>
-                              <h4 className="font-bold text-xs">{name}</h4>
-                              <p className="text-[10px] text-slate-600">{p.formattedAddress}</p>
-                              {p.rating && (
-                                <p className="text-[10px] font-bold text-amber-600">
-                                  ⭐ {p.rating} ({p.userRatingCount || 0} reviews)
-                                </p>
-                              )}
-                              <a
-                                href={
-                                  userLocation
-                                    ? `https://www.google.com/maps/dir/?api=1&origin=${userLocation.lat},${userLocation.lng}&destination=${pLat},${pLng}`
-                                    : `https://www.google.com/maps/dir/?api=1&destination=${pLat},${pLng}`
-                                }
-                                target="_blank"
-                                rel="noreferrer"
-                                className="mt-1 flex items-center justify-center gap-1 py-1.5 bg-sky-700 hover:bg-sky-800 text-white rounded text-[10px] font-bold shadow"
-                              >
-                                <Navigation className="w-3 h-3 text-amber-300" /> Get Directions
-                              </a>
-                            </div>
-                          </InfoWindow>
-                        )}
-                      </React.Fragment>
-                    );
-                  })}
-              </Map>
-            </APIProvider>
           )}
 
-          {/* Map Controls Overlay (Map Type Switcher & Legend) */}
-          <div className="absolute top-3 left-3 bg-slate-900/90 backdrop-blur-md border border-slate-700/80 text-white p-1.5 rounded-xl shadow-xl flex items-center gap-1 z-10 pointer-events-auto">
-            <Layers className="w-3.5 h-3.5 text-amber-400 ml-1" />
-            {(['roadmap', 'satellite', 'hybrid'] as const).map((type) => (
+          {/* Map Layer Switcher (Top Left) */}
+          <div className="absolute top-3 left-3 bg-slate-900/90 backdrop-blur-md border border-slate-700/80 text-white p-1.5 rounded-xl shadow-xl flex items-center gap-1 z-30 pointer-events-auto">
+            <Layers className="w-3.5 h-3.5 text-amber-400 ml-1 shrink-0" />
+            {(['clean', 'streets', 'satellite', 'dark'] as const).map((layerKey) => (
               <button
-                key={type}
-                onClick={() => setMapTypeId(type)}
-                className={`px-2 py-1 text-[10px] font-bold rounded-lg capitalize transition-colors cursor-pointer ${
-                  mapTypeId === type
-                    ? 'bg-amber-500 text-slate-950 font-black'
+                key={layerKey}
+                onClick={() => setSelectedLayer(layerKey)}
+                className={`px-2 py-1 text-[10px] font-bold rounded-lg transition-colors cursor-pointer ${
+                  selectedLayer === layerKey
+                    ? 'bg-amber-500 text-slate-950 font-black shadow-xs'
                     : 'hover:bg-slate-800 text-slate-300'
                 }`}
               >
-                {type}
+                {TILE_LAYERS[layerKey].name}
               </button>
             ))}
           </div>
 
-          {/* Quick Legend Overlay */}
-          <div className="absolute bottom-3 left-3 bg-slate-900/90 backdrop-blur-md border border-amber-500/30 text-white p-2.5 rounded-xl text-[10px] space-y-1 shadow-lg pointer-events-auto z-10">
-            <p className="font-bold text-amber-400 uppercase tracking-wider">Map Pin Guide:</p>
+          {/* Custom Zoom & View Controls (Top Right) */}
+          <div className="absolute top-3 right-3 flex flex-col gap-1.5 z-30 pointer-events-auto">
+            <div className="bg-slate-900/90 backdrop-blur-md border border-slate-700/80 rounded-xl overflow-hidden shadow-xl flex flex-col">
+              <button
+                onClick={handleZoomIn}
+                className="p-2 hover:bg-slate-800 text-slate-200 transition-colors cursor-pointer"
+                title="Zoom In"
+              >
+                <ZoomIn className="w-4 h-4" />
+              </button>
+              <div className="h-px bg-slate-800 w-full" />
+              <button
+                onClick={handleZoomOut}
+                className="p-2 hover:bg-slate-800 text-slate-200 transition-colors cursor-pointer"
+                title="Zoom Out"
+              >
+                <ZoomOut className="w-4 h-4" />
+              </button>
+            </div>
+
+            <button
+              onClick={() => {
+                if (userLocation && mapInstanceRef.current) {
+                  mapInstanceRef.current.flyTo([userLocation.lat, userLocation.lng], 13, { duration: 1.0 });
+                } else {
+                  handleDetectLocation();
+                }
+              }}
+              className="p-2 bg-slate-900/90 backdrop-blur-md border border-slate-700/80 hover:bg-slate-800 text-sky-400 rounded-xl shadow-xl transition-colors cursor-pointer"
+              title="Center on my GPS position"
+            >
+              <Navigation className="w-4 h-4" />
+            </button>
+
+            <button
+              onClick={() => setIsFullscreen(!isFullscreen)}
+              className="p-2 bg-slate-900/90 backdrop-blur-md border border-slate-700/80 hover:bg-slate-800 text-amber-400 rounded-xl shadow-xl transition-colors cursor-pointer"
+              title={isFullscreen ? 'Exit Fullscreen' : 'Expand Map'}
+            >
+              {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+            </button>
+          </div>
+
+          {/* Map Pin Legend (Bottom Left) */}
+          <div className="absolute bottom-3 left-3 bg-slate-900/90 backdrop-blur-md border border-amber-500/30 text-white p-2.5 rounded-xl text-[10px] space-y-1 shadow-lg pointer-events-auto z-30">
+            <p className="font-bold text-amber-400 uppercase tracking-wider">Jain Tirth Guide:</p>
             <div className="flex flex-wrap items-center gap-3 text-slate-200">
               <span className="flex items-center gap-1">
                 <span className="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block" /> Swetambar
@@ -668,10 +971,10 @@ export const TempleMapView: React.FC<TempleMapViewProps> = ({
             <div>
               <h3 className="text-sm font-bold font-serif text-slate-900 dark:text-white flex items-center gap-1.5">
                 <Compass className="w-4 h-4 text-amber-500" />
-                <span>Nearest Sacred Tirths</span>
+                <span>Nearby Sacred Temples</span>
               </h3>
               <p className="text-[10px] text-slate-500 dark:text-slate-400">
-                Sorted by distance from {userLocation ? 'your GPS position' : 'default location'}
+                Sorted by distance from {userLocation ? 'your GPS position' : 'central region'}
               </p>
             </div>
             <span className="px-2.5 py-1 bg-amber-500/20 text-amber-600 dark:text-amber-400 font-extrabold text-[11px] rounded-full">
@@ -699,15 +1002,19 @@ export const TempleMapView: React.FC<TempleMapViewProps> = ({
             ) : (
               sortedTemples.map((temple) => {
                 const isSelected = selectedTemple?.id === temple.id;
+                const isRouteTarget = activeRouteTarget?.id === temple.id;
+
                 return (
                   <div
                     key={temple.id}
                     onClick={() => {
                       onSelectTemple(temple);
-                      setActiveInfoWindowId(temple.id);
-                      if (temple.lat && temple.lng) {
-                        setMapCenter({ lat: temple.lat, lng: temple.lng });
-                        setMapZoom(13);
+                      if (temple.lat && temple.lng && mapInstanceRef.current) {
+                        const targetMarker = templeMarkersMapRef.current.get(temple.id);
+                        if (targetMarker) {
+                          mapInstanceRef.current.flyTo([temple.lat, temple.lng], 13, { duration: 1.0 });
+                          targetMarker.openPopup();
+                        }
                       }
                     }}
                     className={`p-3 rounded-xl border transition-all cursor-pointer space-y-2 ${
@@ -745,11 +1052,19 @@ export const TempleMapView: React.FC<TempleMapViewProps> = ({
                       </span>
 
                       <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                        <VirtualTourButton
-                          temple={temple}
-                          onOpenTour={(t) => setSelected360Temple(t)}
-                          size="sm"
-                        />
+                        <button
+                          type="button"
+                          onClick={() => handleDrawRoute(temple)}
+                          className={`px-2 py-1 rounded-lg text-[10px] font-bold flex items-center justify-center gap-1 shadow-xs cursor-pointer transition-colors ${
+                            isRouteTarget
+                              ? 'bg-amber-600 text-white'
+                              : 'bg-amber-100 hover:bg-amber-200 text-amber-900 dark:bg-amber-900/60 dark:text-amber-200'
+                          }`}
+                          title="Draw navigation route on map"
+                        >
+                          <RouteIcon className="w-3 h-3" /> Route
+                        </button>
+
                         <a
                           href={
                             userLocation
@@ -758,23 +1073,17 @@ export const TempleMapView: React.FC<TempleMapViewProps> = ({
                           }
                           target="_blank"
                           rel="noreferrer"
-                          className="px-2 py-1.5 bg-slate-900 hover:bg-black text-amber-300 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-lg text-[10px] font-bold flex items-center justify-center gap-1 shadow cursor-pointer"
+                          className="px-2 py-1 bg-slate-900 hover:bg-black text-amber-300 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-lg text-[10px] font-bold flex items-center justify-center gap-1 shadow-xs cursor-pointer"
                           title="Get Directions in Google Maps (new tab)"
                         >
-                          <Navigation className="w-3 h-3 text-amber-400" /> Directions
+                          <Navigation className="w-3 h-3 text-amber-400" /> Navigate
                         </a>
-                        <button
-                          onClick={() => onOpenLiveDarshan(temple)}
-                          className="px-2 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-[10px] font-bold flex items-center justify-center gap-1 shadow cursor-pointer"
-                        >
-                          <Video className="w-3 h-3" /> Live
-                        </button>
-                        <button
-                          onClick={() => onOpenDonation(temple)}
-                          className="px-2 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-[10px] font-bold flex items-center justify-center gap-1 shadow cursor-pointer"
-                        >
-                          <Heart className="w-3 h-3" /> Donate
-                        </button>
+
+                        <VirtualTourButton
+                          temple={temple}
+                          onOpenTour={(t) => setSelected360Temple(t)}
+                          size="sm"
+                        />
                       </div>
                     </div>
                   </div>

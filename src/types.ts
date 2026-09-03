@@ -1,5 +1,7 @@
 export type UserRole = 'Super Admin' | 'Admin' | 'Moderator' | 'Temple Admin' | 'Business Owner' | 'VerifiedBusiness' | 'Member' | 'Guest';
 
+export type TabOption = 'home' | 'matrimonial' | 'business' | 'directory' | 'temple' | 'panchang' | 'feed' | 'emergency' | 'admin';
+
 export type UserStatus = 'Pending Approval' | 'Approved' | 'Rejected' | 'Suspended';
 
 export type RegistrationType = 'Individual' | 'Business' | 'Temple' | 'Marriage Profile' | 'NGO' | 'Trust';
@@ -57,10 +59,30 @@ export interface User {
   donorCity?: string;
   donorState?: string;
   qrCodeUrl?: string;
-  themePreference?: 'light' | 'dark';
+  themePreference?: 'auto' | 'light' | 'dark';
   password?: string;
   permissions?: string[];
   rolePermissions?: Partial<RolePermissions>;
+  prayerReminderSettings?: PrayerReminderSettings;
+}
+
+export interface PrayerReminderItem {
+  id: string;
+  name: string;
+  hindiName?: string;
+  category: 'samayik' | 'aarti' | 'pratikraman' | 'pachkan' | 'custom';
+  time: string; // 24-hour "HH:MM", e.g. "07:00", "18:45"
+  enabled: boolean;
+  soundEnabled: boolean;
+  description: string;
+}
+
+export interface PrayerReminderSettings {
+  enabled: boolean;
+  browserNotificationsAllowed: boolean;
+  soundVolume: number; // 0.0 to 1.0
+  reminders: PrayerReminderItem[];
+  lastTriggeredDates?: Record<string, string>;
 }
 
 export interface MatrimonialProfile {

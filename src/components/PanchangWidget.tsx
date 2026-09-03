@@ -30,11 +30,12 @@ import {
   RotateCcw,
   HelpCircle,
   ShieldCheck,
-  AlertCircle
+  AlertCircle,
+  Bell
 } from 'lucide-react';
 
 export const PanchangWidget: React.FC = () => {
-  const { panchang: defaultTodayPanchang, showToast } = useApp();
+  const { panchang: defaultTodayPanchang, showToast, openDailyTithiAlert } = useApp();
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [selectedCityKey, setSelectedCityKey] = useState<string>(() => {
     try {
@@ -440,6 +441,16 @@ export const PanchangWidget: React.FC = () => {
           >
             {isPlayingAudio ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
             <span className="hidden sm:inline">{isPlayingAudio ? 'Navkar Audio' : 'Play Navkar'}</span>
+          </button>
+
+          {/* Daily Tithi Alert Notification Button */}
+          <button
+            onClick={openDailyTithiAlert}
+            className="px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 border border-amber-400/50 bg-amber-500/15 hover:bg-amber-500/25 text-amber-900 dark:text-amber-200 shadow-sm cursor-pointer active:scale-95"
+            title="Open Daily Jain Tithi & Significant Upcoming Festivals Alert"
+          >
+            <Bell className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 animate-bounce" />
+            <span className="hidden sm:inline">Daily Tithi Alert</span>
           </button>
 
           {/* Sync Tithi to Google Calendar Button */}

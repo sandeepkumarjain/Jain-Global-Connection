@@ -5,39 +5,67 @@
 @layer base {
   :root {
     font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
   
   body {
     font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    color: #0f172a;
-    background-color: #f8fafc;
+    color: #1c1917;
+    background-color: #faf9f6;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    transition: background-color 0.25s ease, color 0.25s ease;
+  }
+
+  html.dark {
+    color-scheme: dark;
+    background-color: #090d16;
+  }
+
+  html.dark body {
+    color: #f8fafc;
+    background-color: #090d16;
   }
 
   h1, h2, h3, .font-serif {
     font-family: 'Cinzel', 'Playfair Display', Georgia, serif;
+    letter-spacing: -0.015em;
   }
 }
 
-/* Custom Glassmorphism & Gold Shimmer Animations */
+/* Refined Sacred Gold & Glassmorphic Utilities */
 .glass-panel {
-  background: rgba(15, 23, 42, 0.75);
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(217, 119, 6, 0.2);
+}
+
+.dark .glass-panel {
+  background: rgba(15, 23, 42, 0.85);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border: 1px solid rgba(245, 158, 11, 0.2);
 }
 
 .gold-gradient-text {
+  background: linear-gradient(135deg, #b45309 0%, #d97706 50%, #92400e 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.dark .gold-gradient-text {
   background: linear-gradient(135deg, #fef3c7 0%, #f59e0b 50%, #d97706 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
 .gold-shimmer {
-  background: linear-gradient(90deg, transparent, rgba(251, 191, 36, 0.25), transparent);
+  background: linear-gradient(90deg, transparent, rgba(217, 119, 6, 0.15), transparent);
   background-size: 200% 100%;
-  animation: shimmer 3s infinite;
+  animation: shimmer 3.5s infinite;
 }
 
 @keyframes shimmer {
@@ -56,52 +84,34 @@ html.auspicious body {
   color: #451a03 !important;
 }
 
-/* Auspicious theme cards & containers background overrides */
+/* Sleek Cultural Scrollbar */
+::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(180, 83, 9, 0.25);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(180, 83, 9, 0.45);
+}
+
+/* Auspicious theme overrides */
 html.auspicious .bg-white {
   background-color: #fefce8 !important;
-}
-
-html.auspicious .bg-slate-50,
-html.auspicious .bg-slate-100 {
-  background-color: #fef9c3/70 !important;
-}
-
-html.auspicious .bg-slate-900,
-html.auspicious .bg-slate-950 {
-  background-color: #451a03 !important;
-  color: #fef3c7 !important;
 }
 
 html.auspicious .border-slate-200,
 html.auspicious .border-slate-100,
 html.auspicious .border-slate-300 {
   border-color: #fde68a !important;
-}
-
-html.auspicious .border-slate-700,
-html.auspicious .border-slate-800 {
-  border-color: #b45309 !important;
-}
-
-html.auspicious .text-slate-900,
-html.auspicious .text-slate-800 {
-  color: #78350f !important;
-}
-
-html.auspicious .text-slate-600,
-html.auspicious .text-slate-700 {
-  color: #92400e !important;
-}
-
-html.auspicious .text-slate-500,
-html.auspicious .text-slate-400 {
-  color: #b45309 !important;
-}
-
-/* Golden glowing highlights */
-html.auspicious .shadow-lg,
-html.auspicious .shadow-xl {
-  box-shadow: 0 10px 25px -5px rgba(217, 119, 6, 0.15), 0 8px 10px -6px rgba(217, 119, 6, 0.1) !important;
 }
 
 /* Toast Slide-In Entrance Animation & Remaining Time Progress Bar */
@@ -142,8 +152,85 @@ html.auspicious .shadow-xl {
   display: none;
 }
 .no-scrollbar {
-  -ms-overflow-style: none;  /* IE and Edge */
-  scrollbar-width: none;  /* Firefox */
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Button micro-interaction polish */
+button:active {
+  transform: scale(0.985);
+}
+
+/* Subtle sacred ambient pattern */
+.sacred-pattern-bg {
+  background-image: radial-gradient(rgba(180, 83, 9, 0.08) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+@keyframes leafletPing {
+  75%, 100% {
+    transform: scale(2);
+    opacity: 0;
+  }
+}
+
+/* Leaflet Map & Custom Popup Polish */
+.leaflet-container {
+  font-family: inherit;
+  width: 100%;
+  height: 100%;
+  background-color: #0f172a;
+}
+
+.custom-temple-popup .leaflet-popup-content-wrapper {
+  background: #ffffff;
+  color: #0f172a;
+  border-radius: 1rem;
+  padding: 0;
+  overflow: hidden;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.25);
+}
+
+.dark .custom-temple-popup .leaflet-popup-content-wrapper {
+  background: #0f172a;
+  color: #f8fafc;
+  border: 1px solid rgba(245, 158, 11, 0.35);
+}
+
+.custom-temple-popup .leaflet-popup-content {
+  margin: 0;
+  line-height: 1.4;
+}
+
+.custom-temple-popup .leaflet-popup-tip {
+  background: #ffffff;
+}
+
+.dark .custom-temple-popup .leaflet-popup-tip {
+  background: #0f172a;
+}
+
+.custom-temple-popup .leaflet-popup-close-button {
+  top: 8px !important;
+  right: 8px !important;
+  width: 24px !important;
+  height: 24px !important;
+  border-radius: 9999px !important;
+  background: rgba(0, 0, 0, 0.5) !important;
+  color: #ffffff !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 14px !important;
+  padding: 0 !important;
+  transition: all 0.2s ease !important;
+  z-index: 10 !important;
+}
+
+.custom-temple-popup .leaflet-popup-close-button:hover {
+  background: rgba(220, 38, 38, 0.8) !important;
+  color: #ffffff !important;
 }
 
 html, body, #root {
@@ -158,3 +245,4 @@ html, body, #root {
 *, ::before, ::after {
   box-sizing: border-box;
 }
+

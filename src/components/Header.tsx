@@ -3,6 +3,7 @@ import { useApp } from '../context/AppContext';
 import { NAV_TRANSLATIONS } from '../utils/translations';
 import { useTypingPlaceholder } from '../hooks/useTypingPlaceholder';
 import { LanguageSwitcher } from './LanguageSwitcher';
+import { ThemeSwitcher } from './ThemeSwitcher';
 import {
   Search,
   Sparkles,
@@ -37,8 +38,10 @@ import {
   Compass,
   Mail,
   QrCode,
+  Map,
   SlidersHorizontal,
-  LayoutGrid
+  LayoutGrid,
+  BellRing
 } from 'lucide-react';
 
 export const Header: React.FC = () => {
@@ -61,6 +64,8 @@ export const Header: React.FC = () => {
     setIsAISearchOpen,
     setIsMembershipModalOpen,
     setIsUserProfileModalOpen,
+    openPrayerRemindersSettings,
+    prayerReminderSettings,
     setIsDigitalIdModalOpen,
     setIsBhajanModalOpen,
     openGmailModal,
@@ -77,6 +82,7 @@ export const Header: React.FC = () => {
     isPlayingSong,
     togglePlaySong,
     setIsDashboardCustomizerOpen,
+    openSitemap,
   } = useApp();
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -221,50 +227,50 @@ export const Header: React.FC = () => {
 
   const NAV_ITEM_THEMES: Record<string, { active: string; hover: string; iconActive: string; iconInactive: string }> = {
     home: {
-      active: 'bg-gradient-to-r from-amber-400 via-amber-500 to-yellow-500 text-slate-950 border-amber-300 font-black shadow-md scale-[1.02]',
-      hover: 'hover:bg-amber-800/90 hover:text-amber-200 hover:border-amber-400',
+      active: 'bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 text-slate-950 border-amber-300 font-extrabold shadow-md shadow-amber-950/20 scale-[1.02]',
+      hover: 'hover:bg-amber-800/80 hover:text-white hover:border-amber-400/60',
       iconActive: 'text-slate-950',
       iconInactive: 'text-amber-400',
     },
     matrimonial: {
-      active: 'bg-gradient-to-r from-rose-500 via-pink-500 to-rose-600 text-white border-rose-300 font-black shadow-md scale-[1.02]',
-      hover: 'hover:bg-rose-900/90 hover:text-rose-200 hover:border-rose-400',
+      active: 'bg-gradient-to-r from-rose-500 via-rose-600 to-rose-700 text-white border-rose-300 font-extrabold shadow-md shadow-rose-950/20 scale-[1.02]',
+      hover: 'hover:bg-rose-900/80 hover:text-white hover:border-rose-400/60',
       iconActive: 'text-white',
-      iconInactive: 'text-rose-300',
+      iconInactive: 'text-rose-400',
     },
     business: {
-      active: 'bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 text-slate-950 border-amber-300 font-black shadow-md scale-[1.02]',
-      hover: 'hover:bg-orange-900/90 hover:text-amber-200 hover:border-amber-400',
+      active: 'bg-gradient-to-r from-amber-500 via-amber-600 to-amber-700 text-slate-950 border-amber-300 font-extrabold shadow-md shadow-amber-950/20 scale-[1.02]',
+      hover: 'hover:bg-amber-800/80 hover:text-white hover:border-amber-400/60',
       iconActive: 'text-slate-950',
       iconInactive: 'text-amber-300',
     },
     directory: {
-      active: 'bg-gradient-to-r from-cyan-500 via-teal-500 to-blue-600 text-white border-cyan-300 font-black shadow-md scale-[1.02]',
-      hover: 'hover:bg-cyan-900/90 hover:text-cyan-200 hover:border-cyan-400',
+      active: 'bg-gradient-to-r from-teal-500 via-teal-600 to-teal-700 text-white border-teal-300 font-extrabold shadow-md shadow-teal-950/20 scale-[1.02]',
+      hover: 'hover:bg-teal-900/80 hover:text-white hover:border-teal-400/60',
       iconActive: 'text-white',
-      iconInactive: 'text-cyan-300',
+      iconInactive: 'text-teal-300',
     },
     temple: {
-      active: 'bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-600 text-white border-emerald-300 font-black shadow-md scale-[1.02]',
-      hover: 'hover:bg-emerald-900/90 hover:text-emerald-200 hover:border-emerald-400',
+      active: 'bg-gradient-to-r from-emerald-500 via-emerald-600 to-emerald-700 text-white border-emerald-300 font-extrabold shadow-md shadow-emerald-950/20 scale-[1.02]',
+      hover: 'hover:bg-emerald-900/80 hover:text-white hover:border-emerald-400/60',
       iconActive: 'text-white',
       iconInactive: 'text-emerald-300',
     },
     panchang: {
-      active: 'bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-600 text-white border-indigo-300 font-black shadow-md scale-[1.02]',
-      hover: 'hover:bg-indigo-900/90 hover:text-indigo-200 hover:border-indigo-400',
+      active: 'bg-gradient-to-r from-amber-500 via-orange-600 to-amber-700 text-white border-amber-300 font-extrabold shadow-md shadow-amber-950/20 scale-[1.02]',
+      hover: 'hover:bg-orange-900/80 hover:text-white hover:border-orange-400/60',
       iconActive: 'text-white',
-      iconInactive: 'text-indigo-300',
+      iconInactive: 'text-amber-300',
     },
     feed: {
-      active: 'bg-gradient-to-r from-fuchsia-500 via-purple-500 to-pink-600 text-white border-fuchsia-300 font-black shadow-md scale-[1.02]',
-      hover: 'hover:bg-fuchsia-900/90 hover:text-fuchsia-200 hover:border-fuchsia-400',
+      active: 'bg-gradient-to-r from-purple-500 via-purple-600 to-purple-700 text-white border-purple-300 font-extrabold shadow-md shadow-purple-950/20 scale-[1.02]',
+      hover: 'hover:bg-purple-900/80 hover:text-white hover:border-purple-400/60',
       iconActive: 'text-white',
-      iconInactive: 'text-fuchsia-300',
+      iconInactive: 'text-purple-300',
     },
     emergency: {
-      active: 'bg-gradient-to-r from-red-600 via-rose-600 to-red-700 text-white border-red-300 font-black shadow-md scale-[1.02]',
-      hover: 'hover:bg-red-900/90 hover:text-red-200 hover:border-red-400',
+      active: 'bg-gradient-to-r from-red-600 via-rose-600 to-red-700 text-white border-red-300 font-extrabold shadow-md shadow-red-950/20 scale-[1.02]',
+      hover: 'hover:bg-red-900/80 hover:text-white hover:border-red-400/60',
       iconActive: 'text-white',
       iconInactive: 'text-red-300',
     },
@@ -341,6 +347,20 @@ export const Header: React.FC = () => {
               </span>
             </div>
 
+            {/* Automatic Solar Theme Switcher (Topbar) */}
+            <ThemeSwitcher variant="topbar" />
+
+            {/* Global Sitemap Link */}
+            <button
+              id="topbar-sitemap-btn"
+              onClick={openSitemap}
+              className="hidden lg:flex items-center gap-1 text-[11px] font-bold text-amber-200 hover:text-white px-2 py-0.5 rounded-full bg-amber-900/50 hover:bg-amber-800/60 border border-amber-500/30 transition-colors cursor-pointer"
+              title="View all accessible sections in Sitemap"
+            >
+              <Map className="w-3 h-3 text-amber-400" />
+              <span>Sitemap</span>
+            </button>
+
             {/* Language Switcher Dropdown */}
             <LanguageSwitcher variant="topbar" />
           </div>
@@ -360,10 +380,10 @@ export const Header: React.FC = () => {
                 setActiveTab('home');
               }
             }}
-            className="flex items-center gap-1.5 sm:gap-3 cursor-pointer group shrink min-w-0 overflow-hidden"
+            className="flex items-center gap-2 sm:gap-3 cursor-pointer group shrink min-w-0 overflow-hidden"
           >
-            <div className="relative w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-amber-500 via-amber-600 to-amber-800 p-0.5 shadow-md group-hover:scale-105 transition-transform duration-300 shrink-0">
-              <div className="w-full h-full bg-slate-950 rounded-[10px] flex items-center justify-center overflow-hidden">
+            <div className="relative w-9 h-9 sm:w-11 sm:h-11 rounded-2xl bg-gradient-to-br from-amber-400 via-amber-500 to-amber-700 p-0.5 shadow-md group-hover:scale-105 transition-all duration-300 shrink-0">
+              <div className="w-full h-full bg-slate-950 rounded-[14px] flex items-center justify-center overflow-hidden border border-amber-300/40">
                 <img
                   src="/src/assets/images/jain_connect_logo_1784713492384.jpg"
                   alt="Jain Connect Logo"
@@ -376,11 +396,11 @@ export const Header: React.FC = () => {
               </div>
             </div>
             <div className="min-w-0 overflow-hidden">
-              <div className="flex items-center gap-1">
-                <h1 className="text-xs sm:text-lg font-extrabold tracking-tight text-slate-900 dark:text-white group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors font-serif truncate">
+              <div className="flex items-center gap-1.5">
+                <h1 className="text-sm sm:text-lg font-extrabold tracking-tight text-slate-900 dark:text-white group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors font-serif truncate">
                   JAIN CONNECT
                 </h1>
-                <span className="text-[8px] sm:text-[10px] bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-700 px-1 py-0.2 rounded font-bold uppercase tracking-wider shrink-0">
+                <span className="text-[8px] sm:text-[9px] bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-700/80 px-1.5 py-0.5 rounded-full font-extrabold uppercase tracking-widest shrink-0">
                   GLOBAL
                 </span>
               </div>
@@ -398,13 +418,13 @@ export const Header: React.FC = () => {
                 placeholder={animatedSearchPlaceholder || 'Search for businesses, temples...'}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-24 py-2 text-xs rounded-full bg-slate-100 dark:bg-slate-900 text-slate-800 dark:text-slate-100 border border-slate-200 dark:border-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500/50 shadow-inner"
+                className="w-full pl-9 pr-24 py-2 text-xs rounded-full bg-amber-50/40 hover:bg-amber-50/70 focus:bg-white dark:bg-slate-900/90 text-slate-800 dark:text-slate-100 border border-amber-200/80 dark:border-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 transition-all shadow-xs"
               />
-              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+              <Search className="w-4 h-4 text-amber-600/70 dark:text-amber-400/70 absolute left-3 top-2.5" />
               
               <button
                 onClick={() => setIsAISearchOpen(true)}
-                className="absolute right-1.5 top-1 bottom-1 px-2.5 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-white text-[11px] font-semibold rounded-full flex items-center gap-1 shadow-sm transition-all"
+                className="absolute right-1.5 top-1 bottom-1 px-3 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-white text-[11px] font-bold rounded-full flex items-center gap-1 shadow-xs transition-all active:scale-95 cursor-pointer"
               >
                 <Sparkles className="w-3 h-3 text-amber-200 animate-pulse" />
                 <span>AI Assist</span>
@@ -516,6 +536,9 @@ export const Header: React.FC = () => {
               </div>
             )}
 
+            {/* Automatic Solar Theme Switcher */}
+            <ThemeSwitcher variant="header" />
+
             {/* User Account Controls */}
             {currentUser ? (
               <div className="relative shrink-0 flex items-center gap-1 sm:gap-1.5">
@@ -623,6 +646,27 @@ export const Header: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => {
+                          openPrayerRemindersSettings();
+                          setIsUserMenuOpen(false);
+                        }}
+                        className="w-full text-left px-3 py-2 hover:bg-amber-50 dark:hover:bg-amber-950/40 text-slate-800 dark:text-slate-200 font-bold flex items-center justify-between cursor-pointer"
+                      >
+                        <div className="flex items-center gap-2">
+                          <BellRing className="w-4 h-4 text-amber-600 shrink-0" />
+                          <span>Prayer Reminders (Samayik & Aarti)</span>
+                        </div>
+                        {prayerReminderSettings?.enabled ? (
+                          <span className="px-1.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 text-[10px] font-extrabold border border-emerald-300 dark:border-emerald-800">
+                            Active
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-slate-400 font-medium">Off</span>
+                        )}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
                           setActiveTab('home');
                           setIsDashboardCustomizerOpen(true);
                           setIsUserMenuOpen(false);
@@ -647,6 +691,19 @@ export const Header: React.FC = () => {
 
                       <button
                         type="button"
+                        id="user-menu-sitemap-btn"
+                        onClick={() => {
+                          openSitemap();
+                          setIsUserMenuOpen(false);
+                        }}
+                        className="w-full text-left px-3 py-2 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 flex items-center gap-2 font-semibold cursor-pointer"
+                      >
+                        <Map className="w-4 h-4 text-amber-600 shrink-0" />
+                        <span>All Sections & Sitemap</span>
+                      </button>
+
+                      <button
+                        type="button"
                         onClick={() => {
                           logout();
                           setIsUserMenuOpen(false);
@@ -661,19 +718,19 @@ export const Header: React.FC = () => {
                 )}
               </div>
             ) : (
-              <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+              <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
                 <button
                   onClick={() => setIsAuthModalOpen(true)}
-                  className="px-2.5 py-1 sm:px-3 sm:py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-full text-xs font-black transition-all shadow-sm flex items-center gap-1 shrink-0 whitespace-nowrap"
+                  className="px-3 sm:px-4 py-1.5 sm:py-2 bg-gradient-to-r from-amber-500 via-amber-600 to-amber-700 hover:from-amber-400 hover:to-amber-600 text-slate-950 font-extrabold rounded-full text-xs transition-all shadow-xs hover:shadow-md active:scale-95 flex items-center gap-1.5 shrink-0 whitespace-nowrap border border-amber-300/60 cursor-pointer"
                 >
                   <LogIn className="w-3.5 h-3.5" />
                   <span>Login<span className="hidden sm:inline"> / Admin</span></span>
                 </button>
                 <button
                   onClick={() => openRegistrationModal()}
-                  className="hidden sm:flex px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-800 dark:text-slate-200 rounded-full text-xs font-bold transition-all border border-slate-200 dark:border-slate-700 items-center gap-1.5 shrink-0"
+                  className="hidden sm:flex px-3.5 py-1.5 sm:py-2 bg-white dark:bg-slate-900 hover:bg-amber-50 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-100 rounded-full text-xs font-bold transition-all border border-amber-200/80 dark:border-slate-700 items-center gap-1.5 shrink-0 shadow-xs hover:border-amber-400 active:scale-95 cursor-pointer"
                 >
-                  <UserPlus className="w-3.5 h-3.5 text-amber-500" />
+                  <UserPlus className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
                   <span>Register</span>
                 </button>
               </div>
@@ -691,8 +748,12 @@ export const Header: React.FC = () => {
         </div>
 
         {/* Navigation Tabs Bar - Visible on desktop, hidden on mobile as options are in mobile menu */}
-        <div className="hidden md:block bg-gradient-to-r from-amber-900 via-amber-800 to-amber-900 text-amber-50 border-t border-amber-500/30 shadow-md w-full relative group">
+        <div className="hidden md:block bg-gradient-to-r from-amber-950 via-amber-900 to-amber-950 text-amber-50 border-t border-amber-500/30 shadow-md w-full relative group">
           <div className="max-w-7xl mx-auto px-2 lg:px-4 py-2 w-full relative flex items-center">
+            {/* Subtle Gradient Fade Edges for Smooth Horizon */}
+            <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-6 bg-gradient-to-r from-amber-950 to-transparent z-10" />
+            <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-amber-950 to-transparent z-10" />
+
             {/* Left Scroll Button Indicator */}
             {canScrollLeft && (
               <button
@@ -723,7 +784,7 @@ export const Header: React.FC = () => {
                     className={`flex items-center gap-1.5 px-2.5 py-1.5 lg:px-3 lg:py-1.5 text-[11px] lg:text-xs font-bold transition-all rounded-full whitespace-nowrap shrink-0 border cursor-pointer ${
                       isActive
                         ? theme.active
-                        : `bg-slate-900/80 dark:bg-slate-950/80 text-slate-100 border-slate-700/60 ${theme.hover}`
+                        : `bg-amber-950/70 text-amber-100/90 border-amber-500/30 hover:bg-amber-900/80 hover:text-white hover:border-amber-400/50 backdrop-blur-xs ${theme.hover}`
                     }`}
                   >
                     <Icon className={`w-3.5 h-3.5 shrink-0 ${isActive ? theme.iconActive : theme.iconInactive}`} />
@@ -771,6 +832,18 @@ export const Header: React.FC = () => {
                   <span>Admin</span>
                 </button>
               )}
+
+              {/* Sitemap & Directory Index Button */}
+              <button
+                type="button"
+                id="header-nav-sitemap-btn"
+                onClick={openSitemap}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 lg:px-3 lg:py-1.5 text-[11px] lg:text-xs font-extrabold transition-all rounded-full whitespace-nowrap shrink-0 border cursor-pointer border-amber-400/60 bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 hover:text-white shadow-xs"
+                title="Explore All Accessible Sections & Portals (Sitemap)"
+              >
+                <Map className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                <span>All Sections</span>
+              </button>
 
               {/* Trailing Spacer to guarantee full visibility and generous padding when scrolled right */}
               <div className="w-8 shrink-0 min-w-[2rem]" />
@@ -869,6 +942,15 @@ export const Header: React.FC = () => {
               </div>
             )}
 
+            {/* Mobile Solar Theme Switcher Bar */}
+            <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-900 border border-amber-500/20 text-xs">
+              <span className="text-slate-300 font-bold flex items-center gap-1.5">
+                <Sun className="w-3.5 h-3.5 text-amber-400" />
+                <span>Theme Mode:</span>
+              </span>
+              <ThemeSwitcher variant="banner" />
+            </div>
+
             {/* Mobile Search & AI Assistant */}
             <div className="relative w-full">
               <input
@@ -939,6 +1021,24 @@ export const Header: React.FC = () => {
                     </span>
                   </button>
                 )}
+
+                {/* Mobile Sitemap Button */}
+                <button
+                  id="mobile-nav-sitemap-btn"
+                  onClick={() => {
+                    openSitemap();
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className="col-span-2 flex items-center justify-between p-2.5 rounded-xl text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm hover:bg-amber-500/30 cursor-pointer"
+                >
+                  <div className="flex items-center gap-2">
+                    <Map className="w-4 h-4 text-amber-400 shrink-0" />
+                    <span>All Sections & Sitemap</span>
+                  </div>
+                  <span className="text-[10px] bg-amber-400/20 text-amber-200 px-2 py-0.5 rounded-full font-extrabold border border-amber-400/30">
+                    Index
+                  </span>
+                </button>
 
                 {(currentUser?.role === 'Super Admin' || currentUser?.role === 'Admin') && (
                   <button

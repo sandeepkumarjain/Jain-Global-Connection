@@ -86,7 +86,7 @@ export function calculateCountdown(targetDateStr: string): CountdownTime {
   return { days, hours, minutes, seconds, isPast: false, totalSeconds: Math.floor(diff / 1000) };
 }
 
-const JAIN_EVENTS_DATA: JainEvent[] = [
+export const JAIN_EVENTS_DATA: JainEvent[] = [
   {
     id: 'paryushan-2026',
     title: 'Paryushan Parv Begin (Swetambar)',

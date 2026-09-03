@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { PhoneVerificationModal } from '../components/PhoneVerificationModal';
 import { getDailyJainPanchang } from '../utils/jainPanchang';
+import { getDailyTithiAlert } from '../utils/jainFestivalAlerts';
 import {
   User,
   UserRole,
@@ -24,8 +25,11 @@ import {
   EndorsementCategory,
   Endorsement,
   DashboardWidgetConfig,
-  DashboardWidgetId
+  DashboardWidgetId,
+  PrayerReminderSettings,
+  PrayerReminderItem
 } from '../types';
+import { DEFAULT_PRAYER_SETTINGS } from '../utils/prayerReminderSound';
 import {
   loadUserDashboardWidgets,
   saveUserDashboardWidgets,
@@ -59,6 +63,13 @@ import { db } from '../lib/firebase';
 import { doc, setDoc, deleteDoc, collection, getDocs } from 'firebase/firestore';
 import { syncToSupabaseTable, deleteFromSupabaseTable, isSupabaseConfigured, getSupabaseClient } from '../lib/supabase';
 import { AuthService } from '../lib/services';
+import {
+  SolarThemeInfo,
+  ThemePreference,
+  getEffectiveSolarTheme,
+  loadSavedThemePreference,
+  persistThemePreference,
+} from '../utils/solarTheme';
 
 type LanguageOption = LanguageCode;
 type TabOption = 'home' | 'matrimonial' | 'business' | 'directory' | 'temple' | 'panchang' | 'feed' | 'emergency' | 'admin';
@@ -86,9 +97,12 @@ interface AppContextType {
   setActiveTab: (tab: TabOption) => void;
   language: LanguageOption;
   setLanguage: (lang: LanguageOption) => void;
+  themePreference: ThemePreference;
+  setThemePreference: (pref: ThemePreference) => void;
   themeMode: 'light' | 'dark';
   setThemeMode: (mode: 'light' | 'dark') => void;
   toggleTheme: () => void;
+  solarThemeInfo: SolarThemeInfo;
   searchQuery: string;
   setSearchQuery: (q: string) => void;
   isAuthModalOpen: boolean;
@@ -253,6 +267,23 @@ interface AppContextType {
   reorderDashboardWidgets: (sourceIndex: number, destIndex: number) => void;
   isDashboardCustomizerOpen: boolean;
   setIsDashboardCustomizerOpen: (open: boolean) => void;
+
+  // Daily Jain Tithi & Upcoming Festival Alert
+  isDailyTithiAlertOpen: boolean;
+  setIsDailyTithiAlertOpen: (open: boolean) => void;
+  openDailyTithiAlert: () => void;
+
+  // Global Categorized Sitemap & Directory Index
+  isSitemapOpen: boolean;
+  setIsSitemapOpen: (open: boolean) => void;
+  openSitemap: () => void;
+
+  // Prayer Reminders (Daily Samayik & Aarti Browser Notifications)
+  prayerReminderSettings: PrayerReminderSettings;
+  updatePrayerReminderSettings: (settings: Partial<PrayerReminderSettings>) => void;
+  userProfileTab: 'profile' | 'reminders' | 'donor';
+  setUserProfileTab: (tab: 'profile' | 'reminders' | 'donor') => void;
+  openPrayerRemindersSettings: () => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -274,6 +305,7 @@ const STORAGE_KEYS = {
   BHAJANS: 'jcg_bhajans_v1',
   MATRIMONIAL_MESSAGES: 'jcg_matrimonial_messages_v1',
   SUCCESS_STORIES: 'jcg_success_stories_v1',
+  PRAYER_REMINDERS: 'jcg_prayer_reminders_v1',
 };
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -384,11 +416,49 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const refreshDailyPanchang = () => {
       const todayPanchang = getDailyJainPanchang();
       setPanchang(todayPanchang);
+
+      // Auto-populate today's Jain Tithi & Festival into notifications tray
+      try {
+        const todayAlert = getDailyTithiAlert();
+        const todayTag = `daily_tithi_${todayAlert.formattedYMD}`;
+        setNotifications((prev) => {
+          if (prev.some((n) => n.id === todayTag)) return prev;
+
+          const festivalNote = todayAlert.todayFestival
+            ? ` 🎉 Today's Mahaparv: ${todayAlert.todayFestival.title}!`
+            : todayAlert.nextFestival
+            ? ` 🔔 Upcoming: ${todayAlert.nextFestival.title} (${todayAlert.nextFestival.daysLabel}).`
+            : '';
+
+          const tithiNotif: AppNotification = {
+            id: todayTag,
+            title: `🙏 Today's Jain Tithi: ${todayAlert.tithi.split('(')[0].trim()}`,
+            message: `${todayAlert.month} • ${todayAlert.todayObservance.ruleTitle}.${festivalNote} Sunrise: ${todayAlert.sunrise}, Sunset: ${todayAlert.sunset}.`,
+            type: 'Announcement',
+            createdAt: 'Today',
+            isRead: false,
+            actionTab: 'panchang',
+          };
+          return [tithiNotif, ...prev];
+        });
+      } catch (e) {
+        console.error('Error populating daily tithi notification:', e);
+      }
     };
     refreshDailyPanchang();
     const interval = setInterval(refreshDailyPanchang, 3600000);
     return () => clearInterval(interval);
   }, []);
+
+  const [isDailyTithiAlertOpen, setIsDailyTithiAlertOpen] = useState<boolean>(false);
+  const openDailyTithiAlert = () => {
+    setIsDailyTithiAlertOpen(true);
+  };
+
+  const [isSitemapOpen, setIsSitemapOpen] = useState<boolean>(false);
+  const openSitemap = () => {
+    setIsSitemapOpen(true);
+  };
 
   const [currentSong, setCurrentSong] = useState<BhajanSong | null>(null);
   const [isPlayingSong, setIsPlayingSong] = useState(false);
@@ -423,14 +493,46 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return () => clearTimeout(timer);
   }, []);
 
-  const [themeMode, setThemeMode] = useState<'light' | 'dark'>('light');
+  const [themePreference, setThemePreferenceState] = useState<ThemePreference>(() => {
+    return loadSavedThemePreference();
+  });
 
-  // Enforce light theme mode globally and cleanup dark theme localStorage
+  const [solarThemeInfo, setSolarThemeInfo] = useState<SolarThemeInfo>(() => {
+    return getEffectiveSolarTheme(loadSavedThemePreference(), panchang?.sunrise, panchang?.sunset);
+  });
+
+  const [themeMode, setThemeModeState] = useState<'light' | 'dark'>(() => {
+    const initialInfo = getEffectiveSolarTheme(loadSavedThemePreference(), panchang?.sunrise, panchang?.sunset);
+    return initialInfo.effectiveTheme;
+  });
+
+  const setThemePreference = (pref: ThemePreference) => {
+    setThemePreferenceState(pref);
+    persistThemePreference(pref);
+    const updated = getEffectiveSolarTheme(pref, panchang?.sunrise, panchang?.sunset);
+    setSolarThemeInfo(updated);
+    setThemeModeState(updated.effectiveTheme);
+  };
+
+  const setThemeMode = (mode: 'light' | 'dark') => {
+    setThemePreference(mode);
+  };
+
+  // Re-calculate solar theme periodically (every 30 seconds) to ensure time-based auto-switching
   useEffect(() => {
-    localStorage.removeItem(STORAGE_KEYS.THEME);
-    localStorage.removeItem('jain_connect_theme');
-    document.documentElement.classList.remove('dark');
-  }, []);
+    const updateSolarTheme = () => {
+      const updated = getEffectiveSolarTheme(themePreference, panchang?.sunrise, panchang?.sunset);
+      setSolarThemeInfo(updated);
+
+      if (themePreference === 'auto' && updated.effectiveTheme !== themeMode) {
+        setThemeModeState(updated.effectiveTheme);
+      }
+    };
+
+    updateSolarTheme();
+    const interval = setInterval(updateSolarTheme, 30000);
+    return () => clearInterval(interval);
+  }, [themePreference, panchang?.sunrise, panchang?.sunset, themeMode]);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -446,6 +548,68 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [isAISearchOpen, setIsAISearchOpen] = useState(false);
   const [isMembershipModalOpen, setIsMembershipModalOpen] = useState(false);
   const [isUserProfileModalOpen, setIsUserProfileModalOpen] = useState(false);
+  const [userProfileTab, setUserProfileTab] = useState<'profile' | 'reminders' | 'donor'>('profile');
+
+  // Prayer Reminders (Daily Samayik & Aarti Browser Notifications)
+  const [prayerReminderSettings, setPrayerReminderSettings] = useState<PrayerReminderSettings>(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.PRAYER_REMINDERS);
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.warn('Error parsing prayer reminders from localStorage:', e);
+      }
+    }
+    return DEFAULT_PRAYER_SETTINGS;
+  });
+
+  // Sync prayer reminders if currentUser has custom settings stored
+  useEffect(() => {
+    if (currentUser?.prayerReminderSettings) {
+      setPrayerReminderSettings(currentUser.prayerReminderSettings);
+    }
+  }, [currentUser?.id]);
+
+  const updatePrayerReminderSettings = (newSettings: Partial<PrayerReminderSettings>) => {
+    setPrayerReminderSettings((prev) => {
+      const merged: PrayerReminderSettings = {
+        ...prev,
+        ...newSettings,
+        reminders: newSettings.reminders ? newSettings.reminders : prev.reminders,
+      };
+      localStorage.setItem(STORAGE_KEYS.PRAYER_REMINDERS, JSON.stringify(merged));
+
+      if (currentUser) {
+        const updatedUser: User = {
+          ...currentUser,
+          prayerReminderSettings: merged,
+        };
+        setCurrentUser(updatedUser);
+        setUsers((all) => all.map((u) => (u.id === updatedUser.id ? updatedUser : u)));
+        try {
+          setDoc(doc(db, 'users', updatedUser.id), { prayerReminderSettings: merged }, { merge: true });
+          syncToSupabaseTable('users', updatedUser);
+        } catch (e) {
+          console.warn('Error saving prayer reminders to cloud:', e);
+        }
+      }
+      return merged;
+    });
+  };
+
+  const openPrayerRemindersSettings = () => {
+    if (!currentUser) {
+      setIsAuthModalOpen(true);
+      showToast(
+        'Sign In Required',
+        'Please sign in to configure personalized Daily Prayer Reminders for Samayik and Aarti.',
+        'info'
+      );
+      return;
+    }
+    setUserProfileTab('reminders');
+    setIsUserProfileModalOpen(true);
+  };
   const [isDigitalIdModalOpen, setIsDigitalIdModalOpen] = useState(false);
   const [isBhajanModalOpen, setIsBhajanModalOpen] = useState(false);
   const [isGmailCenterOpen, setIsGmailCenterOpen] = useState(false);
@@ -761,8 +925,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     if (currentUser) {
-      if (currentUser.themePreference !== themeMode) {
-        const updatedUser: User = { ...currentUser, themePreference: themeMode };
+      if (currentUser.themePreference !== themePreference) {
+        const updatedUser: User = { ...currentUser, themePreference };
         setCurrentUser(updatedUser);
         setUsers((prev) => prev.map((u) => (u.id === currentUser.id ? updatedUser : u)));
       }
@@ -778,7 +942,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             email: currentUser.email,
             fullName: currentUser.fullName,
             role: currentUser.role,
-            themePreference: themeMode,
+            themePreference,
             updatedAt: new Date().toISOString(),
           },
           { merge: true }
@@ -789,10 +953,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         console.warn('Firebase save skipped:', err);
       }
     }
-  }, [themeMode]);
+  }, [themeMode, themePreference]);
 
   const toggleTheme = () => {
-    // Theme is defaulted to light mode
+    const nextPref: ThemePreference =
+      themePreference === 'auto'
+        ? 'light'
+        : themePreference === 'light'
+        ? 'dark'
+        : 'auto';
+    setThemePreference(nextPref);
+    if (nextPref === 'auto') {
+      const info = getEffectiveSolarTheme('auto', panchang?.sunrise, panchang?.sunset);
+      showToast(
+        'Auto Solar Mode Activated',
+        `Synchronized to Sunrise (${info.sunrise}) and Sunset (${info.sunset}). Current: ${info.effectiveTheme === 'dark' ? 'Night (Dark)' : 'Day (Light)'}.`,
+        'info'
+      );
+    } else {
+      showToast(
+        `${nextPref === 'dark' ? 'Dark' : 'Light'} Mode Active`,
+        nextPref === 'dark' ? 'Soothing nocturnal view.' : 'Bright daytime view.',
+        'info'
+      );
+    }
   };
 
   const showToast = (
@@ -2841,9 +3025,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setActiveTab,
         language,
         setLanguage,
+        themePreference,
+        setThemePreference,
         themeMode,
         setThemeMode,
         toggleTheme,
+        solarThemeInfo,
         searchQuery,
         setSearchQuery,
         isAuthModalOpen,
@@ -2971,6 +3158,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         reorderDashboardWidgets,
         isDashboardCustomizerOpen,
         setIsDashboardCustomizerOpen,
+        isDailyTithiAlertOpen,
+        setIsDailyTithiAlertOpen,
+        openDailyTithiAlert,
+        isSitemapOpen,
+        setIsSitemapOpen,
+        openSitemap,
+        prayerReminderSettings,
+        updatePrayerReminderSettings,
+        userProfileTab,
+        setUserProfileTab,
+        openPrayerRemindersSettings,
       }}
     >
       {children}
