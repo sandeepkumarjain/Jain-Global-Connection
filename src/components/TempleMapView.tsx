@@ -1,9 +1,21 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import L from 'leaflet';
+import { createPortal } from 'react-dom';
+import L from '../lib/leafletSetup';
 import 'leaflet/dist/leaflet.css';
+import 'leaflet.markercluster';
+import 'leaflet.markercluster/dist/MarkerCluster.css';
+import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 import { TempleListing } from '../types';
 import { VirtualTourButton } from './VirtualTourButton';
 import { Virtual3DTourModal } from './Virtual3DTourModal';
+import { TempleDetailsModal } from './TempleDetailsModal';
+import {
+  TempleMapLegend,
+  getTempleSignificanceTier,
+  SIGNIFICANCE_TIERS,
+  TempleSignificanceTier,
+  LegendColorMode,
+} from './TempleMapLegend';
 import {
   MapPin,
   Navigation,
@@ -26,7 +38,9 @@ import {
   RotateCcw,
   CheckCircle2,
   Home,
-  Utensils
+  Utensils,
+  Camera,
+  Info
 } from 'lucide-react';
 
 interface TempleMapViewProps {
@@ -35,6 +49,7 @@ interface TempleMapViewProps {
   onSelectTemple: (temple: TempleListing) => void;
   onOpenLiveDarshan: (temple: TempleListing) => void;
   onOpenDonation: (temple: TempleListing) => void;
+  onViewTempleDetails?: (temple: TempleListing) => void;
 }
 
 // Calculate distance in km between two lat/lng points using Haversine formula
@@ -64,60 +79,107 @@ function estimateDrivingTime(distanceKm: number): string {
   return mins > 0 ? `${hrs}h ${mins}m` : `${hrs} hrs`;
 }
 
-// Create custom SVG Leaflet divIcon based on temple sect and active selection state
-function createTempleIcon(temple: TempleListing, isSelected: boolean) {
+// Create custom SVG Leaflet divIcon based on temple size & significance (or sect) and selection state
+function createTempleIcon(
+  temple: TempleListing,
+  isSelected: boolean,
+  colorMode: LegendColorMode = 'significance',
+  isHoveredTier: boolean = false,
+  isDimmed: boolean = false
+) {
+  const tierKey = getTempleSignificanceTier(temple);
+  const tierConfig = SIGNIFICANCE_TIERS[tierKey];
+
   const isSwetambar = temple.sect.toLowerCase().includes('swetambar');
   const isDigambar = temple.sect.toLowerCase().includes('digambar');
 
-  let primaryColor = '#d97706'; // Amber 600
-  let secondaryColor = '#b45309'; // Amber 700
-  let badgeLabel = 'S';
+  let primaryColor = tierConfig.primaryColor;
+  let secondaryColor = tierConfig.secondaryColor;
+  let auraColor = tierConfig.glowColor;
+  let pinSize = isSelected ? tierConfig.pinSize + 8 : tierConfig.pinSize;
 
-  if (isDigambar && !isSwetambar) {
-    primaryColor = '#059669'; // Emerald 600
-    secondaryColor = '#047857'; // Emerald 700
-    badgeLabel = 'D';
-  } else if (isSwetambar && isDigambar) {
-    primaryColor = '#7c3aed'; // Purple 600
-    secondaryColor = '#6d28d9';
-    badgeLabel = 'J';
+  if (colorMode === 'sect') {
+    if (isDigambar && !isSwetambar) {
+      primaryColor = '#059669'; // Emerald 600
+      secondaryColor = '#047857'; // Emerald 700
+      auraColor = 'rgba(5, 150, 105, 0.55)';
+    } else if (isSwetambar && isDigambar) {
+      primaryColor = '#7c3aed'; // Purple 600
+      secondaryColor = '#6d28d9';
+      auraColor = 'rgba(124, 58, 237, 0.55)';
+    } else {
+      primaryColor = '#d97706'; // Amber 600
+      secondaryColor = '#b45309'; // Amber 700
+      auraColor = 'rgba(217, 119, 6, 0.55)';
+    }
+    pinSize = isSelected ? 42 : 34;
   }
 
   if (isSelected) {
     primaryColor = '#ea580c'; // Vibrant Orange
     secondaryColor = '#c2410c';
+    auraColor = 'rgba(234, 88, 12, 0.85)';
+  } else if (isHoveredTier) {
+    auraColor = 'rgba(251, 191, 36, 0.95)';
   }
 
-  const pinSize = isSelected ? 42 : 34;
+  // Choose icon glyph based on tier
+  let innerIconSvg = `<path d="M12 2L9 8h6l-3-6zm-7 8v2h14v-2H5zm1 4v6h12v-6H6zm2 2h8v2H8v-2z"/>`;
+  if (tierKey === 'supreme') {
+    // Grand crown / Kalash with 3 spires
+    innerIconSvg = `<path d="M12 1L8 6h8l-4-5zm-6 6l-2 5h16l-2-5H6zm-1 7v7h14v-7H5zm2 2h10v3H7v-3z"/>`;
+  } else if (tierKey === 'major') {
+    // Sacred temple shikhar
+    innerIconSvg = `<path d="M12 2L9 8h6l-3-6zm-7 8v2h14v-2H5zm1 4v6h12v-6H6zm2 2h8v2H8v-2z"/>`;
+  } else if (tierKey === 'heritage') {
+    // Ornate historic arch
+    innerIconSvg = `<path d="M4 22h16v-2H4v2zm2-4h12V10c0-3.31-2.69-6-6-6s-6 2.69-6 6v8zm2-8c0-2.21 1.79-4 4-4s4 1.79 4 4v6H8v-6z"/>`;
+  } else {
+    // Community derasar / darshan flame
+    innerIconSvg = `<path d="M12 2C9.24 2 7 4.24 7 7c0 3.32 5 11 5 11s5-7.68 5-11c0-2.76-2.24-5-5-5zm0 7.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>`;
+  }
+
+  const iconSvgSize = Math.max(11, Math.round(pinSize * 0.38));
+  // Deterministic stagger so markers across the map pulse organically without all flashing at once
+  const animDelay = ((temple.templeName.charCodeAt(0) || 0) % 8) * 0.35;
+
   const iconHtml = `
-    <div style="
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      cursor: pointer;
-      ${isSelected ? 'filter: drop-shadow(0 0 10px rgba(234, 88, 12, 0.85)); transform: scale(1.12);' : 'filter: drop-shadow(0 3px 5px rgba(0,0,0,0.35));'}
-      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    <div class="temple-marker-pulse-wrapper ${isSelected ? 'is-selected' : ''} ${isHoveredTier ? 'is-highlighted' : ''} ${isDimmed ? 'is-dimmed' : ''}" style="
+      animation-delay: ${animDelay}s;
     ">
-      <div style="
+      <!-- Subtle Pulsing Aura Glow Behind Pin -->
+      <div class="temple-marker-aura" style="
+        width: ${pinSize}px;
+        height: ${pinSize}px;
+        margin-left: -${pinSize / 2}px;
+        background: ${auraColor};
+        animation-delay: ${animDelay}s;
+      "></div>
+
+      <!-- Sacred Pin Shape -->
+      <div class="temple-marker-pin" style="
         width: ${pinSize}px;
         height: ${pinSize}px;
         background: linear-gradient(135deg, ${primaryColor}, ${secondaryColor});
-        border: ${isSelected ? '3px solid #ffffff' : '2px solid #ffffff'};
+        border: ${isSelected ? '3px solid #ffffff' : isHoveredTier ? '2.5px solid #fef08a' : '2px solid #ffffff'};
         border-radius: 50% 50% 50% 0;
         transform: rotate(-45deg);
         display: flex;
         align-items: center;
         justify-content: center;
-        box-shadow: 0 4px 6px -1px rgba(0,0,0,0.25);
+        box-shadow: 0 4px 10px -1px rgba(0,0,0,0.35);
+        transition: all 0.25s ease;
       ">
         <div style="transform: rotate(45deg); display: flex; flex-direction: column; align-items: center; justify-content: center;">
-          <svg style="width: ${isSelected ? '16px' : '13px'}; height: ${isSelected ? '16px' : '13px'}; fill: #ffffff;" viewBox="0 0 24 24">
-            <path d="M12 2L9 8h6l-3-6zm-7 8v2h14v-2H5zm1 4v6h12v-6H6zm2 2h8v2H8v-2z"/>
+          <svg style="width: ${iconSvgSize}px; height: ${iconSvgSize}px; fill: #ffffff;" viewBox="0 0 24 24">
+            ${innerIconSvg}
           </svg>
         </div>
       </div>
+
+      <!-- Ground Drop Shadow -->
       <div style="
-        width: 10px;
+        width: ${Math.max(8, Math.round(pinSize * 0.32))}px;
         height: 4px;
         background: rgba(0,0,0,0.35);
         border-radius: 50%;
@@ -200,6 +262,7 @@ export const TempleMapView: React.FC<TempleMapViewProps> = ({
   onSelectTemple,
   onOpenLiveDarshan,
   onOpenDonation,
+  onViewTempleDetails,
 }) => {
   // Reference center: Palitana / Central Western India
   const defaultCenter = { lat: 21.5222, lng: 71.8383 };
@@ -208,7 +271,7 @@ export const TempleMapView: React.FC<TempleMapViewProps> = ({
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
   const tileLayerRef = useRef<L.TileLayer | null>(null);
-  const markersLayerGroupRef = useRef<L.LayerGroup | null>(null);
+  const markersClusterGroupRef = useRef<L.MarkerClusterGroup | null>(null);
   const routePolylineRef = useRef<L.Polyline | null>(null);
   const userMarkerRef = useRef<L.Marker | null>(null);
   const templeMarkersMapRef = useRef<Map<string, L.Marker>>(new Map());
@@ -219,10 +282,17 @@ export const TempleMapView: React.FC<TempleMapViewProps> = ({
   const [locationStatus, setLocationStatus] = useState<string>('Detecting location...');
   const [maxRadiusKm, setMaxRadiusKm] = useState<number>(0); // 0 = All India
   const [mapSearchTerm, setMapSearchTerm] = useState('');
-  const [selectedLayer, setSelectedLayer] = useState<TileLayerType>('clean');
+  const [selectedLayer, setSelectedLayer] = useState<TileLayerType>('streets');
   const [activeRouteTarget, setActiveRouteTarget] = useState<TempleListing | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [selected360Temple, setSelected360Temple] = useState<TempleListing | null>(null);
+  const [viewingTempleDetails, setViewingTempleDetails] = useState<TempleListing | null>(null);
+
+  // Interactive Legend & Significance Filtering States
+  const [legendColorMode, setLegendColorMode] = useState<LegendColorMode>('significance');
+  const [activeTierFilter, setActiveTierFilter] = useState<TempleSignificanceTier | 'all'>('all');
+  const [hoveredTier, setHoveredTier] = useState<TempleSignificanceTier | null>(null);
+  const [mapReady, setMapReady] = useState(false);
 
   // Detect user geolocation
   const handleDetectLocation = useCallback(() => {
@@ -323,9 +393,14 @@ export const TempleMapView: React.FC<TempleMapViewProps> = ({
     });
   }, [temples, userLocation]);
 
-  // Filter temples by search query and radius
+  // Filter temples by search query, radius, and active significance tier
   const filteredTemples = useMemo(() => {
     return templesWithDistance.filter((t) => {
+      // Significance tier filter from interactive legend
+      if (activeTierFilter !== 'all') {
+        const tier = getTempleSignificanceTier(t);
+        if (tier !== activeTierFilter) return false;
+      }
       if (
         mapSearchTerm &&
         !t.templeName.toLowerCase().includes(mapSearchTerm.toLowerCase()) &&
@@ -341,7 +416,7 @@ export const TempleMapView: React.FC<TempleMapViewProps> = ({
       }
       return true;
     });
-  }, [templesWithDistance, mapSearchTerm, maxRadiusKm]);
+  }, [templesWithDistance, mapSearchTerm, maxRadiusKm, activeTierFilter]);
 
   // Sorted by proximity
   const sortedTemples = useMemo(() => {
@@ -370,11 +445,51 @@ export const TempleMapView: React.FC<TempleMapViewProps> = ({
 
     tileLayerRef.current = tileLayer;
 
-    // Add Layer Group for Markers
-    const markersGroup = L.layerGroup().addTo(map);
-    markersLayerGroupRef.current = markersGroup;
+    // Create Interactive Marker Cluster Group for Temples
+    const clusterGroup = L.markerClusterGroup({
+      maxClusterRadius: 55, // Consolidates nearby temples cleanly at lower/mid zoom levels
+      spiderfyOnMaxZoom: true,
+      showCoverageOnHover: false,
+      zoomToBoundsOnClick: true,
+      disableClusteringAtZoom: 16, // Reveals individual temple pins at street level
+      chunkedLoading: true,
+      iconCreateFunction: (cluster) => {
+        const count = cluster.getChildCount();
+        let size = 46;
+        let sizeClass = 'temple-cluster-sm';
+        if (count >= 15) {
+          size = 56;
+          sizeClass = 'temple-cluster-lg';
+        } else if (count >= 6) {
+          size = 50;
+          sizeClass = 'temple-cluster-md';
+        }
+
+        return L.divIcon({
+          html: `
+            <div class="temple-cluster-icon ${sizeClass}" style="width: ${size}px; height: ${size}px;">
+              <div class="temple-cluster-glow"></div>
+              <div class="temple-cluster-inner">
+                <svg class="temple-cluster-svg" viewBox="0 0 24 24">
+                  <path d="M12 2L9 8h6l-3-6zm-7 8v2h14v-2H5zm1 4v6h12v-6H6zm2 2h8v2H8v-2z"/>
+                </svg>
+                <span class="temple-cluster-count">${count}</span>
+                <span class="temple-cluster-label">Temples</span>
+              </div>
+            </div>
+          `,
+          className: 'temple-marker-cluster-container',
+          iconSize: [size, size],
+          iconAnchor: [size / 2, size / 2],
+        });
+      },
+    });
+
+    map.addLayer(clusterGroup);
+    markersClusterGroupRef.current = clusterGroup;
 
     mapInstanceRef.current = map;
+    setMapReady(true);
 
     // Trigger map invalidation once fully rendered
     const timer = setTimeout(() => {
@@ -383,8 +498,12 @@ export const TempleMapView: React.FC<TempleMapViewProps> = ({
 
     return () => {
       clearTimeout(timer);
+      if (markersClusterGroupRef.current) {
+        markersClusterGroupRef.current.clearLayers();
+      }
       map.remove();
       mapInstanceRef.current = null;
+      setMapReady(false);
     };
   }, []);
 
@@ -458,14 +577,25 @@ export const TempleMapView: React.FC<TempleMapViewProps> = ({
 
     return `
       <div class="w-72 max-w-xs text-slate-900 dark:text-slate-100 overflow-hidden font-sans">
-        <!-- Temple Banner Image -->
-        <div class="relative h-28 w-full overflow-hidden bg-slate-900">
-          <img src="${imageUrl}" alt="${temple.templeName}" class="w-full h-full object-cover" />
+        <!-- Temple Banner Image (Clickable) -->
+        <div
+          data-action="view-temple"
+          data-temple-id="${temple.id}"
+          class="relative h-28 w-full overflow-hidden bg-slate-900 cursor-pointer group"
+          title="Click to view full temple page and photos"
+        >
+          <img src="${imageUrl}" alt="${temple.templeName}" class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
           <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent"></div>
           
           <div class="absolute top-2 left-2 flex items-center gap-1">
             <span class="px-2 py-0.5 bg-amber-500/90 text-slate-950 text-[10px] font-black uppercase rounded-md shadow-xs backdrop-blur-xs">
               ${temple.sect}
+            </span>
+          </div>
+
+          <div class="absolute top-2 right-2 flex items-center gap-1">
+            <span class="px-2 py-0.5 bg-black/70 text-amber-300 text-[10px] font-black rounded-md shadow-xs backdrop-blur-xs flex items-center gap-0.5">
+              📷 ${temple.images?.length || 1}
             </span>
           </div>
 
@@ -482,7 +612,12 @@ export const TempleMapView: React.FC<TempleMapViewProps> = ({
         <!-- Content Body -->
         <div class="p-3 space-y-2 bg-white dark:bg-slate-900">
           <div>
-            <h4 class="font-serif font-extrabold text-sm text-slate-900 dark:text-white leading-tight">
+            <h4
+              data-action="view-temple"
+              data-temple-id="${temple.id}"
+              class="font-serif font-extrabold text-sm text-slate-900 dark:text-white leading-tight cursor-pointer hover:text-amber-600 dark:hover:text-amber-400 transition-colors"
+              title="Click to view details"
+            >
               ${temple.templeName}
             </h4>
             <p class="text-[11px] text-amber-600 dark:text-amber-400 font-bold mt-0.5">
@@ -514,12 +649,24 @@ export const TempleMapView: React.FC<TempleMapViewProps> = ({
 
           <!-- Action Buttons -->
           <div class="pt-2 border-t border-slate-100 dark:border-slate-800 flex flex-col gap-1.5">
+            <!-- PRIMARY: VIEW THE TEMPLE & PHOTOS -->
+            <button
+              type="button"
+              data-action="view-temple"
+              data-temple-id="${temple.id}"
+              class="btn-action-view-temple w-full py-2 px-3 bg-gradient-to-r from-amber-500 via-amber-600 to-amber-700 hover:from-amber-600 hover:to-amber-800 text-slate-950 hover:text-white text-[12px] font-black rounded-xl shadow-xs hover:shadow-md flex items-center justify-center gap-1.5 cursor-pointer transition-all border border-amber-400/80"
+              title="Open full temple page with photos, timings, facilities & history"
+            >
+              <span>🏛️ View Temple Details</span>
+              <span class="text-[10px] opacity-90 font-mono">↗</span>
+            </button>
+
             <div class="flex items-center gap-1.5">
               <button
                 type="button"
                 data-action="map-route"
                 data-temple-id="${temple.id}"
-                class="btn-action-map-route flex-1 px-2.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 text-[11px] font-black rounded-lg shadow-xs flex items-center justify-center gap-1 cursor-pointer transition-colors"
+                class="btn-action-map-route flex-1 px-2.5 py-1.5 bg-amber-500/20 hover:bg-amber-500 text-amber-900 dark:text-amber-200 hover:text-slate-950 text-[11px] font-black rounded-lg border border-amber-500/40 flex items-center justify-center gap-1 cursor-pointer transition-colors"
                 title="Draw direct route on map"
               >
                 <span>${isTargetRoute ? '✓ Route Active' : '📍 Map Route'}</span>
@@ -633,21 +780,26 @@ export const TempleMapView: React.FC<TempleMapViewProps> = ({
 
   // Update Leaflet Temple Markers whenever filteredTemples or selectedTemple changes
   useEffect(() => {
-    if (!mapInstanceRef.current || !markersLayerGroupRef.current) return;
+    if (!mapInstanceRef.current || !markersClusterGroupRef.current) return;
 
-    const markersGroup = markersLayerGroupRef.current;
-    markersGroup.clearLayers();
+    const clusterGroup = markersClusterGroupRef.current;
+    clusterGroup.clearLayers();
     templeMarkersMapRef.current.clear();
+
+    const markersToAdd: L.Marker[] = [];
 
     sortedTemples.forEach((temple) => {
       if (!temple.lat || !temple.lng) return;
 
       const isSelected = selectedTemple?.id === temple.id;
       const isTargetRoute = activeRouteTarget?.id === temple.id;
+      const tier = getTempleSignificanceTier(temple);
+      const isHoveredTier = hoveredTier === tier;
+      const isDimmed = hoveredTier !== null && hoveredTier !== tier;
 
       const marker = L.marker([temple.lat, temple.lng], {
-        icon: createTempleIcon(temple, isSelected),
-        zIndexOffset: isSelected ? 500 : 10,
+        icon: createTempleIcon(temple, isSelected, legendColorMode, isHoveredTier, isDimmed),
+        zIndexOffset: isSelected ? 500 : isHoveredTier ? 300 : 10,
       });
 
       // Bind popup
@@ -662,6 +814,18 @@ export const TempleMapView: React.FC<TempleMapViewProps> = ({
       marker.on('popupopen', (e) => {
         const el = e.popup.getElement();
         if (!el) return;
+
+        // View Temple button & triggers (Banner and Title)
+        const viewTempleTriggers = el.querySelectorAll<HTMLElement>('[data-action="view-temple"]');
+        viewTempleTriggers.forEach((trigger) => {
+          trigger.onclick = (event) => {
+            event.stopPropagation();
+            setViewingTempleDetails(temple);
+            if (onViewTempleDetails) {
+              onViewTempleDetails(temple);
+            }
+          };
+        });
 
         // Route button
         const routeBtn = el.querySelector<HTMLButtonElement>('.btn-action-map-route');
@@ -702,21 +866,29 @@ export const TempleMapView: React.FC<TempleMapViewProps> = ({
         onSelectTemple(temple);
       });
 
-      marker.addTo(markersGroup);
+      markersToAdd.push(marker);
       templeMarkersMapRef.current.set(temple.id, marker);
     });
-  }, [sortedTemples, selectedTemple, activeRouteTarget, generatePopupContent, handleDrawRoute, onSelectTemple, onOpenLiveDarshan, onOpenDonation]);
 
-  // When selectedTemple changes externally (e.g. from parent props or list click), pan map and open popup
+    clusterGroup.addLayers(markersToAdd);
+  }, [sortedTemples, selectedTemple, activeRouteTarget, legendColorMode, hoveredTier, generatePopupContent, handleDrawRoute, onSelectTemple, onOpenLiveDarshan, onOpenDonation, onViewTempleDetails]);
+
+  // When selectedTemple changes externally (e.g. from parent props or list click), pan map, uncluster if needed, and open popup
   useEffect(() => {
     if (!selectedTemple || !mapInstanceRef.current) return;
     const targetMarker = templeMarkersMapRef.current.get(selectedTemple.id);
 
     if (targetMarker) {
-      mapInstanceRef.current.flyTo(targetMarker.getLatLng(), 13, { duration: 1.0 });
-      targetMarker.openPopup();
+      if (markersClusterGroupRef.current) {
+        markersClusterGroupRef.current.zoomToShowLayer(targetMarker, () => {
+          targetMarker.openPopup();
+        });
+      } else {
+        mapInstanceRef.current.flyTo(targetMarker.getLatLng(), 14, { duration: 1.0 });
+        targetMarker.openPopup();
+      }
     } else if (selectedTemple.lat && selectedTemple.lng) {
-      mapInstanceRef.current.flyTo([selectedTemple.lat, selectedTemple.lng], 13, { duration: 1.0 });
+      mapInstanceRef.current.flyTo([selectedTemple.lat, selectedTemple.lng], 14, { duration: 1.0 });
     }
   }, [selectedTemple]);
 
@@ -806,6 +978,17 @@ export const TempleMapView: React.FC<TempleMapViewProps> = ({
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
+            {activeTierFilter !== 'all' && (
+              <button
+                onClick={() => setActiveTierFilter('all')}
+                className="px-2.5 py-1.5 min-h-[36px] bg-amber-100 dark:bg-amber-950/70 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-700/60 text-xs font-bold rounded-xl flex items-center gap-1.5 cursor-pointer hover:bg-amber-200 dark:hover:bg-amber-900/80 transition-colors shadow-xs"
+                title="Click to show all temples"
+              >
+                <span>Filter: {SIGNIFICANCE_TIERS[activeTierFilter]?.title}</span>
+                <X className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+              </button>
+            )}
+
             <button
               onClick={handleFitAllTemples}
               className="px-3 py-1.5 min-h-[36px] bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 text-xs font-bold rounded-xl flex items-center gap-1.5 cursor-pointer"
@@ -943,26 +1126,22 @@ export const TempleMapView: React.FC<TempleMapViewProps> = ({
             </button>
           </div>
 
-          {/* Map Pin Legend (Bottom Left) */}
-          <div className="absolute bottom-3 left-3 bg-slate-900/90 backdrop-blur-md border border-amber-500/30 text-white p-2.5 rounded-xl text-[10px] space-y-1 shadow-lg pointer-events-auto z-30">
-            <p className="font-bold text-amber-400 uppercase tracking-wider">Jain Tirth Guide:</p>
-            <div className="flex flex-wrap items-center gap-3 text-slate-200">
-              <span className="flex items-center gap-1">
-                <span className="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block" /> Swetambar
-              </span>
-              <span className="flex items-center gap-1">
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-600 inline-block" /> Digambar
-              </span>
-              <span className="flex items-center gap-1">
-                <span className="w-2.5 h-2.5 rounded-full bg-purple-600 inline-block" /> Joint Tirth
-              </span>
-              {userLocation && (
-                <span className="flex items-center gap-1">
-                  <span className="w-2.5 h-2.5 rounded-full bg-sky-500 inline-block animate-ping" /> Your Location
-                </span>
-              )}
-            </div>
-          </div>
+          {/* Interactive Legend Overlay within .leaflet-container */}
+          {mapReady && mapContainerRef.current && createPortal(
+            <div className="leaflet-interactive-legend-overlay">
+              <TempleMapLegend
+                temples={templesWithDistance}
+                colorMode={legendColorMode}
+                onColorModeChange={setLegendColorMode}
+                activeTierFilter={activeTierFilter}
+                onTierFilterChange={setActiveTierFilter}
+                hoveredTier={hoveredTier}
+                onHoverTier={setHoveredTier}
+                userLocation={userLocation}
+              />
+            </div>,
+            mapContainerRef.current
+          )}
         </div>
 
         {/* Nearby Temples Proximity List Column */}
@@ -1054,6 +1233,15 @@ export const TempleMapView: React.FC<TempleMapViewProps> = ({
                       <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
                         <button
                           type="button"
+                          onClick={() => setViewingTempleDetails(temple)}
+                          className="px-2 py-1 bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-lg text-[10px] font-black flex items-center justify-center gap-1 shadow-xs cursor-pointer transition-colors"
+                          title="View temple photos and complete details"
+                        >
+                          <Info className="w-3 h-3" /> Details
+                        </button>
+
+                        <button
+                          type="button"
                           onClick={() => handleDrawRoute(temple)}
                           className={`px-2 py-1 rounded-lg text-[10px] font-bold flex items-center justify-center gap-1 shadow-xs cursor-pointer transition-colors ${
                             isRouteTarget
@@ -1093,6 +1281,22 @@ export const TempleMapView: React.FC<TempleMapViewProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Full Temple Details & Photo Upload Modal */}
+      {viewingTempleDetails && (
+        <TempleDetailsModal
+          temple={viewingTempleDetails}
+          onClose={() => setViewingTempleDetails(null)}
+          onOpenLiveDarshan={onOpenLiveDarshan}
+          onOpenDonation={onOpenDonation}
+          onOpen360Tour={(t) => setSelected360Temple(t)}
+          userDistanceKm={
+            userLocation && viewingTempleDetails.lat && viewingTempleDetails.lng
+              ? Math.round(calculateDistanceKm(userLocation.lat, userLocation.lng, viewingTempleDetails.lat, viewingTempleDetails.lng))
+              : undefined
+          }
+        />
+      )}
 
       {/* 360-degree Virtual 3D Tour Modal */}
       {selected360Temple && (

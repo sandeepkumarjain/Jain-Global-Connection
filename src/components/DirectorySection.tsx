@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { QRCodeSVG } from 'qrcode.react';
 import { VerifiedBadge } from './VerifiedBadge';
@@ -23,7 +23,10 @@ import {
   Zap,
   Medal,
   Star,
-  Tag
+  Tag,
+  Lock,
+  Globe2,
+  LogIn
 } from 'lucide-react';
 import { CommunityMemberProfile, FamilyMember, MatrimonialProfile } from '../types';
 
@@ -34,6 +37,7 @@ export const DirectorySection: React.FC = () => {
     showToast,
     registerMatrimonialFromDirectory,
     currentUser,
+    setIsAuthModalOpen,
     initiateCall,
     sendProfileViewAlert,
     sendConnectionRequestAlert,
@@ -41,8 +45,31 @@ export const DirectorySection: React.FC = () => {
   } = useApp();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedBadgeFilter, setSelectedBadgeFilter] = useState<string>('All');
+  const [selectedCityFilter, setSelectedCityFilter] = useState<string>('All');
+  const [selectedStateFilter, setSelectedStateFilter] = useState<string>('All');
   const [selectedMember, setSelectedMember] = useState<CommunityMemberProfile | null>(null);
   const [showIDModal, setShowIDModal] = useState(false);
+
+  // Available cities & states for dedicated search/filter
+  const availableCities = useMemo(() => {
+    const set = new Set<string>();
+    members.forEach((m) => {
+      if (m.city && m.city.trim()) set.add(m.city.trim());
+    });
+    return Array.from(set).sort();
+  }, [members]);
+
+  const availableStates = useMemo(() => {
+    const set = new Set<string>();
+    members.forEach((m) => {
+      if (m.state && m.state.trim()) set.add(m.state.trim());
+    });
+    return Array.from(set).sort();
+  }, [members]);
+
+  const totalCensusCount = useMemo(() => {
+    return members.reduce((acc, m) => acc + 1 + (m.familyMembers?.length || 0), 0);
+  }, [members]);
 
   const getMemberBadges = (m: CommunityMemberProfile): string[] => {
     const badgeList: string[] = [];
@@ -196,13 +223,24 @@ export const DirectorySection: React.FC = () => {
   };
 
   const filtered = members.filter((m) => {
-    if (
-      searchTerm &&
-      !m.name.toLowerCase().includes(searchTerm.toLowerCase()) &&
-      !m.surname.toLowerCase().includes(searchTerm.toLowerCase()) &&
-      !m.city.toLowerCase().includes(searchTerm.toLowerCase()) &&
-      !m.profession.toLowerCase().includes(searchTerm.toLowerCase())
-    ) {
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      const matchName = `${m.name} ${m.surname}`.toLowerCase().includes(term);
+      const matchCity = (m.city || '').toLowerCase().includes(term);
+      const matchState = (m.state || '').toLowerCase().includes(term);
+      const matchProfession = (m.profession || '').toLowerCase().includes(term);
+      const matchAddress = currentUser && m.address ? m.address.toLowerCase().includes(term) : false;
+
+      if (!matchName && !matchCity && !matchState && !matchProfession && !matchAddress) {
+        return false;
+      }
+    }
+
+    if (selectedCityFilter !== 'All' && (m.city || '').toLowerCase() !== selectedCityFilter.toLowerCase()) {
+      return false;
+    }
+
+    if (selectedStateFilter !== 'All' && (m.state || '').toLowerCase() !== selectedStateFilter.toLowerCase()) {
       return false;
     }
 
@@ -230,51 +268,116 @@ export const DirectorySection: React.FC = () => {
   return (
     <div className="space-y-6">
       
-      {/* Banner */}
+      {/* Banner with Community Unity & Strength in Numbers Motto */}
       <div className="bg-gradient-to-r from-slate-900 via-amber-950 to-slate-950 text-white rounded-2xl p-6 sm:p-8 shadow-xl border border-amber-800/40 relative overflow-hidden">
-        <div className="relative z-10 max-w-3xl space-y-3">
+        <div className="relative z-10 max-w-4xl space-y-3">
           <div className="inline-flex items-center gap-2 px-3 py-1 bg-amber-500/20 border border-amber-500/40 rounded-full text-amber-300 text-xs font-bold uppercase tracking-wider">
             <Users className="w-3.5 h-3.5 text-amber-400" />
-            <span>{systemSettings.directorySubtitle || 'Jain Community Members Directory'}</span>
+            <span>{systemSettings.directorySubtitle || 'Jain Community Census & Directory'}</span>
           </div>
 
           <h2 className="text-2xl sm:text-3xl font-extrabold font-serif text-white">
-            {systemSettings.directoryHeading || 'Connecting Every Jain Family & Member Worldwide'}
+            {systemSettings.directoryHeading || 'United in Numbers, Strengthening the Global Jain Community'}
           </h2>
 
-          <p className="text-xs sm:text-sm text-slate-300">
-            Find fellow Jains by City, Profession, Visual Badges, Blood Group, and Family ties. Digital QR Community ID card verification for security.
+          <p className="text-xs sm:text-sm text-slate-300 leading-relaxed max-w-3xl">
+            This platform is dedicated to uniting our worldwide Jain community, showing our collective strength and harmony. To protect every household, <strong>family members data is 100% confidential and visible to each family head only</strong>. Public visitors see only the Family Head name &amp; business; logged-in members searching by city or state can view verified head address &amp; contact numbers.
           </p>
 
-          <div className="pt-2">
+          {/* Census Statistics Bar */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-2">
+            <div className="bg-white/10 backdrop-blur-md p-3 rounded-xl border border-white/10 text-center">
+              <span className="block text-xl font-black text-amber-400 font-serif">{members.length}</span>
+              <span className="text-[10px] text-slate-300 font-bold uppercase">Jain Households</span>
+            </div>
+            <div className="bg-white/10 backdrop-blur-md p-3 rounded-xl border border-white/10 text-center">
+              <span className="block text-xl font-black text-emerald-400 font-serif">{totalCensusCount}+</span>
+              <span className="text-[10px] text-slate-300 font-bold uppercase">Jains Counted</span>
+            </div>
+            <div className="bg-white/10 backdrop-blur-md p-3 rounded-xl border border-white/10 text-center">
+              <span className="block text-xl font-black text-amber-300 font-serif">{availableCities.length}</span>
+              <span className="text-[10px] text-slate-300 font-bold uppercase">Active Cities</span>
+            </div>
+            <div className="bg-white/10 backdrop-blur-md p-3 rounded-xl border border-white/10 text-center">
+              <span className="block text-xl font-black text-purple-300 font-serif">{availableStates.length}</span>
+              <span className="text-[10px] text-slate-300 font-bold uppercase">States &amp; Regions</span>
+            </div>
+          </div>
+
+          <div className="pt-2 flex flex-wrap items-center gap-3">
             <button
               onClick={() => openRegistrationModal('family')}
-              className="px-5 py-3 min-h-[44px] bg-gradient-to-r from-amber-500 to-amber-700 text-amber-950 font-bold text-xs rounded-xl shadow-lg hover:from-amber-600 hover:to-amber-800 transition-all flex items-center justify-center gap-2"
+              className="px-5 py-3 min-h-[44px] bg-gradient-to-r from-amber-500 to-amber-700 text-amber-950 font-bold text-xs rounded-xl shadow-lg hover:from-amber-600 hover:to-amber-800 transition-all flex items-center justify-center gap-2 cursor-pointer"
             >
               <Plus className="w-4 h-4" />
-              <span>Register Family Profile</span>
+              <span>Register Family in Jain Census</span>
             </button>
+            <div className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-900/80 border border-amber-500/30 text-[11px] text-amber-300 font-medium">
+              <ShieldCheck className="w-4 h-4 text-emerald-400" />
+              <span>100% Privacy Protected: Family members never shown to others</span>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Search Input, Badge Filter Pills & Count Banner */}
+      {/* Search Input, City/State Filters, Badge Filter Pills */}
       <div className="bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-3">
-        <div className="relative">
-          <input
-            type="text"
-            placeholder="Search Member Name, Profession, City, Badge, or Blood Group..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 text-xs rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-500"
-          />
-          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-2.5">
+          {/* Main Search Input */}
+          <div className="md:col-span-6 relative">
+            <input
+              type="text"
+              placeholder="Search Family Head Name, Business, Profession, City..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2.5 text-xs rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-500"
+            />
+            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+          </div>
+
+          {/* City Filter */}
+          <div className="md:col-span-3">
+            <div className="relative">
+              <select
+                value={selectedCityFilter}
+                onChange={(e) => setSelectedCityFilter(e.target.value)}
+                className="w-full pl-8 pr-4 py-2.5 text-xs rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-500 font-medium cursor-pointer"
+              >
+                <option value="All">All Cities ({availableCities.length})</option>
+                {availableCities.map((city) => (
+                  <option key={city} value={city}>
+                    {city}
+                  </option>
+                ))}
+              </select>
+              <MapPin className="w-3.5 h-3.5 text-amber-500 absolute left-2.5 top-3" />
+            </div>
+          </div>
+
+          {/* State Filter */}
+          <div className="md:col-span-3">
+            <div className="relative">
+              <select
+                value={selectedStateFilter}
+                onChange={(e) => setSelectedStateFilter(e.target.value)}
+                className="w-full pl-8 pr-4 py-2.5 text-xs rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-500 font-medium cursor-pointer"
+              >
+                <option value="All">All States ({availableStates.length})</option>
+                {availableStates.map((st) => (
+                  <option key={st} value={st}>
+                    {st}
+                  </option>
+                ))}
+              </select>
+              <Globe2 className="w-3.5 h-3.5 text-amber-500 absolute left-2.5 top-3" />
+            </div>
+          </div>
         </div>
 
         {/* Profile Badge Filter Pills */}
         <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pt-1">
           <span className="text-[10px] font-bold uppercase text-slate-400 shrink-0 flex items-center gap-1 mr-1">
-            <Tag className="w-3 h-3 text-amber-500" /> Profile Badges:
+            <Tag className="w-3 h-3 text-amber-500" /> Filter Badges:
           </span>
           {badgeFilterCategories.map((badgeCat) => {
             const isActive = selectedBadgeFilter === badgeCat;
@@ -282,7 +385,7 @@ export const DirectorySection: React.FC = () => {
               <button
                 key={badgeCat}
                 onClick={() => setSelectedBadgeFilter(badgeCat)}
-                className={`px-3 py-1.5 rounded-full text-xs font-extrabold transition-all shrink-0 flex items-center gap-1 ${
+                className={`px-3 py-1.5 rounded-full text-xs font-extrabold transition-all shrink-0 flex items-center gap-1 cursor-pointer ${
                   isActive
                     ? 'bg-amber-600 text-white shadow-md'
                     : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
@@ -300,17 +403,33 @@ export const DirectorySection: React.FC = () => {
           })}
         </div>
 
-        <div className="flex items-center justify-between text-xs font-bold text-slate-600 dark:text-slate-300 pt-1 border-t border-slate-100 dark:border-slate-800">
-          <span>Showing <strong>{filtered.length}</strong> of <strong>{members.length}</strong> Total Registered Community Members</span>
-          {(searchTerm || selectedBadgeFilter !== 'All') && (
+        {/* Filter Summary & Clear Button */}
+        <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-bold text-slate-600 dark:text-slate-300 pt-2 border-t border-slate-100 dark:border-slate-800">
+          <div className="flex items-center gap-2">
+            <span>Showing <strong>{filtered.length}</strong> of <strong>{members.length}</strong> Jain Families</span>
+            {selectedCityFilter !== 'All' && (
+              <span className="px-2 py-0.5 bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 rounded text-[11px]">
+                City: {selectedCityFilter}
+              </span>
+            )}
+            {selectedStateFilter !== 'All' && (
+              <span className="px-2 py-0.5 bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 rounded text-[11px]">
+                State: {selectedStateFilter}
+              </span>
+            )}
+          </div>
+
+          {(searchTerm || selectedBadgeFilter !== 'All' || selectedCityFilter !== 'All' || selectedStateFilter !== 'All') && (
             <button
               onClick={() => {
                 setSearchTerm('');
                 setSelectedBadgeFilter('All');
+                setSelectedCityFilter('All');
+                setSelectedStateFilter('All');
               }}
-              className="px-2.5 py-1 bg-amber-100 dark:bg-amber-900/60 text-amber-900 dark:text-amber-200 hover:bg-amber-200 rounded-lg text-[11px] font-extrabold transition-all"
+              className="px-2.5 py-1 bg-amber-100 dark:bg-amber-900/60 text-amber-900 dark:text-amber-200 hover:bg-amber-200 rounded-lg text-[11px] font-extrabold transition-all cursor-pointer"
             >
-              Clear Filters (Show All {members.length})
+              Clear All Filters
             </button>
           )}
         </div>
@@ -320,12 +439,39 @@ export const DirectorySection: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {filtered.map((m) => {
           const mBadges = getMemberBadges(m);
+          const totalFamilySize = (m.familyMembers?.length || 0) + 1;
+          const isOwnFamily = Boolean(
+            currentUser && (
+              currentUser.id === m.userId ||
+              currentUser.email === m.email ||
+              (currentUser.fullName && (currentUser.fullName.toLowerCase() === `${m.name} ${m.surname}`.toLowerCase()))
+            )
+          );
+          const isLoggedIn = Boolean(currentUser);
 
           return (
             <div
               key={m.id}
-              className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-lg space-y-4 hover:border-amber-500/50 transition-all"
+              className={`bg-white dark:bg-slate-900 border rounded-2xl p-5 shadow-lg space-y-4 transition-all ${
+                isOwnFamily
+                  ? 'border-amber-400 dark:border-amber-600 ring-2 ring-amber-400/20'
+                  : 'border-slate-200 dark:border-slate-800 hover:border-amber-500/50'
+              }`}
             >
+              {/* Own Family Identification Banner */}
+              {isOwnFamily && (
+                <div className="p-2.5 bg-gradient-to-r from-amber-500/15 via-emerald-500/10 to-amber-500/15 border border-amber-300 dark:border-amber-700/60 rounded-xl flex items-center justify-between text-xs">
+                  <span className="font-extrabold text-amber-800 dark:text-amber-300 flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                    <span>Your Family Profile (Private to You)</span>
+                  </span>
+                  <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 flex items-center gap-1">
+                    <ShieldCheck className="w-3 h-3" /> Visible only to you
+                  </span>
+                </div>
+              )}
+
+              {/* Family Head Header */}
               <div className="flex items-start gap-4">
                 <div className="relative shrink-0">
                   <img
@@ -352,137 +498,216 @@ export const DirectorySection: React.FC = () => {
                     <span>{m.profession}</span>
                   </p>
 
-                  <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1 mt-0.5">
-                    <MapPin className="w-3.5 h-3.5 text-amber-500" />
-                    <span>{m.city}, {m.state}, {m.country}</span>
-                  </p>
+                  {/* Public: Shows City & State */}
+                  {!isLoggedIn && (
+                    <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1 mt-0.5">
+                      <MapPin className="w-3.5 h-3.5 text-amber-500" />
+                      <span>{m.city}, {m.state}</span>
+                    </p>
+                  )}
+
+                  {/* Logged in: Shows Full Residential Address & Mobile Number */}
+                  {isLoggedIn && (
+                    <div className="space-y-1 mt-1">
+                      <p className="text-xs text-slate-700 dark:text-slate-300 flex items-start gap-1.5">
+                        <MapPin className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
+                        <span>
+                          <strong className="text-slate-900 dark:text-slate-100">Address:</strong>{' '}
+                          {m.address || `${m.city}, ${m.state}, ${m.country}`}
+                        </span>
+                      </p>
+
+                      <p className="text-xs text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                        <Phone className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                        <span>
+                          <strong className="text-slate-900 dark:text-slate-100">Head Mobile:</strong>{' '}
+                          <span className="font-mono font-bold text-slate-900 dark:text-slate-100">{m.mobile}</span>
+                        </span>
+                      </p>
+                    </div>
+                  )}
 
                   {/* Visual Profile Badges Row */}
                   <div className="flex flex-wrap items-center gap-1.5 mt-2.5">
                     {mBadges.map((badge) => renderProfileBadge(badge))}
                   </div>
 
-                  {m.bloodGroup && (
-                    <span className="inline-block mt-2 px-2 py-0.5 bg-red-50 dark:bg-red-950 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800 text-[10px] font-bold rounded">
-                      Blood Group: {m.bloodGroup}
+                  {/* Jain Community Census Strength Badge */}
+                  <div className="flex flex-wrap items-center gap-2 mt-2">
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800 text-[10px] font-bold rounded-full">
+                      <Users className="w-3 h-3 text-amber-600" />
+                      <span>Jain Census: {totalFamilySize} Family Members</span>
                     </span>
-                  )}
+
+                    {/* Blood Group: Visible ONLY to own family */}
+                    {isOwnFamily && m.bloodGroup && (
+                      <span className="px-2 py-0.5 bg-red-50 dark:bg-red-950 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800 text-[10px] font-bold rounded">
+                        Blood Group: {m.bloodGroup} (Private)
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
 
-            {/* Family Members snippet with Direct Matrimonial Registration */}
-            {m.familyMembers && m.familyMembers.length > 0 && (
-              <div className="bg-slate-50 dark:bg-slate-800/50 p-3 rounded-2xl border border-slate-100 dark:border-slate-700/60 text-xs space-y-2">
-                <p className="font-extrabold text-slate-800 dark:text-slate-200 text-[11px] flex items-center justify-between">
-                  <span>Family Members ({m.familyMembers.length}):</span>
-                  <span className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold">
-                    Direct Matrimonial Eligible
-                  </span>
-                </p>
+              {/* STRICT PRIVACY RULE ENFORCEMENT:
+                  1. Own Family: Can view all own family members + register children in matrimonial
+                  2. Logged-in member viewing other family: Family members are completely hidden!
+                  3. Public: Contact, address and family members are completely hidden! */}
 
-                <div className="space-y-1.5">
-                  {m.familyMembers.map((fam, idx) => {
-                    const isEligibleForMatrimony =
-                      fam.age >= 18 ||
-                      fam.relation === 'Son' ||
-                      fam.relation === 'Daughter' ||
-                      fam.relation === 'Brother' ||
-                      fam.relation === 'Sister';
+              {/* CASE 1: OWN FAMILY PROFILE (Full Access to own household) */}
+              {isOwnFamily && m.familyMembers && m.familyMembers.length > 0 && (
+                <div className="bg-slate-50 dark:bg-slate-800/50 p-3 rounded-2xl border border-slate-100 dark:border-slate-700/60 text-xs space-y-2">
+                  <p className="font-extrabold text-slate-800 dark:text-slate-200 text-[11px] flex items-center justify-between">
+                    <span>Your Family Members ({m.familyMembers.length}):</span>
+                    <span className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold">
+                      Direct Matrimonial Eligible
+                    </span>
+                  </p>
 
-                    return (
-                      <div
-                        key={idx}
-                        className="flex flex-wrap items-center justify-between gap-2 p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700/70 rounded-xl text-[11px]"
-                      >
-                        <div className="flex items-center gap-1.5 font-medium">
-                          <span className="font-bold text-slate-900 dark:text-slate-100">
-                            {fam.name}
-                          </span>
-                          <span className="text-[10px] text-slate-500">
-                            ({fam.relation} • {fam.age || 22} yrs)
-                          </span>
+                  <div className="space-y-1.5">
+                    {m.familyMembers.map((fam, idx) => {
+                      const isEligibleForMatrimony =
+                        fam.age >= 18 ||
+                        fam.relation === 'Son' ||
+                        fam.relation === 'Daughter' ||
+                        fam.relation === 'Brother' ||
+                        fam.relation === 'Sister';
+
+                      return (
+                        <div
+                          key={idx}
+                          className="flex flex-wrap items-center justify-between gap-2 p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700/70 rounded-xl text-[11px]"
+                        >
+                          <div className="flex items-center gap-1.5 font-medium">
+                            <span className="font-bold text-slate-900 dark:text-slate-100">
+                              {fam.name}
+                            </span>
+                            <span className="text-[10px] text-slate-500">
+                              ({fam.relation} • {fam.age || 22} yrs)
+                            </span>
+                          </div>
+
+                          {fam.matrimonialProfileCreated ? (
+                            <span className="px-2 py-0.5 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-[10px] font-bold rounded-full flex items-center gap-1">
+                              <CheckCircle2 className="w-3 h-3 text-emerald-500" />
+                              <span>Matrimonial Active</span>
+                            </span>
+                          ) : isEligibleForMatrimony ? (
+                            <button
+                              type="button"
+                              onClick={() => handleOpenMatrimonialModal(m, idx, fam)}
+                              className="px-2.5 py-1 bg-gradient-to-r from-rose-500 to-amber-600 hover:from-rose-600 hover:to-amber-700 text-white font-bold text-[10px] rounded-lg shadow-sm flex items-center gap-1 transition-all active:scale-95 cursor-pointer"
+                              title="Directly register candidate in Jain Matrimonial Bureau"
+                            >
+                              <Heart className="w-3 h-3 fill-white" />
+                              <span>Register in Matrimonial</span>
+                            </button>
+                          ) : (
+                            <span className="text-[10px] text-slate-400 italic">
+                              {fam.occupation || 'Family Member'}
+                            </span>
+                          )}
                         </div>
-
-                        {fam.matrimonialProfileCreated ? (
-                          <span className="px-2 py-0.5 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-[10px] font-bold rounded-full flex items-center gap-1">
-                            <CheckCircle2 className="w-3 h-3 text-emerald-500" />
-                            <span>Matrimonial Active</span>
-                          </span>
-                        ) : isEligibleForMatrimony ? (
-                          <button
-                            type="button"
-                            onClick={() => handleOpenMatrimonialModal(m, idx, fam)}
-                            className="px-2.5 py-1 bg-gradient-to-r from-rose-500 to-amber-600 hover:from-rose-600 hover:to-amber-700 text-white font-bold text-[10px] rounded-lg shadow-sm flex items-center gap-1 transition-all active:scale-95"
-                            title="Directly register candidate in Jain Matrimonial Bureau"
-                          >
-                            <Heart className="w-3 h-3 fill-white" />
-                            <span>Register in Matrimonial</span>
-                          </button>
-                        ) : (
-                          <span className="text-[10px] text-slate-400 italic">
-                            {fam.occupation || 'Family Member'}
-                          </span>
-                        )}
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* Actions */}
-            <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100 dark:border-slate-800 text-xs">
-              <button
-                onClick={() => {
-                  setSelectedMember(m);
-                  setShowIDModal(true);
-                  if (m.userId || m.id) {
-                    sendProfileViewAlert(m.userId || m.id, `${m.name} ${m.surname}`, currentUser);
-                  }
-                }}
-                className="px-3 py-2 min-h-[40px] bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 font-bold rounded-xl flex items-center justify-center gap-1.5 hover:bg-amber-100 transition-colors"
-                title="View Digital ID card and trigger view alert"
-              >
-                <QrCode className="w-3.5 h-3.5 text-amber-500" />
-                <span>Digital ID</span>
-              </button>
+              {/* CASE 2: LOGGED-IN VIEWING ANOTHER FAMILY (Privacy Shield Notice) */}
+              {isLoggedIn && !isOwnFamily && (
+                <div className="bg-slate-50 dark:bg-slate-800/50 p-3 rounded-2xl border border-slate-200/70 dark:border-slate-700/60 text-xs flex items-center justify-between gap-3 text-slate-600 dark:text-slate-300">
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="w-4 h-4 text-emerald-500 shrink-0" />
+                    <div className="space-y-0.5">
+                      <p className="text-[11px] font-semibold text-slate-800 dark:text-slate-200">
+                        Family Member Details are Confidential
+                      </p>
+                      <p className="text-[10px] text-slate-500">
+                        Visible only to this household. Counted in global Jain census for community unity.
+                      </p>
+                    </div>
+                  </div>
+                  <span className="text-[11px] font-extrabold text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-950/80 px-2.5 py-1 rounded-lg shrink-0">
+                    {totalFamilySize} Census Members
+                  </span>
+                </div>
+              )}
 
-              <button
-                onClick={() => {
-                  if (m.userId || m.id) {
-                    sendConnectionRequestAlert(
-                      m.userId || m.id,
-                      `${m.name} ${m.surname}`,
-                      currentUser,
-                      `Jai Jinendra ${m.name}! I would like to connect with your family on Jain Connect Global.`
-                    );
-                  }
-                }}
-                className="px-3 py-2 min-h-[40px] bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 font-bold border border-emerald-300 dark:border-emerald-800 rounded-xl flex items-center justify-center gap-1.5 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 transition-colors"
-                title="Send networking connection request"
-              >
-                <UserCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                <span>Connect</span>
-              </button>
+              {/* CASE 3: PUBLIC / GUEST VIEW (Login prompt for Address & Mobile) */}
+              {!isLoggedIn && (
+                <div className="bg-amber-50/60 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60 rounded-xl p-3 text-xs space-y-2">
+                  <div className="flex items-center gap-2 text-amber-900 dark:text-amber-200">
+                    <Lock className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                    <p className="text-[11px] font-medium leading-tight">
+                      Residential address, phone dialer, and personal details are protected for community privacy.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setIsAuthModalOpen(true)}
+                    className="w-full py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-lg transition-colors flex items-center justify-center gap-1.5 shadow-xs cursor-pointer"
+                  >
+                    <LogIn className="w-3.5 h-3.5" />
+                    <span>Log in to Search by City/State &amp; View Contact</span>
+                  </button>
+                </div>
+              )}
 
-              <button
-                onClick={() => {
-                  initiateCall(m.mobile, `${m.name} ${m.surname}`);
-                  if (m.userId || m.id) {
-                    sendProfileViewAlert(m.userId || m.id, `${m.name} ${m.surname}`, currentUser);
-                  }
-                }}
-                className="px-3.5 py-2 min-h-[40px] bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl flex items-center justify-center gap-1.5 shadow-sm cursor-pointer transition-colors"
-                title="Click to call via verified phone dialer"
-              >
-                <Phone className="w-3.5 h-3.5 fill-current" />
-                <span>Contact</span>
-              </button>
+              {/* Actions Section: Only for Logged-In Members */}
+              {isLoggedIn ? (
+                <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100 dark:border-slate-800 text-xs">
+                  <button
+                    onClick={() => {
+                      setSelectedMember(m);
+                      setShowIDModal(true);
+                      if (m.userId || m.id) {
+                        sendProfileViewAlert(m.userId || m.id, `${m.name} ${m.surname}`, currentUser);
+                      }
+                    }}
+                    className="px-3 py-2 min-h-[40px] bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 font-bold rounded-xl flex items-center justify-center gap-1.5 hover:bg-amber-100 dark:hover:bg-amber-950/40 transition-colors cursor-pointer"
+                    title="View Digital ID card and trigger view alert"
+                  >
+                    <QrCode className="w-3.5 h-3.5 text-amber-500" />
+                    <span>Digital ID</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      if (m.userId || m.id) {
+                        sendConnectionRequestAlert(
+                          m.userId || m.id,
+                          `${m.name} ${m.surname}`,
+                          currentUser,
+                          `Jai Jinendra ${m.name}! I would like to connect with your family on Jain Connect Global.`
+                        );
+                      }
+                    }}
+                    className="px-3 py-2 min-h-[40px] bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 font-bold border border-emerald-300 dark:border-emerald-800 rounded-xl flex items-center justify-center gap-1.5 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 transition-colors cursor-pointer"
+                    title="Send networking connection request"
+                  >
+                    <UserCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                    <span>Connect</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      initiateCall(m.mobile, `${m.name} ${m.surname}`);
+                      if (m.userId || m.id) {
+                        sendProfileViewAlert(m.userId || m.id, `${m.name} ${m.surname}`, currentUser);
+                      }
+                    }}
+                    className="px-3.5 py-2 min-h-[40px] bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl flex items-center justify-center gap-1.5 shadow-sm cursor-pointer transition-colors"
+                    title="Click to call via verified phone dialer"
+                  >
+                    <Phone className="w-3.5 h-3.5 fill-current" />
+                    <span>Contact</span>
+                  </button>
+                </div>
+              ) : null}
             </div>
-          </div>
-        );
-      })}
-    </div>
+          );
+        })}
+      </div>
 
       {/* Digital ID Card Modal */}
       {showIDModal && selectedMember && (

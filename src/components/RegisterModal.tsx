@@ -29,7 +29,8 @@ import {
   Check,
   Mail,
   Clock,
-  ChevronDown
+  ChevronDown,
+  Lock
 } from 'lucide-react';
 import { FamilyMember } from '../types';
 
@@ -867,6 +868,20 @@ export const RegisterModal: React.FC = () => {
               </p>
             </div>
 
+            {/* Privacy Assurance Confirmation for Family Registration */}
+            {(submissionSuccessData.panelType.toLowerCase().includes('family') ||
+              submissionSuccessData.panelType.toLowerCase().includes('jain directory')) && (
+              <div className="w-full max-w-md bg-emerald-50 dark:bg-emerald-950/60 p-3.5 rounded-2xl border border-emerald-300 dark:border-emerald-800 text-left space-y-1 shadow-sm">
+                <div className="flex items-center gap-1.5 text-emerald-900 dark:text-emerald-200 font-bold text-xs">
+                  <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                  <span>Family Privacy Confirmed</span>
+                </div>
+                <p className="text-[11px] text-emerald-800 dark:text-emerald-300 leading-relaxed">
+                  Your family details will be shown to <strong>you only</strong> in your portal. Other members and public visitors will never see your family members.
+                </p>
+              </div>
+            )}
+
             {/* Close / Proceed Button */}
             <div className="pt-2 w-full max-w-md">
               <button
@@ -1074,6 +1089,32 @@ export const RegisterModal: React.FC = () => {
             <span className="truncate">Jain Directory</span>
           </button>
         </div>
+
+        {/* Privacy & Purpose Banner for Family Registration */}
+        {panelType === 'family' && (
+          <div className="bg-gradient-to-r from-amber-500/15 via-emerald-500/10 to-amber-500/15 border-2 border-amber-400/80 dark:border-amber-600/80 rounded-2xl p-4 space-y-2.5 shadow-sm text-xs">
+            <div className="flex items-center gap-2 text-amber-900 dark:text-amber-200">
+              <ShieldCheck className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+              <h5 className="font-black text-xs uppercase tracking-wider">
+                Confidential Family Registration &amp; Global Jain Census
+              </h5>
+            </div>
+            <div className="space-y-1.5 text-[11px] text-slate-700 dark:text-slate-300 leading-relaxed">
+              <div className="p-2.5 bg-amber-100/70 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-700/60 rounded-xl font-bold text-amber-950 dark:text-amber-200 flex items-start gap-2">
+                <Lock className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                <span>
+                  <strong>Strict Privacy Assurance:</strong> This data will be shown to you only. Others will not be able to see your family details.
+                </span>
+              </div>
+              <p>
+                To the public, only the Family Head name and business are shown. If anyone logs into their own portal and checks information by searching the city or state, they will only see the Family Head name, verified address, and Family Head mobile number. No other family members or personal data are shown to anyone.
+              </p>
+              <p className="font-bold text-amber-800 dark:text-amber-300 italic border-l-2 border-amber-500 pl-2">
+                "This platform is only to strengthen our Jain community and show the world that we are also in unity and in large numbers."
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Dynamic Form Body */}
         <form onSubmit={handleSubmit} className="space-y-4 text-xs">
@@ -3329,6 +3370,19 @@ export const RegisterModal: React.FC = () => {
                   onChange={(e) => setFamilyHeadPhoto(e.target.value)}
                   className="w-full p-2.5 rounded-xl bg-white dark:bg-slate-900 border"
                 />
+              </div>
+
+              {/* PRIVACY ASSURANCE NOTE ABOVE FAMILY MEMBERS */}
+              <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 rounded-xl text-[11px] text-emerald-900 dark:text-emerald-200 flex items-start gap-2">
+                <Lock className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+                <div className="space-y-0.5">
+                  <p className="font-extrabold text-emerald-950 dark:text-emerald-100">
+                    Confidential: This data will be shown to you only
+                  </p>
+                  <p className="text-emerald-800 dark:text-emerald-300 text-[10px]">
+                    Others will not be able to see your family details. Only total census counts contribute to showing the unity and strength of the Jain community.
+                  </p>
+                </div>
               </div>
 
               {/* DYNAMIC FAMILY MEMBERS LIST */}

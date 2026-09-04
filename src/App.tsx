@@ -186,6 +186,47 @@ const MainContent: React.FC = () => {
             {/* TAB 1: HOME VIEW */}
         {activeTab === 'home' && (
           <div className="space-y-6 sm:space-y-10">
+            {/* Website Overview Welcome Banner (Positioned on top of the website for visitors) */}
+            {!currentUser && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4 }}
+                className="bg-gradient-to-r from-amber-500/15 via-orange-500/10 to-amber-100/60 dark:from-slate-900 dark:via-amber-950/40 dark:to-slate-900 text-slate-900 dark:text-slate-100 rounded-3xl p-6 sm:p-10 shadow-xl border border-amber-200/80 dark:border-amber-800/40 relative overflow-hidden space-y-4"
+              >
+                <div className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-amber-100/80 dark:bg-amber-950/80 border border-amber-200 dark:border-amber-700/60 rounded-full text-amber-900 dark:text-amber-300 text-xs font-bold uppercase tracking-widest shadow-xs">
+                  <Globe className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                  <span>Welcome to Jain Connect Global</span>
+                </div>
+
+                <h2 className="text-2xl sm:text-4xl font-extrabold font-serif text-slate-900 dark:text-white max-w-3xl leading-tight">
+                  {systemSettings.aboutTitle || 'Welcome to Jain Connect Global'}
+                </h2>
+
+                <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 max-w-2xl leading-relaxed">
+                  {systemSettings.aboutDescription || 'One Unified Platform for Every Jain, Every Business, Every Temple, Every Family Worldwide.'} To protect family privacy and contact numbers, profile listings are reserved for authenticated members.
+                </p>
+
+                <div className="pt-3 flex flex-wrap items-center gap-3">
+                  <button
+                    onClick={() => setIsAuthModalOpen(true)}
+                    className="px-6 py-3 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 text-white font-black text-xs rounded-xl shadow-md hover:shadow-lg transition-all flex items-center gap-2 cursor-pointer"
+                  >
+                    <LogIn className="w-4 h-4 text-amber-200" />
+                    <span>Sign In to Your Account</span>
+                  </button>
+
+                  <button
+                    onClick={() => setIsRegModalOpen(true)}
+                    className="px-6 py-3 bg-white dark:bg-slate-800 hover:bg-amber-50 dark:hover:bg-slate-700 border border-amber-200/80 dark:border-slate-700 text-amber-900 dark:text-amber-300 font-bold text-xs rounded-xl shadow-xs hover:shadow-md transition-all flex items-center gap-2 cursor-pointer"
+                  >
+                    <UserPlus className="w-4 h-4 text-amber-700 dark:text-amber-400" />
+                    <span>Register New Listing</span>
+                  </button>
+                </div>
+              </motion.div>
+            )}
+
             {/* Small Elegant Jain Tithi & Gregorian Date Banner */}
             <HomeDateBanner />
 
@@ -210,46 +251,6 @@ const MainContent: React.FC = () => {
                   <DailyJainWisdom />
                 </ScrollReveal>
                 
-                {/* Website Overview Banner */}
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true, margin: '-50px' }}
-                  transition={{ duration: 0.5 }}
-                  className="bg-gradient-to-r from-amber-500/15 via-orange-500/10 to-amber-100/60 dark:from-slate-900 dark:via-amber-950/40 dark:to-slate-900 text-slate-900 dark:text-slate-100 rounded-3xl p-6 sm:p-10 shadow-xl border border-amber-200/80 dark:border-amber-800/40 relative overflow-hidden space-y-4"
-                >
-                  <div className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-amber-100/80 dark:bg-amber-950/80 border border-amber-200 dark:border-amber-700/60 rounded-full text-amber-900 dark:text-amber-300 text-xs font-bold uppercase tracking-widest shadow-xs">
-                    <Globe className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-                    <span>Welcome to Jain Connect Global</span>
-                  </div>
-
-                  <h2 className="text-2xl sm:text-4xl font-extrabold font-serif text-slate-900 dark:text-white max-w-3xl leading-tight">
-                    {systemSettings.aboutTitle || 'Welcome to Jain Connect Global'}
-                  </h2>
-
-                  <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 max-w-2xl leading-relaxed">
-                    {systemSettings.aboutDescription || 'Designed by SKJ Tech World, Jain Connect Global connects Swetambar, Digambar, Sthanakvasi, and Terapanthi Jains across 120+ countries.'} To protect family privacy and contact numbers, profile listings are reserved for authenticated members.
-                  </p>
-
-                  <div className="pt-3 flex flex-wrap items-center gap-3">
-                    <button
-                      onClick={() => setIsAuthModalOpen(true)}
-                      className="px-6 py-3 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 text-white font-black text-xs rounded-xl shadow-md hover:shadow-lg transition-all flex items-center gap-2 cursor-pointer"
-                    >
-                      <LogIn className="w-4 h-4 text-amber-200" />
-                      <span>Sign In to Your Account</span>
-                    </button>
-
-                    <button
-                      onClick={() => setIsRegModalOpen(true)}
-                      className="px-6 py-3 bg-white dark:bg-slate-800 hover:bg-amber-50 dark:hover:bg-slate-700 border border-amber-200/80 dark:border-slate-700 text-amber-900 dark:text-amber-300 font-bold text-xs rounded-xl shadow-xs hover:shadow-md transition-all flex items-center gap-2 cursor-pointer"
-                    >
-                      <UserPlus className="w-4 h-4 text-amber-700 dark:text-amber-400" />
-                      <span>Register New Listing</span>
-                    </button>
-                  </div>
-                </motion.div>
-
                 {/* Portal Category Overview Cards (Logged Out) */}
                 <div className="space-y-6">
                   <motion.div

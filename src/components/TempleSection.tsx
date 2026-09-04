@@ -31,6 +31,7 @@ import { TempleSkeleton } from './Skeletons';
 import { Virtual3DTourModal } from './Virtual3DTourModal';
 import { VirtualTourButton } from './VirtualTourButton';
 import { HolySiteVirtualTourCarouselModal } from './HolySiteVirtualTourCarouselModal';
+import { TempleDetailsModal } from './TempleDetailsModal';
 import { HOLY_SITE_VIRTUAL_TOUR_SLIDES } from '../data/templeImages';
 
 export const TempleSection: React.FC = () => {
@@ -41,6 +42,7 @@ export const TempleSection: React.FC = () => {
   const [viewMode, setViewMode] = useState<'map' | 'cards' | 'both'>('map');
   const [selectedTemple, setSelectedTemple] = useState<TempleListing | null>(null);
   const [selected360Temple, setSelected360Temple] = useState<TempleListing | null>(null);
+  const [viewingTempleDetails, setViewingTempleDetails] = useState<TempleListing | null>(null);
   const [showLiveDarshan, setShowLiveDarshan] = useState(false);
   const [showDonationModal, setShowDonationModal] = useState(false);
   const [donationAmount, setDonationAmount] = useState('1100');
@@ -416,6 +418,7 @@ export const TempleSection: React.FC = () => {
             temples={filtered}
             selectedTemple={selectedTemple}
             onSelectTemple={(t) => setSelectedTemple(t)}
+            onViewTempleDetails={(t) => setViewingTempleDetails(t)}
             onOpenLiveDarshan={(t) => {
               setSelectedTemple(t);
               setShowLiveDarshan(true);
@@ -535,55 +538,67 @@ export const TempleSection: React.FC = () => {
             </div>
 
             {/* Actions */}
-            <div className="bg-slate-50 dark:bg-slate-800/60 p-3 border-t border-slate-200 dark:border-slate-800 grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs font-bold">
+            <div className="bg-slate-50 dark:bg-slate-800/60 p-3 border-t border-slate-200 dark:border-slate-800 flex flex-col gap-2 text-xs font-bold">
+              {/* Primary View Temple Details Button */}
               <button
-                onClick={() => {
-                  setSelectedTemple(t);
-                  setViewMode('map');
-                  window.scrollTo({ top: 380, behavior: 'smooth' });
-                }}
-                className="py-2.5 min-h-[44px] bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-lg flex items-center justify-center gap-1 shadow-xs font-black cursor-pointer transition-colors"
-                title="Visualize this temple on the interactive Leaflet map"
+                type="button"
+                onClick={() => setViewingTempleDetails(t)}
+                className="w-full py-2.5 min-h-[44px] bg-gradient-to-r from-amber-500 via-amber-600 to-amber-700 hover:from-amber-600 hover:to-amber-800 text-slate-950 hover:text-white rounded-xl flex items-center justify-center gap-2 shadow-xs font-black cursor-pointer transition-all border border-amber-400/60 text-xs sm:text-sm"
               >
-                <MapIcon className="w-3.5 h-3.5" />
-                <span>View on Map</span>
+                <span>🏛️ View Temple Details & Photos</span>
+                <span className="text-xs opacity-80 font-mono">↗</span>
               </button>
 
-              <button
-                onClick={() => {
-                  setSelectedTemple(t);
-                  setShowLiveDarshan(true);
-                }}
-                className="py-2.5 min-h-[44px] bg-red-600 hover:bg-red-700 text-white rounded-lg flex items-center justify-center gap-1 shadow-xs cursor-pointer transition-colors"
-              >
-                <Video className="w-3.5 h-3.5" />
-                <span>Live Darshan</span>
-              </button>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <button
+                  onClick={() => {
+                    setSelectedTemple(t);
+                    setViewMode('map');
+                    window.scrollTo({ top: 380, behavior: 'smooth' });
+                  }}
+                  className="py-2 min-h-[40px] bg-amber-100 hover:bg-amber-200 dark:bg-amber-950/60 dark:hover:bg-amber-900/80 text-amber-950 dark:text-amber-200 rounded-lg flex items-center justify-center gap-1 font-bold cursor-pointer transition-colors"
+                  title="Visualize this temple on the interactive Leaflet map"
+                >
+                  <MapIcon className="w-3.5 h-3.5" />
+                  <span>Map</span>
+                </button>
 
-              <button
-                onClick={() => {
-                  setSelectedTemple(t);
-                  setShowDonationModal(true);
-                }}
-                className="py-2.5 min-h-[44px] bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg flex items-center justify-center gap-1 shadow-xs cursor-pointer transition-colors"
-              >
-                <Heart className="w-3.5 h-3.5 fill-white" />
-                <span>Donate</span>
-              </button>
+                <button
+                  onClick={() => {
+                    setSelectedTemple(t);
+                    setShowLiveDarshan(true);
+                  }}
+                  className="py-2 min-h-[40px] bg-red-600 hover:bg-red-700 text-white rounded-lg flex items-center justify-center gap-1 shadow-xs cursor-pointer transition-colors"
+                >
+                  <Video className="w-3.5 h-3.5" />
+                  <span>Darshan</span>
+                </button>
 
-              <a
-                href={
-                  t.lat && t.lng
-                    ? `https://www.google.com/maps/dir/?api=1&destination=${t.lat},${t.lng}`
-                    : `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(t.templeName + ' ' + t.city)}`
-                }
-                target="_blank"
-                rel="noreferrer"
-                className="py-2.5 min-h-[44px] bg-slate-900 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-white rounded-lg flex items-center justify-center gap-1 hover:bg-slate-800 cursor-pointer transition-colors"
-              >
-                <Navigation className="w-3.5 h-3.5 text-amber-400" />
-                <span>Directions</span>
-              </a>
+                <button
+                  onClick={() => {
+                    setSelectedTemple(t);
+                    setShowDonationModal(true);
+                  }}
+                  className="py-2 min-h-[40px] bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg flex items-center justify-center gap-1 shadow-xs cursor-pointer transition-colors"
+                >
+                  <Heart className="w-3.5 h-3.5 fill-white" />
+                  <span>Donate</span>
+                </button>
+
+                <a
+                  href={
+                    t.lat && t.lng
+                      ? `https://www.google.com/maps/dir/?api=1&destination=${t.lat},${t.lng}`
+                      : `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(t.templeName + ' ' + t.city)}`
+                  }
+                  target="_blank"
+                  rel="noreferrer"
+                  className="py-2 min-h-[40px] bg-slate-900 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-white rounded-lg flex items-center justify-center gap-1 hover:bg-slate-800 cursor-pointer transition-colors"
+                >
+                  <Navigation className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Navigate</span>
+                </a>
+              </div>
             </div>
           </div>
         ))}
@@ -712,6 +727,25 @@ export const TempleSection: React.FC = () => {
             setShowDonationModal(true);
           }}
           showToast={showToast}
+        />
+      )}
+
+      {/* Temple Details & Photos Modal */}
+      {viewingTempleDetails && (
+        <TempleDetailsModal
+          temple={temples.find((t) => t.id === viewingTempleDetails.id) || viewingTempleDetails}
+          onClose={() => setViewingTempleDetails(null)}
+          onOpenLiveDarshan={(temp) => {
+            setSelectedTemple(temp);
+            setShowLiveDarshan(true);
+          }}
+          onOpenDonation={(temp) => {
+            setSelectedTemple(temp);
+            setShowDonationModal(true);
+          }}
+          onOpen360Tour={(temp) => {
+            setSelected360Temple(temp);
+          }}
         />
       )}
     </div>

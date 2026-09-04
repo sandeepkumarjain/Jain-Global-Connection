@@ -833,18 +833,6 @@ export const Header: React.FC = () => {
                 </button>
               )}
 
-              {/* Sitemap & Directory Index Button */}
-              <button
-                type="button"
-                id="header-nav-sitemap-btn"
-                onClick={openSitemap}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 lg:px-3 lg:py-1.5 text-[11px] lg:text-xs font-extrabold transition-all rounded-full whitespace-nowrap shrink-0 border cursor-pointer border-amber-400/60 bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 hover:text-white shadow-xs"
-                title="Explore All Accessible Sections & Portals (Sitemap)"
-              >
-                <Map className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                <span>All Sections</span>
-              </button>
-
               {/* Trailing Spacer to guarantee full visibility and generous padding when scrolled right */}
               <div className="w-8 shrink-0 min-w-[2rem]" />
             </div>

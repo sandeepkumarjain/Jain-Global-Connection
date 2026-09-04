@@ -9,6 +9,7 @@ import {
   MatrimonialProfile,
   BusinessListing,
   TempleListing,
+  TempleReview,
   CommunityMemberProfile,
   CommunityPost,
   NewsItem,
@@ -178,6 +179,9 @@ interface AppContextType {
   approveBusiness: (bizId: string) => void;
   deleteBusiness: (bizId: string) => void;
   addTemple: (tpl: Partial<TempleListing>) => TempleListing;
+  updateTemple: (tplId: string, updates: Partial<TempleListing>) => void;
+  addTempleImages: (tplId: string, newImages: string[]) => void;
+  addTempleReview: (tplId: string, review: Omit<TempleReview, 'id' | 'createdAt'>) => void;
   approveTemple: (tplId: string) => void;
   deleteTemple: (tplId: string) => void;
   addMatrimonial: (mat: Partial<MatrimonialProfile>) => MatrimonialProfile;
@@ -1871,6 +1875,100 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return newTemple;
   };
 
+  const updateTemple = (tplId: string, updates: Partial<TempleListing>) => {
+    let targetTemple: TempleListing | undefined;
+    setTemples((prev) =>
+      prev.map((t) => {
+        if (t.id === tplId || t.applicationId === tplId) {
+          targetTemple = { ...t, ...updates };
+          return targetTemple;
+        }
+        return t;
+      })
+    );
+
+    if (targetTemple) {
+      try {
+        setDoc(doc(db, 'temples', targetTemple.id), targetTemple, { merge: true });
+        syncToSupabaseTable('temples', targetTemple);
+      } catch (e) {
+        console.warn('Firestore temple update error:', e);
+      }
+    }
+  };
+
+  const addTempleImages = (tplId: string, newImages: string[]) => {
+    let targetTemple: TempleListing | undefined;
+    setTemples((prev) =>
+      prev.map((t) => {
+        if (t.id === tplId || t.applicationId === tplId) {
+          const existingImages = t.images || [];
+          const updatedImages = [...existingImages, ...newImages];
+          targetTemple = { ...t, images: updatedImages };
+          return targetTemple;
+        }
+        return t;
+      })
+    );
+
+    if (targetTemple) {
+      try {
+        setDoc(doc(db, 'temples', targetTemple.id), targetTemple, { merge: true });
+        syncToSupabaseTable('temples', targetTemple);
+      } catch (e) {
+        console.warn('Firestore temple images update error:', e);
+      }
+      showToast(
+        'Images Uploaded Successfully',
+        `Added ${newImages.length} photo(s) to ${targetTemple.templeName}.`,
+        'success'
+      );
+    }
+  };
+
+  const addTempleReview = (tplId: string, reviewData: Omit<TempleReview, 'id' | 'createdAt'>) => {
+    const newReview: TempleReview = {
+      ...reviewData,
+      id: `trev_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+      createdAt: new Date().toISOString(),
+      isVerifiedVisitor: true,
+      helpfulCount: 0,
+    };
+
+    let targetTemple: TempleListing | undefined;
+    setTemples((prev) =>
+      prev.map((t) => {
+        if (t.id === tplId || t.applicationId === tplId) {
+          const currentReviews = t.reviews || [];
+          const updatedReviews = [newReview, ...currentReviews];
+          const scored = updatedReviews.filter((r) => r.rating > 0);
+          const avg = scored.length > 0
+            ? parseFloat((scored.reduce((acc, curr) => acc + curr.rating, 0) / scored.length).toFixed(1))
+            : t.rating;
+          targetTemple = { ...t, reviews: updatedReviews, rating: avg };
+          return targetTemple;
+        }
+        return t;
+      })
+    );
+
+    if (targetTemple) {
+      try {
+        setDoc(doc(db, 'temples', targetTemple.id), targetTemple, { merge: true });
+        syncToSupabaseTable('temples', targetTemple);
+      } catch (e) {
+        console.warn('Firestore temple review update error:', e);
+      }
+      showToast(
+        reviewData.type === 'suggestion' ? '💡 Suggestion Recorded' : '⭐ Review Published',
+        reviewData.type === 'suggestion'
+          ? `Your valuable suggestion has been submitted to the ${targetTemple.templeName} Trust Committee.`
+          : `Jai Jinendra! Thank you for reviewing your visit to ${targetTemple.templeName}.`,
+        'success'
+      );
+    }
+  };
+
   const approveTemple = (tplId: string) => {
     let targetTemple: TempleListing | undefined;
     setTemples((prev) =>
@@ -3087,6 +3185,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         approveBusiness,
         deleteBusiness,
         addTemple,
+        updateTemple,
+        addTempleImages,
+        addTempleReview,
         approveTemple,
         deleteTemple,
         addMatrimonial,

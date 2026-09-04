@@ -238,6 +238,21 @@ export interface BusinessListing {
   endorsements?: Endorsement[];
 }
 
+export interface TempleReview {
+  id: string;
+  userId?: string;
+  userName: string;
+  userCity?: string;
+  rating: number; // 1 to 5
+  type: 'review' | 'suggestion';
+  visitDate?: string;
+  comment: string;
+  category?: 'General' | 'Darshan' | 'Cleanliness' | 'Dharamshala' | 'Bhojanashala' | 'Yatra & Facilities';
+  createdAt: string;
+  isVerifiedVisitor?: boolean;
+  helpfulCount?: number;
+}
+
 export interface TempleListing {
   id: string;
   applicationId?: string;
@@ -268,6 +283,7 @@ export interface TempleListing {
   is360Available?: boolean;
   isVerified: boolean;
   rating: number;
+  reviews?: TempleReview[];
   upcomingEvents?: { title: string; date: string; description: string }[];
 }
 
