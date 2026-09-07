@@ -1,9 +1,10 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import jsPDF from 'jspdf';
 import { safeHtml2Canvas } from '../utils/safeHtml2Canvas';
 import { useApp } from '../context/AppContext';
 import { User } from '../types';
+import { triggerGoldShimmerConfetti } from '../utils/confetti';
 import {
   X,
   QrCode,
@@ -23,8 +24,12 @@ import {
   Scan,
   Palette,
   Sun,
-  FileText
+  FileText,
+  Info,
+  HelpCircle,
+  ExternalLink,
 } from 'lucide-react';
+import { resolveUserBadges, getBadgeVisualConfig, BADGE_SYSTEM_REGISTRY } from '../utils/badgeSystem';
 
 interface MemberDigitalIdModalProps {
   userOverride?: User | null;
@@ -57,10 +62,112 @@ export const MemberDigitalIdModal: React.FC<MemberDigitalIdModalProps> = ({
   const [isSimulatingScan, setIsSimulatingScan] = useState(false);
   const [scanVerified, setScanVerified] = useState(false);
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+  const [selectedBadgeDetail, setSelectedBadgeDetail] = useState<{
+    name: string;
+    tagline: string;
+    description: string;
+    category: string;
+    criteria: string;
+  } | null>(null);
+  const [showBadgeSystemInfo, setShowBadgeSystemInfo] = useState(false);
+
+  // Micro-interaction & Gold-Shimmer Entrance State
+  const [simulatedBadges, setSimulatedBadges] = useState<string[]>([]);
+  const [newlyEarnedBadges, setNewlyEarnedBadges] = useState<string[]>([]);
+  const [celebratedBadge, setCelebratedBadge] = useState<string | null>(null);
+  const [isShimmeringAll, setIsShimmeringAll] = useState(false);
 
   const cardRef = useRef<HTMLDivElement>(null);
 
   if (!isOpen || !user) return null;
+
+  // Resolve member's active badges based on profile data and registry rules + any simulated earned badges
+  const baseActiveBadges = resolveUserBadges(user);
+  const activeBadges = Array.from(new Set([...baseActiveBadges, ...simulatedBadges]));
+
+  // Auto-detect newly unlocked badges from storage to trigger entrance animation
+  useEffect(() => {
+    if (!isOpen || !user) return;
+
+    const storageKey = `jcg_seen_badges_${user.id}`;
+    let seenBadges: string[] = [];
+    try {
+      const raw = localStorage.getItem(storageKey);
+      if (raw) seenBadges = JSON.parse(raw);
+    } catch {
+      // ignore
+    }
+
+    const freshBadges = activeBadges.filter((b) => !seenBadges.includes(b));
+    if (freshBadges.length > 0 && seenBadges.length > 0) {
+      setNewlyEarnedBadges(freshBadges);
+      setCelebratedBadge(freshBadges[0]);
+      triggerGoldShimmerConfetti();
+      try {
+        localStorage.setItem(storageKey, JSON.stringify(activeBadges));
+      } catch {
+        // ignore
+      }
+    } else if (seenBadges.length === 0 && activeBadges.length > 0) {
+      // Initial registration: mark first badge as celebrated highlight
+      setNewlyEarnedBadges([activeBadges[0]]);
+      try {
+        localStorage.setItem(storageKey, JSON.stringify(activeBadges));
+      } catch {
+        // ignore
+      }
+    }
+  }, [isOpen, user?.id, activeBadges.length]);
+
+  // Handler to simulate earning a badge or previewing the gold shimmer entrance
+  const handleSimulateNewBadge = (specificBadge?: string) => {
+    const allRegisteredBadges = Object.keys(BADGE_SYSTEM_REGISTRY);
+    const unearned = allRegisteredBadges.filter((b) => !activeBadges.includes(b));
+
+    const badgeToEarn = specificBadge || (unearned.length > 0 ? unearned[0] : activeBadges[0] || 'Verified Donor');
+
+    setSimulatedBadges((prev) => Array.from(new Set([...prev, badgeToEarn])));
+    setNewlyEarnedBadges((prev) => Array.from(new Set([...prev, badgeToEarn])));
+    setCelebratedBadge(badgeToEarn);
+    setIsShimmeringAll(true);
+    setCardSide('front');
+
+    triggerGoldShimmerConfetti();
+
+    showToast(
+      '🌟 New Badge Earned!',
+      `"${badgeToEarn}" unlocked with a radiant gold shimmer on your Digital ID!`,
+      'success'
+    );
+
+    setTimeout(() => {
+      setIsShimmeringAll(false);
+    }, 4500);
+  };
+
+  // Micro-interaction on tapping an existing badge: re-trigger shimmer + open inspector
+  const handleBadgeClick = (badgeName: string, config: any, e?: React.MouseEvent) => {
+    setNewlyEarnedBadges((prev) => Array.from(new Set([...prev, badgeName])));
+    setCelebratedBadge(badgeName);
+
+    // Calculate click coordinates for targeted gold sparks
+    if (e) {
+      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+      const x = (rect.left + rect.width / 2) / window.innerWidth;
+      const y = (rect.top + rect.height / 2) / window.innerHeight;
+      triggerGoldShimmerConfetti({ x, y });
+    } else {
+      triggerGoldShimmerConfetti();
+    }
+
+    setSelectedBadgeDetail({
+      name: badgeName,
+      tagline: config.tagline,
+      description: config.description,
+      category: config.category,
+      criteria: config.criteria,
+    });
+  };
 
   // Generate unique standardized Member ID
   const memberCode = `JCG-2026-${(user.id || '108').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(-6)}`;
@@ -79,6 +186,7 @@ export const MemberDigitalIdModal: React.FC<MemberDigitalIdModalProps> = ({
     role: user.role || 'Member',
     bloodGroup: user.bloodGroup || 'O+',
     isVerified: user.isVerified ?? true,
+    badges: activeBadges,
     verificationTimestamp: new Date().toISOString(),
     eventTag: eventTag,
   };
@@ -251,6 +359,32 @@ export const MemberDigitalIdModal: React.FC<MemberDigitalIdModalProps> = ({
                 <span>Auspicious</span>
               </button>
             </div>
+
+            {/* Badges Guide Explorer Trigger */}
+            <button
+              onClick={() => setShowBadgeSystemInfo(true)}
+              className="px-2.5 py-1 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-300/50 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
+              title="Explore all Sangh Member Badges and qualification criteria"
+            >
+              <Award className="w-3.5 h-3.5 text-amber-500" />
+              <span>Badges System</span>
+              <span className="px-1.5 py-0.2 rounded-full bg-amber-500 text-slate-900 text-[10px] font-black">
+                {activeBadges.length} Active
+              </span>
+            </button>
+
+            {/* Micro-interaction: Simulate / Test Earning a Badge */}
+            <button
+              onClick={() => handleSimulateNewBadge()}
+              className="px-2.5 py-1 rounded-xl bg-gradient-to-r from-amber-500 via-amber-400 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer shadow-md hover:scale-105 active:scale-95 border border-amber-300 dark:border-amber-400"
+              title="Simulate earning a new Sangh badge with smooth entrance animation and gold shimmer"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-slate-950 animate-star-sparkle" />
+              <span>Earn Badge</span>
+              <span className="text-[9px] px-1 rounded-md bg-amber-300 text-slate-950 font-black shadow-xs">
+                ✨
+              </span>
+            </button>
           </div>
 
           {/* View Toggle Tabs */}
@@ -278,6 +412,49 @@ export const MemberDigitalIdModal: React.FC<MemberDigitalIdModalProps> = ({
               <span>QR Code Verification</span>
             </button>
           </div>
+
+          {/* Celebratory Micro-Interaction Banner with Gold Shimmer */}
+          {celebratedBadge && (
+            <div className="relative overflow-hidden p-3 rounded-2xl bg-gradient-to-r from-amber-500/20 via-amber-400/30 to-amber-500/20 border border-amber-400/80 dark:border-amber-500 shadow-md flex items-center justify-between gap-3 animate-badge-entrance">
+              <span className="gold-shimmer-sheen" />
+              <div className="flex items-center gap-2.5 relative z-10">
+                <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-amber-400 to-amber-600 text-slate-950 flex items-center justify-center font-black shadow-md animate-star-sparkle shrink-0">
+                  <Sparkles className="w-4 h-4 text-slate-950" />
+                </div>
+                <div>
+                  <p className="text-xs font-black text-amber-900 dark:text-amber-200 flex items-center gap-1.5 flex-wrap">
+                    <span>Honor Earned:</span>
+                    <span className="px-2 py-0.5 rounded-lg bg-amber-500 text-slate-950 text-[11px] font-black shadow-xs">
+                      {celebratedBadge}
+                    </span>
+                    <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-amber-200 dark:bg-amber-900/80 text-amber-800 dark:text-amber-200 font-bold">
+                      Gold Shimmer ✨
+                    </span>
+                  </p>
+                  <p className="text-[10px] font-semibold text-amber-800/90 dark:text-amber-300">
+                    Badge is adorned with radiant golden shimmer and entrance animation on your Digital ID.
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 relative z-10 shrink-0">
+                <button
+                  onClick={() => triggerGoldShimmerConfetti()}
+                  className="px-2 py-1 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 text-[11px] font-black shadow-xs transition-transform active:scale-95 cursor-pointer flex items-center gap-1"
+                  title="Fire golden sparkles"
+                >
+                  <Sparkles className="w-3 h-3" />
+                  <span className="hidden sm:inline">Sparks</span>
+                </button>
+                <button
+                  onClick={() => setCelebratedBadge(null)}
+                  className="p-1 rounded-lg text-amber-700 dark:text-amber-300 hover:bg-amber-500/20"
+                  title="Dismiss celebration"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Physical Digital ID Card Container */}
           <div
@@ -415,6 +592,109 @@ export const MemberDigitalIdModal: React.FC<MemberDigitalIdModalProps> = ({
                     </div>
                   </div>
                 </div>
+
+                {/* PROMINENT MEMBER BADGES SECTION */}
+                {activeBadges.length > 0 && (
+                  <div
+                    className={`p-2.5 rounded-2xl border transition-all relative overflow-hidden ${
+                      cardTheme === 'auspicious'
+                        ? 'bg-gradient-to-r from-black/40 via-amber-950/40 to-black/40 border-amber-400/50 shadow-inner'
+                        : 'bg-gradient-to-r from-amber-50/90 via-white to-amber-50/90 border-amber-300 shadow-xs'
+                    } ${
+                      celebratedBadge ? 'ring-2 ring-amber-400/80 shadow-lg' : ''
+                    }`}
+                  >
+                    {/* Background Golden Sheen when global shimmer is active */}
+                    {(celebratedBadge || isShimmeringAll) && (
+                      <span className="gold-shimmer-sheen opacity-60" />
+                    )}
+
+                    <div className="flex items-center justify-between mb-1.5 px-0.5 relative z-10">
+                      <span
+                        className={`text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 ${
+                          cardTheme === 'auspicious' ? 'text-amber-300' : 'text-amber-900'
+                        }`}
+                      >
+                        <Award className="w-3.5 h-3.5 text-amber-400" />
+                        Sangh Accreditations & Honors
+                      </span>
+                      <div className="flex items-center gap-2">
+                        {newlyEarnedBadges.length > 0 && (
+                          <span className="text-[9px] font-black text-amber-400 uppercase tracking-widest flex items-center gap-1 animate-pulse">
+                            <Sparkles className="w-2.5 h-2.5 text-amber-300" />
+                            Honors Active
+                          </span>
+                        )}
+                        <span
+                          className={`text-[10px] font-bold ${
+                            cardTheme === 'auspicious' ? 'text-amber-200/90' : 'text-slate-600'
+                          }`}
+                        >
+                          {activeBadges.length} Active {activeBadges.length === 1 ? 'Honor' : 'Honors'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap gap-1.5 relative z-10">
+                      {activeBadges.map((badgeName, index) => {
+                        const config = getBadgeVisualConfig(badgeName);
+                        const style = cardTheme === 'auspicious' ? config.auspicious : config.light;
+                        const IconComponent = config.icon;
+                        const isNewlyEarned =
+                          newlyEarnedBadges.includes(badgeName) || celebratedBadge === badgeName;
+
+                        return (
+                          <button
+                            key={badgeName}
+                            type="button"
+                            onClick={(e) => handleBadgeClick(badgeName, config, e)}
+                            className={`group relative overflow-hidden inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl border text-[11px] font-black transition-all cursor-pointer transform hover:scale-105 active:scale-95 shadow-xs ${
+                              style.badgeBg
+                            } ${style.textColor} ${style.borderColor} ${
+                              isNewlyEarned
+                                ? 'animate-badge-entrance gold-badge-border-glow animate-gold-aura-pulse ring-2 ring-amber-400/90 shadow-md scale-102'
+                                : 'hover:border-amber-400/90'
+                            }`}
+                            style={{
+                              animationDelay: isNewlyEarned ? `${index * 120}ms` : undefined,
+                            }}
+                            title={`Click to view criteria and re-trigger gold shimmer for ${badgeName}`}
+                          >
+                            {/* Gold Shimmer Sheen Layer for Newly Earned Badges */}
+                            {(isNewlyEarned || isShimmeringAll) && (
+                              <span className="gold-shimmer-sheen gold-shimmer-sheen-fast" />
+                            )}
+
+                            {/* Hover Micro-interaction: Gold Shimmer Sheen Wave */}
+                            <span className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none rounded-xl overflow-hidden">
+                              <span className="gold-shimmer-sheen" />
+                            </span>
+
+                            <span className="relative z-10 flex items-center gap-1.5">
+                              <IconComponent
+                                className={`w-3.5 h-3.5 shrink-0 transition-transform duration-300 group-hover:rotate-12 ${style.iconColor}`}
+                              />
+                              <span className="tracking-wide">{badgeName}</span>
+                              <span className="text-[9px] opacity-75 font-normal hidden sm:inline">
+                                • {config.tagline}
+                              </span>
+                            </span>
+
+                            {/* Celebratory Micro-Badge Indicator */}
+                            {isNewlyEarned && (
+                              <span className="relative z-10 flex items-center gap-1">
+                                <Sparkles className="w-3 h-3 text-amber-300 dark:text-amber-200 animate-star-sparkle shrink-0" />
+                                <span className="px-1 py-0.2 rounded-md bg-amber-400 text-slate-950 text-[8px] font-black uppercase tracking-wider shadow-xs animate-bounce">
+                                  New
+                                </span>
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
 
                 {/* Key Attributes Grid */}
                 <div
@@ -571,6 +851,58 @@ export const MemberDigitalIdModal: React.FC<MemberDigitalIdModalProps> = ({
                   </p>
                 </div>
 
+                {/* Verified Sangh Badges on QR View */}
+                {activeBadges.length > 0 && (
+                  <div
+                    className={`w-full p-2 rounded-xl border text-center ${
+                      cardTheme === 'auspicious'
+                        ? 'bg-amber-950/60 border-amber-300/40 text-amber-200'
+                        : 'bg-amber-50/80 border-slate-300 text-slate-800'
+                    }`}
+                  >
+                    <p
+                      className={`text-[10px] font-black uppercase tracking-wider mb-1 flex items-center justify-center gap-1.5 ${
+                        cardTheme === 'auspicious' ? 'text-amber-300' : 'text-amber-900'
+                      }`}
+                    >
+                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                      Encrypted Sangh Badges on Record
+                    </p>
+                    <div className="flex flex-wrap items-center justify-center gap-1.5">
+                      {activeBadges.map((badgeName) => {
+                        const cfg = getBadgeVisualConfig(badgeName);
+                        const IconC = cfg.icon;
+                        const isNewlyEarned =
+                          newlyEarnedBadges.includes(badgeName) || celebratedBadge === badgeName;
+
+                        return (
+                          <span
+                            key={badgeName}
+                            className={`relative overflow-hidden inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-[10px] font-extrabold border transition-all ${
+                              cardTheme === 'auspicious'
+                                ? 'bg-black/40 border-amber-400/50 text-amber-200'
+                                : 'bg-white border-amber-300 text-slate-900 shadow-xs'
+                            } ${
+                              isNewlyEarned
+                                ? 'animate-badge-entrance gold-badge-border-glow ring-2 ring-amber-400'
+                                : ''
+                            }`}
+                          >
+                            {isNewlyEarned && <span className="gold-shimmer-sheen" />}
+                            <IconC className="w-3 h-3 text-amber-500 relative z-10" />
+                            <span className="relative z-10">{badgeName}</span>
+                            {isNewlyEarned ? (
+                              <Sparkles className="w-2.5 h-2.5 text-amber-300 animate-star-sparkle relative z-10" />
+                            ) : (
+                              <CheckCircle2 className="w-2.5 h-2.5 text-emerald-400 relative z-10" />
+                            )}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
                 <div
                   className={`w-full pt-2 border-t flex items-center justify-around text-[10px] font-semibold ${
                     cardTheme === 'auspicious'
@@ -657,9 +989,223 @@ export const MemberDigitalIdModal: React.FC<MemberDigitalIdModalProps> = ({
                 </span>
               </button>
             </div>
+
+            {/* Scan Authentication Details Breakdown */}
+            {scanVerified && (
+              <div className="p-3 bg-emerald-50 dark:bg-emerald-950/60 rounded-2xl border border-emerald-300 dark:border-emerald-800 text-left space-y-2 animate-fade-in">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-black text-emerald-900 dark:text-emerald-200 flex items-center gap-1.5">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                    Sangh Gate Verification Successful
+                  </span>
+                  <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 uppercase">
+                    Authentic Pass
+                  </span>
+                </div>
+
+                <div className="pt-2 border-t border-emerald-200 dark:border-emerald-800/60">
+                  <p className="text-[10px] font-black uppercase tracking-wider text-emerald-800 dark:text-emerald-300 mb-1.5 flex items-center gap-1">
+                    <Award className="w-3 h-3 text-amber-500" />
+                    Authenticated Member Badges & Accreditations:
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {activeBadges.map((b) => {
+                      const cfg = getBadgeVisualConfig(b);
+                      const IconComp = cfg.icon;
+                      return (
+                        <span
+                          key={b}
+                          className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-emerald-100 dark:bg-emerald-900/80 text-emerald-950 dark:text-emerald-100 text-[11px] font-bold border border-emerald-300 dark:border-emerald-700"
+                        >
+                          <IconComp className="w-3 h-3 text-amber-500" />
+                          <span>{b}</span>
+                          <Check className="w-2.5 h-2.5 text-emerald-600 dark:text-emerald-400" />
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
         </div>
+
+        {/* Selected Badge Honor Inspector Modal */}
+        {selectedBadgeDetail && (
+          <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs">
+            <div className="bg-white dark:bg-slate-900 border border-amber-300 dark:border-amber-700 rounded-3xl w-full max-w-md p-6 shadow-2xl relative space-y-4 animate-scale-up">
+              <button
+                onClick={() => setSelectedBadgeDetail(null)}
+                className="absolute top-4 right-4 p-2 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-500 to-amber-700 flex items-center justify-center text-slate-950 shadow-md">
+                  <Award className="w-6 h-6 text-slate-950" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <h3 className="text-lg font-black font-serif text-slate-900 dark:text-white">
+                      {selectedBadgeDetail.name}
+                    </h3>
+                    <ShieldCheck className="w-4 h-4 text-emerald-500" />
+                  </div>
+                  <p className="text-xs font-bold text-amber-700 dark:text-amber-300">
+                    {selectedBadgeDetail.tagline} • {selectedBadgeDetail.category}
+                  </p>
+                </div>
+              </div>
+
+              <div className="p-3.5 bg-slate-50 dark:bg-slate-800/70 rounded-2xl border border-slate-200 dark:border-slate-700 text-xs text-slate-700 dark:text-slate-300 space-y-2">
+                <div>
+                  <p className="font-bold text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                    Significance
+                  </p>
+                  <p className="mt-0.5 leading-relaxed">{selectedBadgeDetail.description}</p>
+                </div>
+
+                <div className="pt-2 border-t border-slate-200 dark:border-slate-700">
+                  <p className="font-bold text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                    Qualification & Verification Standard
+                  </p>
+                  <p className="mt-0.5 leading-relaxed font-mono text-[11px] text-amber-800 dark:text-amber-300">
+                    {selectedBadgeDetail.criteria}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between text-[11px] text-emerald-700 dark:text-emerald-300 font-bold bg-emerald-50 dark:bg-emerald-950/50 p-2.5 rounded-xl border border-emerald-200 dark:border-emerald-800">
+                <span className="flex items-center gap-1">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  Active Credential on {user.fullName}&apos;s Digital ID
+                </span>
+                <span className="text-[10px] uppercase">Verified Sangh Record</span>
+              </div>
+
+              <button
+                onClick={() => setSelectedBadgeDetail(null)}
+                className="w-full py-2.5 rounded-xl bg-slate-900 dark:bg-slate-700 hover:bg-slate-800 text-white font-bold text-xs shadow-md transition-all cursor-pointer"
+              >
+                Close Badge Details
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Sangh Badge System Directory / Guide Modal */}
+        {showBadgeSystemInfo && (
+          <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-xs">
+            <div className="bg-white dark:bg-slate-900 border border-amber-300 dark:border-amber-700 rounded-3xl w-full max-w-2xl p-6 shadow-2xl relative space-y-4 max-h-[90vh] overflow-y-auto">
+              <button
+                onClick={() => setShowBadgeSystemInfo(false)}
+                className="absolute top-4 right-4 p-2 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-amber-500/20 text-amber-700 dark:text-amber-300 flex items-center justify-center">
+                  <Award className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-black font-serif text-slate-900 dark:text-white">
+                    Sangh Member Badge System
+                  </h3>
+                  <p className="text-xs text-slate-600 dark:text-slate-400">
+                    Official recognitions displayed on Jain Connect Global Digital ID cards
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                {Object.entries(BADGE_SYSTEM_REGISTRY).map(([badgeName, item]) => {
+                  const IconComp = item.icon;
+                  const isEarned = activeBadges.includes(badgeName);
+                  return (
+                    <div
+                      key={badgeName}
+                      className={`p-3 rounded-2xl border transition-all ${
+                        isEarned
+                          ? 'bg-amber-50/70 dark:bg-amber-950/30 border-amber-300 dark:border-amber-700 shadow-xs'
+                          : 'bg-slate-50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700 opacity-90'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <div className={`p-1.5 rounded-xl ${isEarned ? 'bg-amber-500 text-slate-950' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'}`}>
+                            <IconComp className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <h4 className="text-xs font-black text-slate-900 dark:text-white">
+                              {badgeName}
+                            </h4>
+                            <span className="text-[10px] font-semibold text-amber-700 dark:text-amber-300">
+                              {item.tagline}
+                            </span>
+                          </div>
+                        </div>
+
+                        {isEarned ? (
+                          <span className="px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 text-[10px] font-black border border-emerald-300 dark:border-emerald-800 shrink-0">
+                            Earned ✓
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded-full bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-[10px] font-bold shrink-0">
+                            Eligible
+                          </span>
+                        )}
+                      </div>
+
+                      <p className="text-[11px] text-slate-600 dark:text-slate-300 mt-2 line-clamp-2">
+                        {item.description}
+                      </p>
+
+                      <div className="mt-2 pt-2 border-t border-slate-200 dark:border-slate-700 flex items-center justify-between text-[10px]">
+                        <div>
+                          <span className="text-slate-500 dark:text-slate-400">Category: </span>
+                          <span className="font-bold text-slate-700 dark:text-slate-300">{item.category}</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowBadgeSystemInfo(false);
+                            handleSimulateNewBadge(badgeName);
+                          }}
+                          className={`px-2.5 py-1 rounded-lg text-[10px] font-black transition-all flex items-center gap-1 cursor-pointer active:scale-95 ${
+                            isEarned
+                              ? 'bg-amber-100 hover:bg-amber-200 dark:bg-amber-900/60 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-700'
+                              : 'bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 text-slate-950 shadow-xs'
+                          }`}
+                        >
+                          <Sparkles className="w-2.5 h-2.5" />
+                          <span>{isEarned ? 'Replay Shimmer 🌟' : 'Simulate Unlock ✨'}</span>
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="p-3 bg-amber-50 dark:bg-amber-950/40 rounded-2xl border border-amber-300 dark:border-amber-800 text-xs text-amber-950 dark:text-amber-200 flex items-center justify-between">
+                <div>
+                  <p className="font-bold">Want to update or add your Sangh Badges?</p>
+                  <p className="text-[11px] text-amber-800 dark:text-amber-300">
+                    Update your profile or contact the Sangh Samiti administrators.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowBadgeSystemInfo(false)}
+                  className="px-4 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shadow-xs shrink-0 cursor-pointer"
+                >
+                  Got It
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Footer Bar */}
         <div className="p-4 bg-slate-50 dark:bg-slate-900/90 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs print:hidden">

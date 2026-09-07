@@ -63,3 +63,29 @@ export function triggerCelebrationConfetti() {
     console.debug('Celebration confetti unavailable:', err);
   }
 }
+
+/**
+ * Fires dazzling radiant gold, amber, and champagne sparkles for newly earned digital ID badges
+ */
+export function triggerGoldShimmerConfetti(originPoint?: { x: number; y: number }) {
+  try {
+    const goldColors = ['#F59E0B', '#FBBF24', '#FDE047', '#FEF08A', '#D97706', '#FFFFFF'];
+
+    // Center burst of golden sparks
+    confetti({
+      particleCount: 50,
+      spread: 60,
+      startVelocity: 25,
+      origin: originPoint ?? { x: 0.5, y: 0.45 },
+      colors: goldColors,
+      zIndex: 99999,
+      scalar: 0.85,
+      ticks: 200,
+      gravity: 0.8,
+      shapes: ['star', 'circle'],
+      disableForReducedMotion: true,
+    });
+  } catch (err) {
+    console.debug('Gold shimmer confetti unavailable:', err);
+  }
+}

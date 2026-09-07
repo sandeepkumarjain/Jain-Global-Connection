@@ -168,6 +168,8 @@ interface AppContextType {
   suspendUser: (userId: string) => void;
   deleteUser: (userId: string) => void;
   verifyUserBadge: (userId: string) => void;
+  toggleUserBadge: (userId: string, badgeName: string) => void;
+  toggleCommunityMemberBadge: (memberId: string, badgeName: string) => void;
 
   // Directory CRUD & Approval Actions
   addCommunityMember: (mem: Partial<CommunityMemberProfile>) => CommunityMemberProfile;
@@ -1558,6 +1560,81 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     }
     showToast('Verification Updated', 'Verification badge status toggled.', 'success');
+  };
+
+  const toggleUserBadge = (userId: string, badgeName: string) => {
+    let targetUser: User | undefined;
+    let badgeAction: 'added' | 'removed' = 'added';
+
+    setUsers((prev) =>
+      prev.map((u) => {
+        if (u.id === userId || u.applicationId === userId) {
+          const currentBadges = Array.isArray(u.badges) ? [...u.badges] : [];
+          const exists = currentBadges.includes(badgeName);
+          const updatedBadges = exists
+            ? currentBadges.filter((b) => b !== badgeName)
+            : [...currentBadges, badgeName];
+          badgeAction = exists ? 'removed' : 'added';
+
+          targetUser = { ...u, badges: updatedBadges };
+          return targetUser;
+        }
+        return u;
+      })
+    );
+
+    if (targetUser) {
+      if (currentUser?.id === targetUser.id) {
+        setCurrentUser(targetUser);
+      }
+      try {
+        setDoc(doc(db, 'users', targetUser.id), targetUser, { merge: true });
+        syncToSupabaseTable('users', targetUser);
+      } catch (e) {
+        console.warn('Firestore user badge update error:', e);
+      }
+      showToast(
+        `Badge ${badgeAction === 'added' ? 'Awarded' : 'Removed'}`,
+        `"${badgeName}" badge has been ${badgeAction} for ${targetUser.fullName || 'member'}.`,
+        'success'
+      );
+    }
+  };
+
+  const toggleCommunityMemberBadge = (memberId: string, badgeName: string) => {
+    let targetMem: CommunityMemberProfile | undefined;
+    let badgeAction: 'added' | 'removed' = 'added';
+
+    setMembers((prev) =>
+      prev.map((m) => {
+        if (m.id === memberId || m.applicationId === memberId) {
+          const currentBadges = Array.isArray(m.badges) ? [...m.badges] : [];
+          const exists = currentBadges.includes(badgeName);
+          const updatedBadges = exists
+            ? currentBadges.filter((b) => b !== badgeName)
+            : [...currentBadges, badgeName];
+          badgeAction = exists ? 'removed' : 'added';
+
+          targetMem = { ...m, badges: updatedBadges };
+          return targetMem;
+        }
+        return m;
+      })
+    );
+
+    if (targetMem) {
+      try {
+        setDoc(doc(db, 'members', targetMem.id), targetMem, { merge: true });
+        syncToSupabaseTable('members', targetMem);
+      } catch (e) {
+        console.warn('Firestore member badge update error:', e);
+      }
+      showToast(
+        `Directory Badge ${badgeAction === 'added' ? 'Awarded' : 'Removed'}`,
+        `"${badgeName}" badge has been ${badgeAction} for ${targetMem.name} ${targetMem.surname || ''}.`,
+        'success'
+      );
+    }
   };
 
   const addCommunityMember = (mem: Partial<CommunityMemberProfile>): CommunityMemberProfile => {
@@ -3177,6 +3254,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         suspendUser,
         deleteUser,
         verifyUserBadge,
+        toggleUserBadge,
+        toggleCommunityMemberBadge,
         addCommunityMember,
         approveCommunityMember,
         deleteCommunityMember,

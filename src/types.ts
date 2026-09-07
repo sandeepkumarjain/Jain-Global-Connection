@@ -19,6 +19,28 @@ export interface RolePermissions {
   canManagePanchang: boolean;
 }
 
+export type MemberBadgeId =
+  | 'Verified Donor'
+  | 'Sangh Volunteer'
+  | 'Long-time Member'
+  | 'Community Leader'
+  | 'Sangh Trustee'
+  | 'Youth Ambassador'
+  | 'Key Contributor'
+  | 'Life Patron'
+  | 'Verified';
+
+export interface MemberBadgeDefinition {
+  id: MemberBadgeId | string;
+  name: string;
+  tagline: string;
+  description: string;
+  category: 'Seva & Blood' | 'Community Service' | 'Tenure & Seniority' | 'Leadership' | 'Patronage';
+  criteria: string;
+  iconName: string;
+  priority: number;
+}
+
 export interface User {
   id: string;
   applicationId?: string;
@@ -58,6 +80,11 @@ export interface User {
   donorMobile?: string;
   donorCity?: string;
   donorState?: string;
+  isVolunteer?: boolean;
+  volunteerRole?: string;
+  volunteerInterests?: string[];
+  isLongTimeMember?: boolean;
+  badges?: string[];
   qrCodeUrl?: string;
   themePreference?: 'auto' | 'light' | 'dark';
   password?: string;

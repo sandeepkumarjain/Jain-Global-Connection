@@ -38,6 +38,7 @@ import {
   MessageSquare,
   Briefcase,
   Sun,
+  Award,
   Quote,
   Flame,
   UserPlus,
@@ -152,6 +153,8 @@ export const AdminPanel: React.FC = () => {
     deleteMatrimonial,
     dispatchApprovalEmail,
     toggleUserVerification,
+    toggleUserBadge,
+    toggleCommunityMemberBadge,
     systemSettings,
     updateSystemSettings,
     updatePanchang,
@@ -4776,6 +4779,79 @@ export const AdminPanel: React.FC = () => {
                 );
               })}
             </div>
+
+            {/* Accreditation Badges Management (for User and Member records) */}
+            {(viewingProfile.type === 'user' || viewingProfile.type === 'member') && (
+              <div className="p-4 rounded-2xl bg-amber-500/5 dark:bg-amber-950/20 border border-amber-300 dark:border-amber-700/60 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Award className="w-4 h-4 text-amber-500" />
+                    <h4 className="text-xs font-black uppercase tracking-wider text-slate-900 dark:text-white">
+                      Sangh Member Accreditations & Digital ID Badges
+                    </h4>
+                  </div>
+                  <span className="text-[10px] font-bold text-amber-700 dark:text-amber-300">
+                    Click badge to toggle award status
+                  </span>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    'Verified Donor',
+                    'Sangh Volunteer',
+                    'Long-time Member',
+                    'Community Leader',
+                    'Sangh Trustee',
+                    'Youth Ambassador',
+                    'Key Contributor',
+                  ].map((badgeName) => {
+                    const currentBadges: string[] = viewingProfile.data.badges || [];
+                    const isAwarded = currentBadges.includes(badgeName);
+
+                    return (
+                      <button
+                        key={badgeName}
+                        type="button"
+                        onClick={() => {
+                          if (viewingProfile.type === 'user') {
+                            toggleUserBadge(viewingProfile.data.id, badgeName);
+                            const nextBadges = isAwarded
+                              ? currentBadges.filter((b) => b !== badgeName)
+                              : [...currentBadges, badgeName];
+                            setViewingProfile({
+                              ...viewingProfile,
+                              data: { ...viewingProfile.data, badges: nextBadges },
+                            });
+                          } else {
+                            toggleCommunityMemberBadge(viewingProfile.data.id, badgeName);
+                            const nextBadges = isAwarded
+                              ? currentBadges.filter((b) => b !== badgeName)
+                              : [...currentBadges, badgeName];
+                            setViewingProfile({
+                              ...viewingProfile,
+                              data: { ...viewingProfile.data, badges: nextBadges },
+                            });
+                          }
+                        }}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border flex items-center gap-1.5 cursor-pointer ${
+                          isAwarded
+                            ? 'bg-amber-500 text-slate-950 border-amber-600 shadow-xs font-black'
+                            : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-300 dark:border-slate-700 hover:border-amber-400'
+                        }`}
+                      >
+                        <Award className={`w-3.5 h-3.5 ${isAwarded ? 'text-slate-950' : 'text-amber-500'}`} />
+                        <span>{badgeName}</span>
+                        {isAwarded ? (
+                          <Check className="w-3 h-3 text-slate-950 stroke-[3]" />
+                        ) : (
+                          <span className="text-[10px] text-slate-400 font-normal">+ Award</span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* Quick Actions Footer */}
             <div className="pt-4 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2">

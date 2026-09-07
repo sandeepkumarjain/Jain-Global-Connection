@@ -26,7 +26,9 @@ import {
   Tag,
   Lock,
   Globe2,
-  LogIn
+  LogIn,
+  Clock,
+  Handshake,
 } from 'lucide-react';
 import { CommunityMemberProfile, FamilyMember, MatrimonialProfile } from '../types';
 
@@ -103,6 +105,31 @@ export const DirectorySection: React.FC = () => {
 
   const renderProfileBadge = (badgeText: string) => {
     const lower = badgeText.toLowerCase();
+
+    if (lower.includes('donor')) {
+      return (
+        <span key={badgeText} className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-100 dark:bg-rose-950/80 text-rose-800 dark:text-rose-200 border border-rose-300 dark:border-rose-800 shadow-xs">
+          <Heart className="w-3 h-3 text-rose-600 dark:text-rose-400 fill-rose-500/20" />
+          <span>Verified Donor</span>
+        </span>
+      );
+    }
+    if (lower.includes('volunteer')) {
+      return (
+        <span key={badgeText} className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-teal-100 dark:bg-teal-950/80 text-teal-800 dark:text-teal-200 border border-teal-300 dark:border-teal-800 shadow-xs">
+          <Handshake className="w-3 h-3 text-teal-600 dark:text-teal-400" />
+          <span>Sangh Volunteer</span>
+        </span>
+      );
+    }
+    if (lower.includes('long-time') || lower.includes('longtime') || lower.includes('long time')) {
+      return (
+        <span key={badgeText} className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-100 dark:bg-amber-950/80 text-amber-900 dark:text-amber-200 border border-amber-400 dark:border-amber-700 shadow-xs">
+          <Clock className="w-3 h-3 text-amber-600 dark:text-amber-400" />
+          <span>Long-time Member</span>
+        </span>
+      );
+    }
     if (lower.includes('verified')) {
       return (
         <span key={badgeText} className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 shadow-xs">
