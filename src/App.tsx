@@ -587,7 +587,7 @@ const MainContent: React.FC = () => {
 
       {/* Toast Notification Banner */}
       {toast && (
-        <div className="fixed bottom-5 right-5 z-50 animate-bounce">
+        <div className="fixed bottom-5 right-5 z-[100] animate-bounce">
           <div
             className={`flex items-start gap-3 p-4 rounded-xl shadow-2xl border text-xs font-medium max-w-sm ${
               toast.type === 'success'

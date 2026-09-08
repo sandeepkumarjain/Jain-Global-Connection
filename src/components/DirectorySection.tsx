@@ -43,6 +43,7 @@ export const DirectorySection: React.FC = () => {
     initiateCall,
     sendProfileViewAlert,
     sendConnectionRequestAlert,
+    openDigitalIdModal,
     systemSettings
   } = useApp();
   const [searchTerm, setSearchTerm] = useState('');
@@ -685,14 +686,13 @@ export const DirectorySection: React.FC = () => {
                 <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100 dark:border-slate-800 text-xs">
                   <button
                     onClick={() => {
-                      setSelectedMember(m);
-                      setShowIDModal(true);
+                      openDigitalIdModal(m);
                       if (m.userId || m.id) {
                         sendProfileViewAlert(m.userId || m.id, `${m.name} ${m.surname}`, currentUser);
                       }
                     }}
                     className="px-3 py-2 min-h-[40px] bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 font-bold rounded-xl flex items-center justify-center gap-1.5 hover:bg-amber-100 dark:hover:bg-amber-950/40 transition-colors cursor-pointer"
-                    title="View Digital ID card and trigger view alert"
+                    title="View full Digital ID card and connect with member"
                   >
                     <QrCode className="w-3.5 h-3.5 text-amber-500" />
                     <span>Digital ID</span>

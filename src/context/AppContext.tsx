@@ -121,6 +121,9 @@ interface AppContextType {
   setIsUserProfileModalOpen: (open: boolean) => void;
   isDigitalIdModalOpen: boolean;
   setIsDigitalIdModalOpen: (open: boolean) => void;
+  digitalIdTargetUser: User | CommunityMemberProfile | null;
+  setDigitalIdTargetUser: (user: User | CommunityMemberProfile | null) => void;
+  openDigitalIdModal: (user?: User | CommunityMemberProfile | null) => void;
   isBhajanModalOpen: boolean;
   setIsBhajanModalOpen: (open: boolean) => void;
   isGmailCenterOpen: boolean;
@@ -617,6 +620,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setIsUserProfileModalOpen(true);
   };
   const [isDigitalIdModalOpen, setIsDigitalIdModalOpen] = useState(false);
+  const [digitalIdTargetUser, setDigitalIdTargetUser] = useState<User | CommunityMemberProfile | null>(null);
+
+  const openDigitalIdModal = (targetUser?: User | CommunityMemberProfile | null) => {
+    setDigitalIdTargetUser(targetUser || null);
+    setIsDigitalIdModalOpen(true);
+  };
   const [isBhajanModalOpen, setIsBhajanModalOpen] = useState(false);
   const [isGmailCenterOpen, setIsGmailCenterOpen] = useState(false);
   const [gmailModalData, setGmailModalData] = useState<{ recipient?: string; subject?: string; body?: string }>({});
@@ -3223,6 +3232,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setIsUserProfileModalOpen,
         isDigitalIdModalOpen,
         setIsDigitalIdModalOpen,
+        digitalIdTargetUser,
+        setDigitalIdTargetUser,
+        openDigitalIdModal,
         isBhajanModalOpen,
         setIsBhajanModalOpen,
         isGmailCenterOpen,

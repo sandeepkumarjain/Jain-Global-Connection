@@ -91,6 +91,27 @@ export interface User {
   permissions?: string[];
   rolePermissions?: Partial<RolePermissions>;
   prayerReminderSettings?: PrayerReminderSettings;
+  favoriteScripture?: string;
+  motto?: string;
+  nativePlace?: string;
+  spiritualInterest?: string;
+  digitalIdPrivacy?: 'public' | 'private';
+  cardDisplayPreferences?: {
+    showMotto?: boolean;
+    mottoText?: string;
+    showScripture?: boolean;
+    scriptureText?: string;
+    showGotra?: boolean;
+    showLocation?: boolean;
+    showBloodGroup?: boolean;
+    showTier?: boolean;
+    showOccupation?: boolean;
+    occupationText?: string;
+    showNativePlace?: boolean;
+    nativePlaceText?: string;
+    showSpiritualInterest?: boolean;
+    spiritualInterestText?: string;
+  };
 }
 
 export interface PrayerReminderItem {
