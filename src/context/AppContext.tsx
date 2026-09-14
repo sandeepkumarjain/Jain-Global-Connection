@@ -28,7 +28,8 @@ import {
   DashboardWidgetConfig,
   DashboardWidgetId,
   PrayerReminderSettings,
-  PrayerReminderItem
+  PrayerReminderItem,
+  SavedRitualItem
 } from '../types';
 import { DEFAULT_PRAYER_SETTINGS } from '../utils/prayerReminderSound';
 import {
@@ -73,7 +74,7 @@ import {
 } from '../utils/solarTheme';
 
 type LanguageOption = LanguageCode;
-type TabOption = 'home' | 'matrimonial' | 'business' | 'directory' | 'temple' | 'panchang' | 'feed' | 'emergency' | 'admin';
+type TabOption = 'home' | 'matrimonial' | 'business' | 'directory' | 'temple' | 'panchang' | 'feed' | 'emergency' | 'admin' | 'pandit';
 
 interface AppContextType {
   currentUser: User | null;
@@ -115,6 +116,15 @@ interface AppContextType {
   openRegistrationModal: (tab?: 'matrimonial' | 'business' | 'temple' | 'family') => void;
   isAISearchOpen: boolean;
   setIsAISearchOpen: (open: boolean) => void;
+  isPanditModalOpen: boolean;
+  setIsPanditModalOpen: (open: boolean) => void;
+  panditInitialQuestion: string;
+  setPanditInitialQuestion: (q: string) => void;
+  openAskPanditWithQuestion: (q: string) => void;
+  panditInitialGuideKey: string;
+  setPanditInitialGuideKey: (key: string) => void;
+  openAskPanditWithGuide: (guideKey: string) => void;
+  openSavedRitualsProfile: () => void;
   isMembershipModalOpen: boolean;
   setIsMembershipModalOpen: (open: boolean) => void;
   isUserProfileModalOpen: boolean;
@@ -166,6 +176,17 @@ interface AppContextType {
       lastDonated?: string;
     }
   ) => void;
+  toggleSavedRitual: (ritual: {
+    id: string;
+    title: string;
+    hindiTitle?: string;
+    tradition: string;
+    category: string;
+    durationMinutes?: number;
+    totalSteps: number;
+  }) => boolean;
+  removeSavedRitual: (ritualId: string) => void;
+  isRitualSaved: (ritualId: string) => boolean;
   approveUser: (userId: string) => void;
   rejectUser: (userId: string) => void;
   suspendUser: (userId: string) => void;
@@ -290,8 +311,8 @@ interface AppContextType {
   // Prayer Reminders (Daily Samayik & Aarti Browser Notifications)
   prayerReminderSettings: PrayerReminderSettings;
   updatePrayerReminderSettings: (settings: Partial<PrayerReminderSettings>) => void;
-  userProfileTab: 'profile' | 'reminders' | 'donor';
-  setUserProfileTab: (tab: 'profile' | 'reminders' | 'donor') => void;
+  userProfileTab: 'profile' | 'reminders' | 'rituals' | 'donor';
+  setUserProfileTab: (tab: 'profile' | 'reminders' | 'rituals' | 'donor') => void;
   openPrayerRemindersSettings: () => void;
 }
 
@@ -555,9 +576,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setIsRegModalOpen(true);
   };
   const [isAISearchOpen, setIsAISearchOpen] = useState(false);
+  const [isPanditModalOpen, setIsPanditModalOpen] = useState(false);
+  const [panditInitialQuestion, setPanditInitialQuestion] = useState('');
+  const [panditInitialGuideKey, setPanditInitialGuideKey] = useState('');
+
+  const openAskPanditWithQuestion = (q: string) => {
+    setPanditInitialQuestion(q);
+    setActiveTab('pandit');
+  };
+
+  const openAskPanditWithGuide = (guideKey: string) => {
+    setPanditInitialGuideKey(guideKey);
+    setActiveTab('pandit');
+  };
+
+  const openSavedRitualsProfile = () => {
+    setUserProfileTab('rituals');
+    setIsUserProfileModalOpen(true);
+  };
   const [isMembershipModalOpen, setIsMembershipModalOpen] = useState(false);
   const [isUserProfileModalOpen, setIsUserProfileModalOpen] = useState(false);
-  const [userProfileTab, setUserProfileTab] = useState<'profile' | 'reminders' | 'donor'>('profile');
+  const [userProfileTab, setUserProfileTab] = useState<'profile' | 'reminders' | 'rituals' | 'donor'>('profile');
 
   // Prayer Reminders (Daily Samayik & Aarti Browser Notifications)
   const [prayerReminderSettings, setPrayerReminderSettings] = useState<PrayerReminderSettings>(() => {
@@ -1451,6 +1490,54 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     showToast('Profile & Donor Settings Saved!', 'Your account profile and blood donor preferences have been updated.', 'success');
+  };
+
+  const toggleSavedRitual = (ritual: {
+    id: string;
+    title: string;
+    hindiTitle?: string;
+    tradition: string;
+    category: string;
+    durationMinutes?: number;
+    totalSteps: number;
+  }): boolean => {
+    if (!currentUser) {
+      showToast('Login Required', 'Please log in to bookmark puja rituals to your personal profile.', 'info');
+      setIsAuthModalOpen(true);
+      return false;
+    }
+
+    const currentSaved = currentUser.savedRituals || [];
+    const isAlreadySaved = currentSaved.some((r) => r.id === ritual.id);
+
+    if (isAlreadySaved) {
+      const updatedRituals = currentSaved.filter((r) => r.id !== ritual.id);
+      updateUserProfile({ savedRituals: updatedRituals });
+      showToast('Removed from Rituals', `"${ritual.title}" removed from your saved rituals.`, 'info');
+      return false;
+    } else {
+      const newRitual: SavedRitualItem = {
+        ...ritual,
+        savedAt: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+      };
+      const updatedRituals = [newRitual, ...currentSaved];
+      updateUserProfile({ savedRituals: updatedRituals });
+      showToast('Saved to Rituals', `"${ritual.title}" bookmarked to your user profile for quick future access.`, 'success');
+      return true;
+    }
+  };
+
+  const removeSavedRitual = (ritualId: string) => {
+    if (!currentUser) return;
+    const currentSaved = currentUser.savedRituals || [];
+    const updatedRituals = currentSaved.filter((r) => r.id !== ritualId);
+    updateUserProfile({ savedRituals: updatedRituals });
+    showToast('Removed from Rituals', 'Ritual procedure removed from your profile.', 'info');
+  };
+
+  const isRitualSaved = (ritualId: string): boolean => {
+    if (!currentUser?.savedRituals) return false;
+    return currentUser.savedRituals.some((r) => r.id === ritualId);
   };
 
   const approveUser = (userId: string) => {
@@ -3261,6 +3348,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         resetUserPassword,
         registerUser,
         updateUserProfile,
+        toggleSavedRitual,
+        removeSavedRitual,
+        isRitualSaved,
         approveUser,
         rejectUser,
         suspendUser,
@@ -3361,6 +3451,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         userProfileTab,
         setUserProfileTab,
         openPrayerRemindersSettings,
+        isPanditModalOpen,
+        setIsPanditModalOpen,
+        panditInitialQuestion,
+        setPanditInitialQuestion,
+        openAskPanditWithQuestion,
+        panditInitialGuideKey,
+        setPanditInitialGuideKey,
+        openAskPanditWithGuide,
+        openSavedRitualsProfile,
       }}
     >
       {children}

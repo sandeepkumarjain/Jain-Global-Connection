@@ -32,6 +32,8 @@ import { DailyJainWisdom } from './components/DailyJainWisdom';
 import { GlobalSanghHighlights } from './components/GlobalSanghHighlights';
 import { JainPrinciplesSection } from './components/JainPrinciplesSection';
 import { VivahSuccessStoriesSection } from './components/VivahSuccessStoriesSection';
+import { MemberSuccessStoriesSlider } from './components/MemberSuccessStoriesSlider';
+import { AskPanditChatbot } from './components/AskPanditChatbot';
 import { ScrollReveal } from './components/ScrollReveal';
 import { CustomizableHomeDashboard } from './components/CustomizableHomeDashboard';
 import { DashboardCustomizerModal } from './components/DashboardCustomizerModal';
@@ -98,6 +100,11 @@ const getTabMetaData = (tab: string) => {
       return {
         title: 'Admin Control Panel | Jain Connect Global',
         description: 'Manage Jain Connect Global members, business approvals, and platform settings.'
+      };
+    case 'pandit':
+      return {
+        title: 'Ask a Pandit (AI Scriptural Guide) | Jain Connect Global',
+        description: 'Instant scriptural answers on Jain rituals, Ashtaprakari Puja, Pachkan vows, and Agamas powered by Gemini 3.8 Flash.'
       };
     case 'home':
     default:
@@ -419,8 +426,10 @@ const MainContent: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Vivah Success Stories & Marriage Feedback Section for Guest Visitors */}
-                <VivahSuccessStoriesSection />
+                {/* Member Success Stories Slider */}
+                <ScrollReveal>
+                  <MemberSuccessStoriesSlider />
+                </ScrollReveal>
 
                 {/* Core Jain Principles & Platform Security */}
                 <JainPrinciplesSection />
@@ -524,6 +533,13 @@ const MainContent: React.FC = () => {
         {activeTab === 'emergency' && (
           <ScrollReveal>
             <EmergencyDirectory />
+          </ScrollReveal>
+        )}
+
+        {/* Tab 10: Ask a Pandit AI Chatbot (Public Access) */}
+        {activeTab === 'pandit' && (
+          <ScrollReveal>
+            <AskPanditChatbot />
           </ScrollReveal>
         )}
 

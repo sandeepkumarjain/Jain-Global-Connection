@@ -12,7 +12,8 @@ import {
   Lock,
   FileText,
   ArrowUp,
-  Map
+  Map,
+  Sparkles
 } from 'lucide-react';
 
 export const Footer: React.FC = () => {
@@ -121,6 +122,15 @@ export const Footer: React.FC = () => {
                       className="hover:text-amber-400 transition-colors"
                     >
                       Jain Panchang & Choghadiya
+                    </button>
+                  </li>
+                  <li>
+                    <button
+                      onClick={() => setActiveTab('pandit')}
+                      className="hover:text-amber-400 text-amber-300 font-semibold transition-colors flex items-center gap-1.5"
+                    >
+                      <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                      <span>Ask a Pandit (AI Dharma Guide)</span>
                     </button>
                   </li>
                   <li>

@@ -29,6 +29,8 @@ import { MatrimonialSection } from './MatrimonialSection';
 import { BusinessSection } from './BusinessSection';
 import { TempleSection } from './TempleSection';
 import { VivahSuccessStoriesSection } from './VivahSuccessStoriesSection';
+import { MemberSuccessStoriesSlider } from './MemberSuccessStoriesSlider';
+import { AskPanditWidget } from './AskPanditWidget';
 import { DashboardCustomizerToolbar } from './DashboardCustomizerToolbar';
 import { DashboardCustomizerModal } from './DashboardCustomizerModal';
 
@@ -236,7 +238,10 @@ export const CustomizableHomeDashboard: React.FC = () => {
         );
 
       case 'vivah_stories':
-        return <VivahSuccessStoriesSection />;
+        return <MemberSuccessStoriesSlider />;
+
+      case 'ask_pandit':
+        return <AskPanditWidget />;
 
       default:
         return null;

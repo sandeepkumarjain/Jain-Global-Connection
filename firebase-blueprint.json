@@ -12,6 +12,7 @@
         "themePreference": { "type": "string", "enum": ["light", "dark", "auspicious"] },
         "city": { "type": "string", "maxLength": 100 },
         "state": { "type": "string", "maxLength": 100 },
+        "savedRituals": { "type": "array", "description": "User bookmarked puja rituals and procedures" },
         "createdAt": { "type": "string" },
         "updatedAt": { "type": "string" }
       },

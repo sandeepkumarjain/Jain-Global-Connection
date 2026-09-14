@@ -112,6 +112,20 @@ export interface User {
     showSpiritualInterest?: boolean;
     spiritualInterestText?: string;
   };
+  savedRituals?: SavedRitualItem[];
+}
+
+export interface SavedRitualItem {
+  id: string; // guide key or custom id, e.g. "ashtaprakari_puja"
+  title: string;
+  hindiTitle?: string;
+  tradition: string;
+  category: string;
+  durationMinutes?: number;
+  totalSteps: number;
+  savedAt: string;
+  notes?: string;
+  tags?: string[];
 }
 
 export interface PrayerReminderItem {
@@ -490,7 +504,7 @@ export interface AppNotification {
   senderId?: string;
   senderName?: string;
   senderPhoto?: string;
-  actionTab?: 'home' | 'matrimonial' | 'business' | 'directory' | 'temple' | 'panchang' | 'feed' | 'emergency' | 'admin';
+  actionTab?: 'home' | 'matrimonial' | 'business' | 'directory' | 'temple' | 'panchang' | 'feed' | 'emergency' | 'admin' | 'pandit';
   actionEntityId?: string;
   connectionStatus?: 'Pending' | 'Accepted' | 'Declined';
 }
@@ -579,7 +593,8 @@ export type DashboardWidgetId =
   | 'matrimonial_matches'
   | 'business_directory'
   | 'temple_directory'
-  | 'vivah_stories';
+  | 'vivah_stories'
+  | 'ask_pandit';
 
 export interface DashboardWidgetConfig {
   id: DashboardWidgetId;
@@ -599,5 +614,122 @@ export interface UserDashboardPreferences {
   userId: string;
   widgets: DashboardWidgetConfig[];
   updatedAt: string;
+}
+
+export type SuccessStoryCategory =
+  | 'All'
+  | 'Matrimonial'
+  | 'Business'
+  | 'Temple & Tirth'
+  | 'Community & Seva'
+  | 'Youth & Mentorship';
+
+export interface MemberSuccessStory {
+  id: string;
+  memberName: string;
+  memberSurname?: string;
+  memberPhoto?: string;
+  memberId?: string;
+  city: string;
+  state?: string;
+  country: string;
+  category: 'Matrimonial' | 'Business' | 'Temple & Tirth' | 'Community & Seva' | 'Youth & Mentorship';
+  title: string;
+  story: string;
+  keyOutcome: string;
+  rating: number;
+  date: string;
+  isVerifiedMember: boolean;
+  sanghAffiliation?: string;
+  likesCount?: number;
+  featured?: boolean;
+}
+
+export type PanditTradition =
+  | 'All Traditions'
+  | 'Swetambar Murtipujak'
+  | 'Digambar'
+  | 'Sthanakvasi'
+  | 'Terapanthi';
+
+export type PanditCategory =
+  | 'All'
+  | 'Puja & Abhishek'
+  | 'Agamas & Philosophy'
+  | 'Pachkan & Fasting'
+  | 'Samayik & Pratikraman'
+  | 'Dietary & Kandmool'
+  | 'Sanskars & Griha Pravesh';
+
+export interface PanditMantra {
+  name: string;
+  verse: string;
+  meaning: string;
+}
+
+export interface PanditPujaStep {
+  stepNumber: number;
+  title: string;
+  subTitle?: string;
+  description: string;
+  bhavna?: string;
+  icon?: string;
+  mantraOrSutra?: string;
+  itemsRequired?: string[];
+  traditionNote?: string;
+  imageUrl?: string;
+  imageAlt?: string;
+  imageCaption?: string;
+  proceduralAnimation?:
+    | 'lamp_flame'
+    | 'aarti_circle'
+    | 'jal_dhara'
+    | 'chandan_touch'
+    | 'dhoop_smoke'
+    | 'akshat_swastika'
+    | 'charavalo_sweep'
+    | 'flower_petal'
+    | 'bell_chime';
+  animationLabel?: string;
+}
+
+export interface PanditStepGuide {
+  title: string;
+  subtitle?: string;
+  procedureType: string;
+  estimatedDuration?: string;
+  preparations?: string[];
+  rulesAndPurity?: string[];
+  steps: PanditPujaStep[];
+  concludingBhavna?: string;
+  coverImageUrl?: string;
+  coverImageAlt?: string;
+  coverImageCaption?: string;
+}
+
+export interface PanditMessage {
+  id: string;
+  sender: 'user' | 'pandit';
+  text: string;
+  timestamp: string;
+  tradition?: PanditTradition;
+  category?: PanditCategory;
+  scripturalReferences?: string[];
+  recommendedPachkanOrVow?: string | null;
+  mantras?: PanditMantra[];
+  stepGuide?: PanditStepGuide | null;
+  followUpQuestions?: string[];
+  isLoading?: boolean;
+}
+
+export interface SavedPanditGuidance {
+  id: string;
+  question: string;
+  reply: string;
+  savedAt: string;
+  scripturalReferences?: string[];
+  tradition?: PanditTradition;
+  category?: PanditCategory;
+  stepGuide?: PanditStepGuide | null;
 }
 

@@ -210,6 +210,7 @@ export const Header: React.FC = () => {
     { id: 'temple', label: langTranslations.temple || 'Temple Directory', shortLabel: 'Temples', icon: MapPin },
     { id: 'panchang', label: langTranslations.panchang || 'Panchang & Quotes', shortLabel: 'Panchang', icon: Calendar },
     { id: 'feed', label: langTranslations.feed || 'Community Feed', shortLabel: 'Feed', icon: MessageSquare },
+    { id: 'pandit', label: langTranslations.pandit || 'Ask a Pandit', shortLabel: 'Pandit AI', icon: Sparkles },
     { id: 'emergency', label: langTranslations.emergency || 'Services & Emergency', shortLabel: 'Services', icon: AlertCircle },
   ];
 
@@ -273,6 +274,12 @@ export const Header: React.FC = () => {
       hover: 'hover:bg-red-900/80 hover:text-white hover:border-red-400/60',
       iconActive: 'text-white',
       iconInactive: 'text-red-300',
+    },
+    pandit: {
+      active: 'bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 text-slate-950 border-amber-300 font-extrabold shadow-md shadow-amber-950/20 scale-[1.02]',
+      hover: 'hover:bg-amber-900/80 hover:text-white hover:border-amber-400/60',
+      iconActive: 'text-slate-950',
+      iconInactive: 'text-amber-300',
     },
   };
 

@@ -107,9 +107,9 @@ export const DEFAULT_DASHBOARD_WIDGETS: DashboardWidgetConfig[] = [
   },
   {
     id: 'vivah_stories',
-    title: 'Vivah Success Stories',
-    subtitle: 'Inspiring Unions across the Global Jain Sangh',
-    description: 'Testimonials and happy couple experiences arranged through the Jain Matrimonial Bureau.',
+    title: 'Member Success Stories',
+    subtitle: 'Inspiring Experiences & Positive Community Feedback',
+    description: 'Community testimonials, matrimonial unions, business synergies, and emergency seva experiences shared by members worldwide.',
     category: 'Community',
     icon: 'Award',
     isPinned: false,
@@ -117,6 +117,19 @@ export const DEFAULT_DASHBOARD_WIDGETS: DashboardWidgetConfig[] = [
     order: 8,
     badgeText: 'Success Stories',
     badgeColor: 'emerald',
+  },
+  {
+    id: 'ask_pandit',
+    title: 'Ask a Pandit (AI Scriptural Guide)',
+    subtitle: 'Jain Rituals, Ashtaprakari Puja, Pachkan & Tattvartha',
+    description: 'Instant guidance on authentic Jain rituals, temple puja vidhi, fasting rules, and scriptural teachings powered by Gemini 3.8 Flash.',
+    category: 'Spiritual',
+    icon: 'Sparkles',
+    isPinned: false,
+    isVisible: true,
+    order: 9,
+    badgeText: 'AI Pandit',
+    badgeColor: 'amber',
   },
 ];
 

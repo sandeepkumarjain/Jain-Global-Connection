@@ -413,7 +413,7 @@ ${JSON.stringify(
 )}`;
 
     const response = await ai.models.generateContent({
-      model: "gemini-3.6-flash",
+      model: "gemini-3.8-flash",
       contents: prompt,
       config: {
         systemInstruction,
@@ -513,7 +513,7 @@ FORMATTING RULES:
     const userPromptWithCategory = `[Category Context: ${filterName}] ${prompt}`;
 
     const response = await ai.models.generateContent({
-      model: "gemini-3.6-flash",
+      model: "gemini-3.8-flash",
       contents: userPromptWithCategory,
       config: {
         systemInstruction,
@@ -530,6 +530,280 @@ FORMATTING RULES:
     });
   }
 });
+
+// Ask a Pandit AI Chatbot API (Gemini 3.8 Flash + Scriptural Grounding)
+app.post("/api/ai/ask-pandit", async (req, res) => {
+  const { question = "", category = "All", tradition = "All Traditions", history = [] } = req.body;
+
+  // Fallback function for offline or API key missing
+  const getOfflinePanditResponse = (qStr: string, trad: string) => {
+    const q = qStr.toLowerCase();
+    if (q.includes("ashtaprakari") || q.includes("puja") || q.includes("8 prakar") || q.includes("abhishek") || q.includes("vidhi")) {
+      return {
+        reply: `🙏 **जय जिनेन्द्र! Jai Jinendra!**\n\n### The Sacred Eight-Fold Worship (अष्टप्रकारी पूजा)\n\nIn classical Jain tradition, **Ashtaprakari Puja** is the supreme daily worship offered before the idol of the Tirthankara. It is not an act of petitioning worldly favors, but an inner contemplation (**Bhavna**) to eradicate the 8 binding karmas.\n\n#### The 8 Offerings & Their Spiritual Symbolism:\n1. **जल पूजा (Jal - Pure Water)**: Bathing the lotus feet of the Jina. Symbolizes washing away the dust of delusion and passions, cooling the karmic heat of worldly existence.\n2. **चंदन पूजा (Chandan - Sandalwood)**: Applied to the 9 points (Nav-Anga: toes, knees, wrists, shoulders, crown, forehead, throat, chest, navel). Symbolizes cultivating tranquility and cooling the blazing fire of Anger (*Krodha*).\n3. **पुष्प पूजा (Pushpa - Flowers / Clean Akshat)**: Symbolizes cultivating fragrant virtues, spotless morality (*Sheela*), and universal compassion (*Karuna*).\n4. **धूप पूजा (Dhoop - Incense)**: As the fragrant smoke ascends, we pray that all 8 binding karmas be incinerated, enabling the soul to ascend to Siddhashila.\n5. **दीप पूजा (Deep - Lamp)**: Waving the pure flame. Represents igniting *Kevala Jnana* (Infinite Omniscience) to banish the dark blindness of *Mithyatva* (false belief).\n6. **अक्षत पूजा (Akshat - Unbroken Rice)**: Arranging rice into a Swastika (4 gatis), 3 heaps (Ratnatraya: Right Faith, Knowledge, Conduct), and a crescent (Siddhashila). Akshat cannot sprout again; we seek freedom from the cycle of rebirth.\n7. **नैवेद्य पूजा (Naivedya - Sattvic Sweets)**: Surrendering craving for food. Conquering hunger and aspiring for the *Anahari* (foodless) state of liberated Siddhas.\n8. **फल पूजा (Phal - Fresh Fruit)**: Offering worldly fruit to attain the supreme fruit of all spiritual exertion: **Moksha Pada**.\n\n*Tradition Details:* In Swetambar Murtipujak tradition, Anga-puja and Agra-puja are performed with mukhapatti and dedicated unstitched puja clothes. In Digambar tradition, Jinendra Abhishek is performed with pure water and Shanti Dhara followed by the 8 dravyas worship.`,
+        scripturalReferences: [
+          "Yoga Shastra by Acharya Hemachandra",
+          "Pravachanasara by Acharya Kundakunda",
+          "Traditional Jain Puja Paddhati & Snattra Vidhi"
+        ],
+        recommendedPachkanOrVow: "Navkarshi (Abstaining from food & water until 48 minutes after sunrise before entering Derasar)",
+        mantras: [
+          {
+            name: "Panchamrit Abhishek / Puja Pranam",
+            verse: "ॐ नमोऽर्हद्भ्यः सर्वज्ञेभ्यः परमवीतरागेभ्यः नमः।",
+            meaning: "Salutations to the Worthy Omniscient Beings who are completely detached from all passion and aversion."
+          }
+        ],
+        followUpQuestions: [
+          "What are the 9 specific body points (Nav-Anga) where chandan is applied?",
+          "What is the difference between Anga Puja and Agra Puja?",
+          "What is the procedure for Snattra Puja during special occasions?"
+        ]
+      };
+    }
+
+    if (q.includes("samayik") || q.includes("muhpatti") || q.includes("padilehan") || q.includes("48")) {
+      return {
+        reply: `🙏 **जय जिनेन्द्र! Jai Jinendra!**\n\n### The Sacred Vidhi of Samayika (सामायिक साधना)\n\n**Samayika** is derived from *Samaya* (the pure conscious soul) and *Sama* (equanimity). For **48 minutes (one Muhurta / 2 Gharis)**, the Shravaka steps out of all worldly occupations, business, and family disputes to live like a monk (**Sadhu-tulya**).\n\n#### Essential Instruments (सामायिक के उपकरण):\n- **Katasanu (asan)**: Clean woollen or pure cloth mat to insulate from ground currents.\n- **Charavalo / Ogho**: Soft cotton tassel brush to gently clear microscopic insects without injury.\n- **Muhpatti**: White cloth held over mouth to prevent hurting air-bodied beings (*Vayukaya jivas*).\n- **Clean White Garments**: Two pieces of pure unstitched white cloth.\n\n#### Step-by-Step Vidhi:\n1. **Iriyavahiya Sutra**: Recited to seek forgiveness for any insects trampled while walking to the prayer room.\n2. **Khamasama**: Bowing twice with five body parts touching the ground (*Panchanga Pranama*) toward the Arihantas and Guru.\n3. **Muhpatti Padilehan**: Careful, mindful inspection of the mouth-shield cloth (25 or 50 points depending on tradition) to ensure no microscopic creatures are trapped.\n4. **Karemi Bhante Vow**: Taking the formal pledge to cease all sinful activities (*Savajja Yoga*) for 48 minutes with mind, speech, and body.\n5. **48 Minutes Contemplation**: Spend the time exclusively on Navkar jaap, reading Agamas, reciting Bhaktamara Stotra, or meditating on the 12 Bhavnas.\n6. **Pariharana (Closing)**: Conclude with Namutthunam and reciting the conclusion sutra, seeking forgiveness for any lapses of mind or posture during the 48 minutes.`,
+        scripturalReferences: [
+          "Ratnakaranda Shravakachara, Chapter 4 (Shikshavratas)",
+          "Tattvartha Sutra, Chapter 7, Sutra 21",
+          "Dasavaikalika Sutra, Chapter 4"
+        ],
+        recommendedPachkanOrVow: "Samayika Vrata (48 minutes equanimity pledge)",
+        mantras: [
+          {
+            name: "Karemi Bhante Sutra",
+            verse: "करेमि भंते ! सामाइयं, सावज्जं जोगं पच्चक्खामि...",
+            meaning: "I undertake equanimity and renounce all injurious and worldly conduct for the prescribed duration."
+          }
+        ],
+        followUpQuestions: [
+          "What are the 32 faults (Dosh) to avoid during Samayik?",
+          "How does Samayik stop the influx of Asrava karmas?",
+          "What should one read or chant during the 48 minutes?"
+        ]
+      };
+    }
+
+    if (q.includes("ayambil") || q.includes("oli") || q.includes("navpad") || q.includes("vigai")) {
+      return {
+        reply: `🙏 **जय जिनेन्द्र! Jai Jinendra!**\n\n### Navpad Oli & The Science of Ayambil (आयम्बिल)\n\n**Ayambil** is an austere spiritual penance celebrated twice a year for 9 days each during the **Chaitra and Ashvin months** (Navpad Oli). It honors the 9 sacred entities of the **Siddhachakra**:\n1. **Arihant** (Omniscient Masters)\n2. **Siddha** (Liberated Pure Souls)\n3. **Acharya** (Spiritual Leaders)\n4. **Upadhyaya** (Preceptors)\n5. **Sadhu** (All Monks)\n6. **Darsana** (Right Intuition/Faith)\n7. **Jnana** (Right Knowledge)\n8. **Caritra** (Right Conduct)\n9. **Tapa** (Spiritual Penance)\n\n#### The Strict Rules of Ayambil Food:\n- The seeker eats **only once a day**, seated in one posture (*Asana*).\n- The meal must be strictly free from the **6 Vigais (taste-stimulating substances)**:\n  1. Milk (*Doodh*)\n  2. Curd (*Dahi*)\n  3. Ghee (*Clarified butter*)\n  4. Oil (*Tel*)\n  5. Sugar/Jaggery (*Gud/Shakkar*)\n  6. Fried delicacies (*Talela padartha*)\n- Food consists of plain, single-grain boiled preparation (e.g. boiled wheat, rice, moong dal, or gram) seasoned only with minimal rock salt, without turmeric or hot spices.\n- Only boiled cooled water (*Ukalevu Paani*) is consumed, and strictly before sunset (*Chauvihar*).\n\n#### Inner Purpose (Bhavna):\nAyambil conquers the most difficult sense organ: **the tongue (*Rasana Indriya*)**. By shedding craving for taste, bodily passions (*Kashayas*) subside, mental agitations calm down, and deep karmas are incinerated through Tapa.`,
+        scripturalReferences: [
+          "Uttaradhyayana Sutra, Chapter 30 (Tapa Marga)",
+          "Siddhachakra Mahatmya & Shripal Raja Charitra",
+          "Yoga Shastra by Acharya Hemachandra"
+        ],
+        recommendedPachkanOrVow: "Ayambil Pachkan & Chauvihar after sunset",
+        mantras: [
+          {
+            name: "Navpad Jaap Mantra",
+            verse: "ॐ ह्रीं श्रीं पदमप्रभ-सुपार्श्व-चन्द्रप्रभ-पुष्पदंत-शीतल-श्रेयांस-वासुपूज्य-विमल-अनंत-धर्म-शांति-कुंथु-अर-मल्लि-मुनिसुव्रत-नमि-नेमि-पार्श्व-वर्धमानाय नमः।",
+            meaning: "Reverent salutations to the 24 Tirthankaras and the 9 Padas of the sacred Siddhachakra."
+          }
+        ],
+        followUpQuestions: [
+          "Which grain is assigned to which of the 9 Padas during Navpad Oli?",
+          "What is the story of King Shripal and Mayanasundari associated with Ayambil?",
+          "What are the health and detox benefits of Ayambil according to Ayurveda and modern science?"
+        ]
+      };
+    }
+
+    if (q.includes("kandmool") || q.includes("potato") || q.includes("onion") || q.includes("garlic") || q.includes("root")) {
+      return {
+        reply: `🙏 **जय जिनेन्द्र! Jai Jinendra!**\n\n### Why Root Vegetables (कंदमूल / जमीकंद) are Prohibited in Jainism\n\nJain dietary ethics are guided by the supreme principle: **"अहिंसा परमो धर्मः" (Non-violence is the supreme virtue)**. The prohibition of root vegetables (potatoes, onions, garlic, carrots, radish, ginger, beetroot, etc.) is based on meticulous biological and spiritual classification found in classical Jain Agamas.\n\n#### The Scriptural Foundation:\n1. **Sadharan Vanaspatikaya (Anantkay - Infinite Souls)**:\n   - Jain biology classifies plant life into two types: *Pratyeka* (one body, one soul, such as fruits, grains, apples, cucumbers) and *Sadharan* (one single physical body shared by infinite living souls, termed *Nigoda*).\n   - Root vegetables grow underground without exposure to sunlight. A single needle-tip of a potato or onion contains **countless microscopic souls (Ananta Jivas)** sharing the same body, breath, and nourishment.\n   - Plucking or eating a single root vegetable results in the destruction of infinite souls in an instant, attracting dense sinful karmas.\n\n2. **Tamasic & Passion-Inducing Effects (Tamasic Ahara)**:\n   - Onions and garlic, in addition to being Anantkay, are classified as *Tamasic* and *Rajasic*. They stimulate anger, lust, delusion, and mental agitation, obstructing meditation and inner equanimity.\n\n3. **Preservation of the Entire Organism**:\n   - When you harvest an apple, cucumber, or tomato, the parent tree continues living.\n   - When an underground root is uprooted, the entire root-plant organism is destroyed from its foundation along with all surrounding subterranean living insects.\n\n*Scriptural Reference:* In the **Tattvartha Sutra (Chapter 2)** and **Acharanga Sutra**, Bhagwan Mahavira explains the subtle life forms (*Sthavara Jivas*) and commands the seeker to cause minimum injury to the earth and plant kingdoms.`,
+        scripturalReferences: [
+          "Tattvartha Sutra by Acharya Umasvati, Chapter 2 (Classification of Jivas)",
+          "Acharanga Sutra, Shrutaskandha 1 (Ahimsa Khanda)",
+          "Pravachanasara by Acharya Kundakunda"
+        ],
+        recommendedPachkanOrVow: "Kandmool Tyag Vrata (Renunciation of all underground root vegetables)",
+        mantras: [
+          {
+            name: "Ahimsa Mahavrata Shloka",
+            verse: "सव्वे पाणा न हंतव्वा, न परिघेत्तव्वा, न परितावेयव्वा।",
+            meaning: "All living beings should not be slain, should not be held in bondage, and should not be caused mental or physical torment."
+          }
+        ],
+        followUpQuestions: [
+          "What are the alternatives to onion and garlic in Jain gourmet cooking?",
+          "Why is green vegetable consumption avoided on tithis like Aatham and Chaudas?",
+          "What is the difference between Pratyeka and Sadharan Vanaspati?"
+        ]
+      };
+    }
+
+    return {
+      reply: `🙏 **जय जिनेन्द्र! Jai Jinendra!**\n\nRegarding your question about **"${qStr}"**${trad ? ` according to **${trad}** traditions` : ""}:\n\nJain scriptures guide householders to cultivate the three divine jewels: **Samyak Darshana (Right Intuition/Faith)**, **Samyak Jnana (Right Knowledge)**, and **Samyak Caritra (Right Conduct)**.\n\n### Key Scriptural Guidance:\n- **Foundational Principles**: Every ritual in Jainism is rooted in **Ahimsa** (Non-violence to all life forms), **Aparigraha** (Non-possessiveness and limitation of desires), and **Anekantavada** (Respect for multifaceted perspectives).\n- **Daily Duties of a Shravak (६ आवश्यक)**:\n  1. *Devapuja* (Worship of the 24 Tirthankaras)\n  2. *Gurupasana* (Devoted service and listening to revered Monks)\n  3. *Svadhyaya* (Daily scriptural study of Agamas and Tattvartha Sutra)\n  4. *Sanyama* (Restraint of the five senses and passions)\n  5. *Tapa* (Penance: fasting, Navkarshi, Chauvihar, Rasatyaga)\n  6. *Dana* (Charity: Ahara-dana, Aushadha-dana, Jnana-dana, Abhaya-dana)\n\n*Spiritual Reminder:* Rituals without inner Bhavna (pure sentiment) remain mere mechanical acts. When combined with deep compassion and detachment from ego, even a small act of devotion sheds lifetimes of karmic bondage.`,
+      scripturalReferences: [
+        "Tattvartha Sutra of Acharya Umasvati (Chapters 1 & 7)",
+        "Ratnakaranda Shravakachara of Acharya Samantabhadra",
+        "Chhah Dhala of Pandit Daulatram Ji"
+      ],
+      recommendedPachkanOrVow: "Navkarshi & Evening Chauvihar (No food/water after sunset)",
+      mantras: [
+        {
+          name: "Navkar Mahamantra",
+          verse: "णमो अरिहंताणं । णमो सिद्धाणं । णमो आयरियाणं । णमो उवज्झायाणं । णमो लोए सव्व साहूणं ॥",
+          meaning: "Salutations to the Arihantas, Siddhas, Acharyas, Upadhyayas, and all Sadhus in the universe."
+        }
+      ],
+      followUpQuestions: [
+        "How to perform morning Ashtaprakari Puja step-by-step?",
+        "What are the 12 Vratas of a Jain Shravaka?",
+        "Why are root vegetables (kandmool) prohibited in Jainism?"
+      ]
+    };
+  };
+
+  try {
+    if (!question || typeof question !== "string") {
+      return res.status(400).json({ error: "Question is required" });
+    }
+
+    const ai = getGeminiClient();
+
+    if (!ai) {
+      return res.json(getOfflinePanditResponse(question, tradition));
+    }
+
+    const systemInstruction = `You are "Pujya Pandit Ji" (पंडित जी / पूज्य विद्वान), a deeply revered, scholarly, compassionate, and authentic Jain Vidhikar, scholar, and spiritual guide for "JAIN CONNECT GLOBAL".
+Your purpose is to answer questions about Jain rituals, puja procedures, scriptural teachings, fasting rules (pachkan), life sanskars, and ethical conduct strictly based on authoritative Jain scriptures and traditions.
+
+CORE KNOWLEDGE REPOSITORY & SCRIPTURAL GROUNDING:
+1. Agamas & Classical Treatises:
+   - Tattvartha Sutra of Acharya Umasvati (covering 7 Tattvas, 9 Padarthas, 14 Gunasthanas, 5 Samitis, 3 Guptis, 12 Shravaka Vratas).
+   - Samayasara, Pravachanasara, Niyamasara of Acharya Kundakunda (Paramartha vs Vyavahara naya, pure soul nature).
+   - Ratnakaranda Shravakachara of Acharya Samantabhadra (Right Faith, 8 Angas, 5 Anuvratas, 3 Gunavratas, 4 Shikshavratas, Sallekhana vidhi).
+   - Mokshamarga Prakashaka by Pandit Todarmal & Chhah Dhala by Pandit Daulatram (Practical householder conduct and path of liberation).
+   - Uttaradhyayana Sutra, Acharanga Sutra, and Dasavaikalika Sutra (Muni and Shravaka conduct, Ahimsa as supreme vow).
+   - Yoga Shastra by Acharya Hemachandra (Meditation, Ahimsa, dietary guidelines, Ashtanga Yoga in Jainism).
+   - Bhaktamara Stotra (Acharya Manatunga) & Uvasaggaharam Stotra (Acharya Bhadrabahu).
+
+2. Rituals, Puja Procedures & Vidhi:
+   - Ashtaprakari Puja:
+     1. Jal Puja (pure water): Wash away attachment and clean karmic dust; attaining calm purity.
+     2. Chandan Puja (sandalwood paste): Cooling the fires of passion and anger; applied to 9 angas of the Jina idol (toes, knees, wrists, shoulders, crown, forehead, throat, chest, navel).
+     3. Pushpa Puja (pure flowers / saffron akshat): Attaining fragrance of virtue (Sheela).
+     4. Dhoop Puja (incense): Burning away the 8 karmas.
+     5. Deep Puja (lamp of pure knowledge): Dispelling darkness of ignorance (Mithyatva).
+     6. Akshat Puja (unbroken white rice grains): Making the Swastika with 3 heaps (Ratnatraya) and Siddha Shila crescent, seeking birthlessness.
+     7. Naivedya Puja (pure sweet offerings): Conquering hunger and desire for worldly pleasures.
+     8. Phal Puja (fresh fruits): Attaining Moksha - the ultimate fruit.
+   - Pakshal, Snattra Puja & Jinendra Abhishek:
+     - Pure vastra (clean unstitched garments), mukhapatti or mukhvasik (covering mouth while speaking/chanting), prior Navkarshi.
+     - Gentle bathing of the idol with pure water and milk/sandalwood with reverent chants and Snattra stutis.
+   - Samayik & Pratikraman Vidhi:
+     - Samayik: 48 minutes equanimity (two gharis), recitation of "Karemi Bhante", muhpatti padilehan (inspection to prevent injury to microscopic creatures), shedding worldly attachments.
+     - Pratikraman: Morning (Rai) and Evening (Devasi), Pakkhi, Chaumasi, and Samvatsari. Seeking forgiveness through "Michhami Dukkadam" and reciting Vanditta, Iriyavahiya, and Chaityavandan.
+   - Navpad Oli & Ayambil:
+     - Bi-annual observance (Chaitra and Ashvin months for 9 days each).
+     - Honoring the 9 padas: Arihant, Siddha, Acharya, Upadhyaya, Sadhu, Darsana, Jnana, Caritra, Tapa.
+     - Ayambil rules: Eating once a day, strictly boiled plain single grain/pulse without vigai (no milk, curds, ghee, oil, sugar/jaggery, or spices).
+   - Tithi rules: Aatham, Chaudas, Pancham, Poonam, Navkarshi, Porshi, Sadh-porshi, Purimaddh, Avaddh, Chauvihar (no water/food after sunset).
+   - Dietary rules: Strict Ahimsa, avoidance of Kandmool / Anantkay (potatoes, onions, garlic, carrots, radish, beetroot) because each root houses infinite souls (nigoda).
+   - Life Sanskars: Jain Griha Pravesh vidhi, Namkaran, Vivah Vidhan, Seemant, Shanti Snatra.
+
+3. TRADITION SENSITIVITY:
+   - Selected Tradition: "${tradition}"
+   - Selected Category: "${category}"
+   - Both Swetambar (Murtipujak, Sthanakvasi, Terapanthi) and Digambar (Bispanthi, Terapanthi) traditions share identical foundational philosophy.
+   - If the user selects a specific tradition, explain that tradition's nuances respectfully while honoring common unity.
+   - Always maintain a deeply reverent, serene, and scholarly tone.
+
+4. RESPONSE FORMAT:
+Return ONLY a valid JSON object matching this schema:
+{
+  "reply": "Markdown text starting with '🙏 जय जिनेन्द्र / Jai Jinendra!'. Provide clear, reverent explanations, scriptural rationale, and spiritual Bhavna.",
+  "scripturalReferences": ["List of authoritative Jain scriptures cited, e.g. 'Tattvartha Sutra, Chapter 7', 'Ratnakaranda Shravakachara'"],
+  "recommendedPachkanOrVow": "Name and brief detail of a relevant vow or penance if applicable (or null)",
+  "mantras": [
+    {
+      "name": "Mantra name (e.g. Navkar Mahamantra, Uvasaggaharam, Logassa)",
+      "verse": "Sanskrit/Prakrit verse or key line",
+      "meaning": "Meaning in simple English/Hindi"
+    }
+  ],
+  "stepGuide": {
+    "title": "Title of the Procedure (e.g. 'Sacred Ashtaprakari Puja (८ प्रकार की पूजा)') or null if not a procedural inquiry",
+    "subtitle": "Subtitle or brief spiritual tagline",
+    "procedureType": "e.g. Daily Derasar Puja / Spiritual Practice / Evening Prayer / Householder Sanskar",
+    "estimatedDuration": "e.g. 25 - 35 mins",
+    "preparations": ["Key preparation 1", "Key preparation 2"],
+    "rulesAndPurity": ["Derasar rule 1", "Purity rule 2"],
+    "steps": [
+      {
+        "stepNumber": 1,
+        "title": "Step Title (e.g. Jal Puja - Water Offering)",
+        "subTitle": "Sub-title or spiritual essence",
+        "description": "Clear step-by-step physical action and procedure",
+        "bhavna": "Inner spiritual contemplation (आत्मिक भावना)",
+        "icon": "One of: water, sparkles, flower, flame, sun, star, heart, shield, bell, moon, feather, check-circle",
+        "mantraOrSutra": "Sanskrit/Prakrit shloka or mantra for this step",
+        "itemsRequired": ["Material 1", "Material 2"]
+      }
+    ],
+    "concludingBhavna": "Closing dedication and contemplation of detachment"
+  },
+  "followUpQuestions": [
+    "3 thoughtful, relevant follow-up questions"
+  ]
+}
+Note: If the inquiry is strictly philosophical or not asking for a ritual procedure, set stepGuide to null.`;
+
+    let conversationContext = "";
+    if (Array.isArray(history) && history.length > 0) {
+      conversationContext = "Recent Conversation History:\n" + 
+        history.slice(-4).map((h: any) => `${h.role === 'user' ? 'Seeker' : 'Pandit Ji'}: ${h.content}`).join("\n") + "\n\n";
+    }
+
+    const prompt = `${conversationContext}Tradition: ${tradition}\nCategory: ${category}\nQuestion: "${question}"\n\nPlease provide scriptural guidance and ritual steps in valid JSON format.`;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3.8-flash",
+      contents: prompt,
+      config: {
+        systemInstruction,
+        responseMimeType: "application/json",
+      },
+    });
+
+    const jsonText = response.text || "{}";
+    let parsed: any = {};
+    try {
+      parsed = JSON.parse(jsonText);
+    } catch (_e) {
+      console.warn("Could not parse Pandit JSON response:", jsonText);
+      parsed = {
+        reply: jsonText,
+        scripturalReferences: ["Tattvartha Sutra", "Jain Agamas"],
+        followUpQuestions: [
+          "How to perform morning Ashtaprakari Puja step-by-step?",
+          "What is the exact vidhi for Samayik?",
+          "Why are root vegetables prohibited in Jainism?"
+        ]
+      };
+    }
+
+    return res.json({
+      reply: parsed.reply || "🙏 Jai Jinendra! How may I assist your spiritual journey further?",
+      scripturalReferences: Array.isArray(parsed.scripturalReferences) ? parsed.scripturalReferences : ["Tattvartha Sutra", "Ratnakaranda Shravakachara"],
+      recommendedPachkanOrVow: parsed.recommendedPachkanOrVow || null,
+      mantras: Array.isArray(parsed.mantras) ? parsed.mantras : [],
+      stepGuide: parsed.stepGuide || null,
+      followUpQuestions: Array.isArray(parsed.followUpQuestions) ? parsed.followUpQuestions : [
+        "What are the 12 Vratas of a Jain householder?",
+        "What is the spiritual significance of Ayambil?",
+        "How is Pratikraman performed?"
+      ]
+    });
+  } catch (err: any) {
+    console.error("Ask Pandit API Error:", err);
+    return res.json(getOfflinePanditResponse(question, tradition));
+  }
+});
+
 
 async function startServer() {
   if (process.env.NODE_ENV !== "production") {
