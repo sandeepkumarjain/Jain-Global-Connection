@@ -40,8 +40,12 @@ import {
   Camera,
   Compass,
   Music,
-  Sliders
+  Sliders,
+  Bookmark,
+  BookmarkCheck,
+  ExternalLink
 } from 'lucide-react';
+import { useApp } from '../context/AppContext';
 import { PujaProceduralAnimation, ProceduralAnimationType } from './PujaProceduralAnimation';
 import { pujaAmbientAudio, AmbientSoundMode } from '../utils/pujaAmbientAudio';
 
@@ -57,6 +61,21 @@ export const StructuredPujaStepGuide: React.FC<StructuredPujaStepGuideProps> = (
   onAskFollowUp
 }) => {
   const guideInstanceId = useId();
+  const { toggleSavedRitual, isRitualSaved, currentUser, openSavedRitualsProfile } = useApp();
+  const isSaved = isRitualSaved(guide.id);
+
+  const handleToggleSave = () => {
+    toggleSavedRitual({
+      id: guide.id,
+      title: guide.title,
+      hindiTitle: guide.hindiTitle,
+      tradition: guide.tradition,
+      category: guide.category,
+      durationMinutes: guide.estimatedDurationMinutes,
+      totalSteps: guide.steps.length
+    });
+  };
+
   const [activeStepIndex, setActiveStepIndex] = useState<number>(0);
   const [viewMode, setViewMode] = useState<'list' | 'stepper'>(compact ? 'list' : 'list');
   const [completedStepNumbers, setCompletedStepNumbers] = useState<number[]>([]);
@@ -517,6 +536,49 @@ export const StructuredPujaStepGuide: React.FC<StructuredPujaStepGuideProps> = (
                     </button>
                   </div>
                 </div>
+              )}
+            </div>
+
+            {/* Save to Rituals Bookmark Button */}
+            <div className="inline-flex items-center gap-1">
+              <button
+                type="button"
+                onClick={handleToggleSave}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 border transition-all ${
+                  isSaved
+                    ? 'bg-amber-500/20 border-amber-500 text-amber-950 dark:text-amber-200 hover:bg-amber-500/30 shadow-xs'
+                    : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-amber-400 hover:text-amber-600 dark:hover:text-amber-400'
+                }`}
+                title={
+                  currentUser
+                    ? isSaved
+                      ? 'Saved in your user profile rituals - click to remove'
+                      : 'Bookmark this puja procedure to your profile rituals for quick future access'
+                    : 'Sign in to bookmark this puja ritual to your user profile'
+                }
+              >
+                {isSaved ? (
+                  <>
+                    <BookmarkCheck className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 fill-amber-500" />
+                    <span>Saved to Rituals</span>
+                  </>
+                ) : (
+                  <>
+                    <Bookmark className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
+                    <span>Save to Rituals</span>
+                  </>
+                )}
+              </button>
+
+              {isSaved && (
+                <button
+                  type="button"
+                  onClick={openSavedRitualsProfile}
+                  className="p-1.5 rounded-xl text-slate-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/40 border border-slate-200 dark:border-slate-700 transition-colors"
+                  title="View your saved rituals in User Profile"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </button>
               )}
             </div>
 
@@ -1425,16 +1487,40 @@ export const StructuredPujaStepGuide: React.FC<StructuredPujaStepGuideProps> = (
             </p>
           </div>
 
-          {onAskFollowUp && (
+          <div className="flex items-center gap-2 self-start sm:self-center shrink-0 flex-wrap">
             <button
               type="button"
-              onClick={() => onAskFollowUp(`Can you explain more details about ${guide.title}?`)}
-              className="px-3.5 py-1.5 rounded-xl bg-amber-100 dark:bg-amber-950 text-amber-900 dark:text-amber-200 hover:bg-amber-200 font-bold transition-all shrink-0 flex items-center gap-1.5"
+              onClick={handleToggleSave}
+              className={`px-3.5 py-1.5 rounded-xl font-bold transition-all flex items-center gap-1.5 border shadow-2xs ${
+                isSaved
+                  ? 'bg-amber-500/20 border-amber-500/80 text-amber-950 dark:text-amber-200 hover:bg-amber-500/30'
+                  : 'bg-white dark:bg-slate-700 border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-200 hover:border-amber-400 hover:text-amber-600'
+              }`}
             >
-              <HelpCircle className="w-3.5 h-3.5 text-amber-600" />
-              <span>Ask Pandit Ji about this Puja</span>
+              {isSaved ? (
+                <>
+                  <BookmarkCheck className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 fill-amber-500" />
+                  <span>Saved in Profile</span>
+                </>
+              ) : (
+                <>
+                  <Bookmark className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
+                  <span>Save to Rituals</span>
+                </>
+              )}
             </button>
-          )}
+
+            {onAskFollowUp && (
+              <button
+                type="button"
+                onClick={() => onAskFollowUp(`Can you explain more details about ${guide.title}?`)}
+                className="px-3.5 py-1.5 rounded-xl bg-amber-100 dark:bg-amber-950 text-amber-900 dark:text-amber-200 hover:bg-amber-200 font-bold transition-all shrink-0 flex items-center gap-1.5"
+              >
+                <HelpCircle className="w-3.5 h-3.5 text-amber-600" />
+                <span>Ask Pandit Ji</span>
+              </button>
+            )}
+          </div>
         </div>
       )}
 

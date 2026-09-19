@@ -55,7 +55,19 @@ export const AskPanditChatbot: React.FC<{
   initialQuestion?: string;
   onClose?: () => void;
 }> = ({ embedded = false, initialQuestion = '', onClose }) => {
-  const { showToast, panditInitialQuestion, setPanditInitialQuestion } = useApp();
+  const {
+    showToast,
+    panditInitialQuestion,
+    setPanditInitialQuestion,
+    panditInitialGuideKey,
+    setPanditInitialGuideKey,
+    currentUser,
+    isRitualSaved,
+    toggleSavedRitual,
+    removeSavedRitual,
+    setIsAuthModalOpen,
+    openSavedRitualsProfile
+  } = useApp();
 
   const [activeSubTab, setActiveSubTab] = useState<'chat' | 'guides' | 'scriptures' | 'saved'>('chat');
   const [selectedTradition, setSelectedTradition] = useState<PanditTradition>('All Traditions');
@@ -158,6 +170,15 @@ export const AskPanditChatbot: React.FC<{
       }
     }
   }, [initialQuestion, panditInitialQuestion]);
+
+  // Handle external guide navigation request
+  useEffect(() => {
+    if (panditInitialGuideKey) {
+      setSelectedGuideKey(panditInitialGuideKey);
+      setActiveSubTab('guides');
+      setPanditInitialGuideKey('');
+    }
+  }, [panditInitialGuideKey]);
 
   // Clean up speech synthesis on unmount
   useEffect(() => {
@@ -480,7 +501,12 @@ export const AskPanditChatbot: React.FC<{
               }`}
             >
               <Bookmark className="w-4 h-4" />
-              Saved ({savedGuidance.length})
+              <span>Saved</span>
+              <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-black ${
+                activeSubTab === 'saved' ? 'bg-amber-950 text-amber-200' : 'bg-amber-400 text-amber-950'
+              }`}>
+                {savedGuidance.length + (currentUser?.savedRituals?.length || 0)}
+              </span>
             </button>
           </div>
         </div>
@@ -1053,17 +1079,32 @@ export const AskPanditChatbot: React.FC<{
                 { key: 'chaitya_vandan_vidhi', label: 'Chaitya Vandan', hindi: 'चैत्यवंदन विधि', icon: '🔔' }
               ].map((item) => {
                 const isSelected = selectedGuideKey === item.key;
+                const isBookmarked = isRitualSaved(item.key);
                 return (
                   <button
                     key={item.key}
                     onClick={() => setSelectedGuideKey(item.key)}
-                    className={`p-3 rounded-2xl text-left border transition-all flex flex-col justify-between ${
+                    className={`p-3 rounded-2xl text-left border transition-all flex flex-col justify-between relative ${
                       isSelected
                         ? 'bg-amber-500 text-slate-950 font-bold border-amber-600 shadow-sm shadow-amber-950/20'
                         : 'bg-slate-50 dark:bg-slate-800/80 hover:bg-slate-100 dark:hover:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200'
                     }`}
                   >
-                    <span className="text-xl mb-1">{item.icon}</span>
+                    <div className="flex items-center justify-between w-full mb-1">
+                      <span className="text-xl">{item.icon}</span>
+                      {isBookmarked && (
+                        <span
+                          title="Bookmarked to your user profile rituals"
+                          className={`p-0.5 rounded-full ${
+                            isSelected
+                              ? 'text-slate-950'
+                              : 'text-amber-600 dark:text-amber-400'
+                          }`}
+                        >
+                          <BookmarkCheck className="w-3.5 h-3.5 fill-current" />
+                        </span>
+                      )}
+                    </div>
                     <div>
                       <div className="text-xs font-bold leading-tight">{item.label}</div>
                       <div className={`text-[10px] mt-0.5 ${isSelected ? 'text-slate-900/80 font-semibold' : 'text-slate-400'}`}>
@@ -1158,148 +1199,305 @@ export const AskPanditChatbot: React.FC<{
         </div>
       )}
 
-      {/* VIEW 4: SAVED GUIDANCE BOOKMARKS */}
+      {/* VIEW 4: SAVED GUIDANCE & RITUALS BOOKMARKS */}
       {activeSubTab === 'saved' && (
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 shadow-sm">
-          <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-4 mb-6">
-            <div>
-              <h2 className="text-2xl font-bold font-serif text-slate-900 dark:text-white">
-                Saved Scriptural Guidance ({savedGuidance.length})
-              </h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                Your bookmarked responses from Pandit Ji for personal reflection and study.
-              </p>
-            </div>
-
-            {savedGuidance.length > 0 && (
-              <button
-                onClick={() => {
-                  if (window.confirm('Clear all saved bookmarks?')) {
-                    setSavedGuidance([]);
-                    localStorage.removeItem(STORAGE_SAVED_KEY);
-                    showToast('Bookmarks Cleared', 'All saved guidance entries cleared.', 'info');
-                  }
-                }}
-                className="text-xs text-rose-600 hover:underline flex items-center gap-1"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-                Clear All
-              </button>
-            )}
-          </div>
-
-          {savedGuidance.length === 0 ? (
-            <div className="text-center py-16 space-y-3">
-              <div className="w-16 h-16 rounded-full bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto text-2xl">
-                🔖
+        <div className="space-y-6">
+          {/* SECTION 1: BOOKMARKED PUJA RITUAL PROCEDURES */}
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 shadow-sm">
+            <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-4 mb-6">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold text-xl">
+                  🪔
+                </div>
+                <div>
+                  <h2 className="text-xl sm:text-2xl font-bold font-serif text-slate-900 dark:text-white flex items-center gap-2">
+                    <span>Saved Puja Rituals</span>
+                    <span className="text-xs px-2.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-900 dark:text-amber-300 font-sans font-bold">
+                      {currentUser?.savedRituals?.length || 0}
+                    </span>
+                  </h2>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    Your quick-access ritual procedures and step-by-step puja guides saved to your user profile.
+                  </p>
+                </div>
               </div>
-              <h3 className="font-serif font-bold text-lg text-slate-800 dark:text-slate-200">
-                No Saved Guidance Yet
-              </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto">
-                While chatting with Pandit Ji, click the "Bookmark" icon on any answer to store it here for future reference.
-              </p>
-              <button
-                onClick={() => setActiveSubTab('chat')}
-                className="mt-4 px-4 py-2 rounded-xl bg-amber-500 text-slate-950 font-bold text-xs hover:bg-amber-600 transition-colors inline-flex items-center gap-1.5"
-              >
-                Go to Pandit Chat →
-              </button>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {savedGuidance.map((item) => (
-                <div
-                  key={item.id}
-                  className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 space-y-3"
+
+              {currentUser && (
+                <button
+                  type="button"
+                  onClick={openSavedRitualsProfile}
+                  className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:border-amber-400 hover:text-amber-600 transition-colors flex items-center gap-1.5"
                 >
-                  <div className="flex items-start justify-between gap-4">
-                    <h4 className="font-bold text-base text-slate-900 dark:text-white font-serif">
-                      {item.question}
-                    </h4>
-                    <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
-                      <span className="text-[11px] text-slate-400">{item.savedAt}</span>
+                  <span>Open in Profile</span>
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            {!currentUser ? (
+              <div className="p-6 rounded-2xl bg-amber-500/10 border border-amber-300/40 dark:border-amber-700/40 text-center space-y-3">
+                <Bookmark className="w-8 h-8 text-amber-600 dark:text-amber-400 mx-auto" />
+                <h3 className="font-serif font-bold text-base text-slate-900 dark:text-white">
+                  Sync Your Saved Rituals Across Devices
+                </h3>
+                <p className="text-xs text-slate-600 dark:text-slate-300 max-w-md mx-auto">
+                  Sign in to your Jain Connect profile to bookmark complete puja guides (like Ashtaprakari, Abhishek & Snatra, Samayik, and Evening Aarti) for fast access during daily or temple sadhana.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setIsAuthModalOpen(true)}
+                  className="px-4 py-2 rounded-xl bg-amber-500 text-slate-950 font-bold text-xs hover:bg-amber-600 transition-all inline-flex items-center gap-1.5 shadow-sm"
+                >
+                  Sign In / Register →
+                </button>
+              </div>
+            ) : (currentUser.savedRituals?.length || 0) === 0 ? (
+              <div className="text-center py-10 space-y-3">
+                <div className="w-14 h-14 rounded-full bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto text-xl">
+                  ✨
+                </div>
+                <h3 className="font-serif font-bold text-base text-slate-800 dark:text-slate-200">
+                  No Rituals Bookmarked Yet
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto">
+                  Open any procedure in the "Puja Guides" tab or Ask Pandit Ji, and click the <strong>"Save to Rituals"</strong> button to keep your favorite pujas bookmarked here.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setActiveSubTab('guides')}
+                  className="mt-2 px-4 py-2 rounded-xl bg-amber-500 text-slate-950 font-bold text-xs hover:bg-amber-600 transition-colors inline-flex items-center gap-1.5"
+                >
+                  <Flame className="w-3.5 h-3.5" />
+                  <span>Browse 6 Step-by-Step Puja Guides</span>
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {currentUser.savedRituals?.map((ritual) => (
+                  <div
+                    key={ritual.id}
+                    className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 flex flex-col justify-between hover:border-amber-300 dark:hover:border-amber-700/80 transition-all group"
+                  >
+                    <div>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-2">
+                          <span className="p-1.5 rounded-lg bg-amber-500/20 text-amber-600 dark:text-amber-400">
+                            <BookmarkCheck className="w-4 h-4 fill-current" />
+                          </span>
+                          <div>
+                            <h4 className="font-bold text-base text-slate-900 dark:text-white font-serif leading-tight">
+                              {ritual.title}
+                            </h4>
+                            {ritual.hindiTitle && (
+                              <p className="text-xs text-amber-800 dark:text-amber-300 font-serif mt-0.5">
+                                {ritual.hindiTitle}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => removeSavedRitual(ritual.id)}
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors shrink-0"
+                          title="Remove bookmark"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+
+                      <div className="flex items-center gap-2 mt-3 flex-wrap">
+                        {ritual.tradition && (
+                          <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-amber-100 dark:bg-amber-950/60 text-amber-900 dark:text-amber-300 border border-amber-300/40">
+                            {ritual.tradition}
+                          </span>
+                        )}
+                        {ritual.category && (
+                          <span className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300">
+                            {ritual.category}
+                          </span>
+                        )}
+                        {ritual.durationMinutes && (
+                          <span className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                            <Clock className="w-3 h-3 text-slate-400" />
+                            ~{ritual.durationMinutes} mins
+                          </span>
+                        )}
+                        {ritual.totalSteps && (
+                          <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                            • {ritual.totalSteps} steps
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="mt-4 pt-3 border-t border-slate-200 dark:border-slate-700 flex items-center justify-between gap-2">
+                      <span className="text-[10px] text-slate-400">
+                        Saved {new Date(ritual.savedAt).toLocaleDateString()}
+                      </span>
                       <button
                         type="button"
-                        onClick={() => handleToggleSpeakSaved(item)}
-                        className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
-                          speakingSavedId === item.id && speechState.isPlaying
-                            ? 'bg-amber-500 text-slate-950 font-bold'
-                            : 'bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-amber-50 border border-slate-200 dark:border-slate-600'
-                        }`}
-                        title="Listen to saved guidance using Web Speech API"
-                      >
-                        {speakingSavedId === item.id && speechState.isPlaying ? (
-                          <>
-                            <VolumeX className="w-3.5 h-3.5" />
-                            <span>Stop Audio</span>
-                          </>
-                        ) : (
-                          <>
-                            <Volume2 className="w-3.5 h-3.5 text-amber-600" />
-                            <span>Listen (सुनें)</span>
-                          </>
-                        )}
-                      </button>
-                      <button
                         onClick={() => {
-                          const updated = savedGuidance.filter((g) => g.id !== item.id);
-                          setSavedGuidance(updated);
-                          localStorage.setItem(STORAGE_SAVED_KEY, JSON.stringify(updated));
+                          setSelectedGuideKey(ritual.id);
+                          setActiveSubTab('guides');
                         }}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
-                        title="Delete"
+                        className="px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs flex items-center gap-1.5 transition-colors shadow-2xs"
                       >
-                        <Trash2 className="w-4 h-4" />
+                        <span>Open Puja Guide</span>
+                        <ArrowRight className="w-3.5 h-3.5" />
                       </button>
                     </div>
                   </div>
+                ))}
+              </div>
+            )}
+          </div>
 
-                  {speakingSavedId === item.id && speechState.isPlaying && (
-                    <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-400/30 flex items-center justify-between text-xs">
-                      <span className="font-semibold text-amber-900 dark:text-amber-200 flex items-center gap-1.5">
-                        <Radio className="w-3.5 h-3.5 text-amber-600 animate-pulse" />
-                        Reading saved guidance...
-                      </span>
-                      <div className="flex items-center gap-1">
-                        {[0.85, 1.0, 1.15].map((rate) => (
-                          <button
-                            key={rate}
-                            type="button"
-                            onClick={() => handleSetSpeechRate(rate)}
-                            className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                              Math.abs(speechState.rate - rate) < 0.05
-                                ? 'bg-amber-500 text-slate-950'
-                                : 'bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300'
-                            }`}
-                          >
-                            {rate === 0.85 ? '0.85x' : rate === 1.0 ? '1.0x' : '1.15x'}
-                          </button>
-                        ))}
+          {/* SECTION 2: SAVED SCRIPTURAL GUIDANCE Q&A */}
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 shadow-sm">
+            <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-4 mb-6">
+              <div>
+                <h2 className="text-xl sm:text-2xl font-bold font-serif text-slate-900 dark:text-white flex items-center gap-2">
+                  <span>Saved Q&A Guidance</span>
+                  <span className="text-xs px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-sans font-bold">
+                    {savedGuidance.length}
+                  </span>
+                </h2>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                  Your bookmarked responses from Pandit Ji for personal reflection and study.
+                </p>
+              </div>
+
+              {savedGuidance.length > 0 && (
+                <button
+                  onClick={() => {
+                    if (window.confirm('Clear all saved bookmarks?')) {
+                      setSavedGuidance([]);
+                      localStorage.removeItem(STORAGE_SAVED_KEY);
+                      showToast('Bookmarks Cleared', 'All saved guidance entries cleared.', 'info');
+                    }
+                  }}
+                  className="text-xs text-rose-600 hover:underline flex items-center gap-1"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  Clear All
+                </button>
+              )}
+            </div>
+
+            {savedGuidance.length === 0 ? (
+              <div className="text-center py-12 space-y-3">
+                <div className="w-14 h-14 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 flex items-center justify-center mx-auto text-xl">
+                  📖
+                </div>
+                <h3 className="font-serif font-bold text-base text-slate-800 dark:text-slate-200">
+                  No Saved Question Guidance Yet
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto">
+                  While chatting with Pandit Ji, click the "Bookmark" icon on any answer to store it here for future reference.
+                </p>
+                <button
+                  onClick={() => setActiveSubTab('chat')}
+                  className="mt-3 px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-xs transition-colors inline-flex items-center gap-1.5"
+                >
+                  Go to Pandit Chat →
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {savedGuidance.map((item) => (
+                  <div
+                    key={item.id}
+                    className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 space-y-3"
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <h4 className="font-bold text-base text-slate-900 dark:text-white font-serif">
+                        {item.question}
+                      </h4>
+                      <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+                        <span className="text-[11px] text-slate-400">{item.savedAt}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleToggleSpeakSaved(item)}
+                          className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
+                            speakingSavedId === item.id && speechState.isPlaying
+                              ? 'bg-amber-500 text-slate-950 font-bold'
+                              : 'bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-amber-50 border border-slate-200 dark:border-slate-600'
+                          }`}
+                          title="Listen to saved guidance using Web Speech API"
+                        >
+                          {speakingSavedId === item.id && speechState.isPlaying ? (
+                            <>
+                              <VolumeX className="w-3.5 h-3.5" />
+                              <span>Stop Audio</span>
+                            </>
+                          ) : (
+                            <>
+                              <Volume2 className="w-3.5 h-3.5 text-amber-600" />
+                              <span>Listen (सुनें)</span>
+                            </>
+                          )}
+                        </button>
+                        <button
+                          onClick={() => {
+                            const updated = savedGuidance.filter((g) => g.id !== item.id);
+                            setSavedGuidance(updated);
+                            localStorage.setItem(STORAGE_SAVED_KEY, JSON.stringify(updated));
+                          }}
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
+                          title="Delete"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
                       </div>
                     </div>
-                  )}
 
-                  <p className="text-xs text-slate-700 dark:text-slate-300 whitespace-pre-line leading-relaxed">
-                    {item.reply}
-                  </p>
-
-                  {item.scripturalReferences && item.scripturalReferences.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5 pt-2">
-                      {item.scripturalReferences.map((ref, idx) => (
-                        <span
-                          key={idx}
-                          className="px-2 py-0.5 rounded text-[10px] bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300"
-                        >
-                          📜 {ref}
+                    {speakingSavedId === item.id && speechState.isPlaying && (
+                      <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-400/30 flex items-center justify-between text-xs">
+                        <span className="font-semibold text-amber-900 dark:text-amber-200 flex items-center gap-1.5">
+                          <Radio className="w-3.5 h-3.5 text-amber-600 animate-pulse" />
+                          Reading saved guidance...
                         </span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
+                        <div className="flex items-center gap-1">
+                          {[0.85, 1.0, 1.15].map((rate) => (
+                            <button
+                              key={rate}
+                              type="button"
+                              onClick={() => handleSetSpeechRate(rate)}
+                              className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                                Math.abs(speechState.rate - rate) < 0.05
+                                  ? 'bg-amber-500 text-slate-950'
+                                  : 'bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300'
+                              }`}
+                            >
+                              {rate === 0.85 ? '0.85x' : rate === 1.0 ? '1.0x' : '1.15x'}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <p className="text-xs text-slate-700 dark:text-slate-300 whitespace-pre-line leading-relaxed">
+                      {item.reply}
+                    </p>
+
+                    {item.scripturalReferences && item.scripturalReferences.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 pt-2">
+                        {item.scripturalReferences.map((ref, idx) => (
+                          <span
+                            key={idx}
+                            className="px-2 py-0.5 rounded text-[10px] bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300"
+                          >
+                            📜 {ref}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>

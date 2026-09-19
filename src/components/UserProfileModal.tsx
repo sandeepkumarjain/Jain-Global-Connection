@@ -38,7 +38,10 @@ import {
   Sliders,
   Check,
   HelpCircle,
-  Info
+  Info,
+  Bookmark,
+  BookmarkCheck,
+  ArrowRight
 } from 'lucide-react';
 import {
   playSubtlePrayerBell,
@@ -67,9 +70,11 @@ export const UserProfileModal: React.FC = () => {
     businesses = [],
     temples = [],
     matrimonials = [],
+    removeSavedRitual,
+    openAskPanditWithGuide,
   } = useApp();
 
-  const [activeTab, setActiveTab] = useState<'profile' | 'reminders' | 'donor'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'reminders' | 'donor' | 'rituals'>('profile');
 
   // Local form state initialized from currentUser
   const [fullName, setFullName] = useState('');
@@ -500,6 +505,25 @@ export const UserProfileModal: React.FC = () => {
                   {bloodGroup}
                 </span>
               )}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab('rituals');
+                setUserProfileTab('rituals');
+              }}
+              className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl font-bold text-xs transition-all ${
+                activeTab === 'rituals'
+                  ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm border border-slate-200/60 dark:border-slate-700/60'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              <Bookmark className="w-3.5 h-3.5 text-amber-500" />
+              <span>Saved Rituals</span>
+              <span className="px-1.5 py-0.5 bg-amber-500 text-slate-950 text-[10px] font-black rounded-full leading-none">
+                {currentUser?.savedRituals?.length || 0}
+              </span>
             </button>
           </div>
 
@@ -1322,6 +1346,142 @@ export const UserProfileModal: React.FC = () => {
             </div>
           )}
 
+          {/* TAB 4: SAVED PUJA RITUALS */}
+          {activeTab === 'rituals' && (
+            <div className="space-y-4 animate-fade-in">
+              <div className="p-4 sm:p-5 bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-slate-900/5 dark:from-amber-950/40 dark:via-slate-900 dark:to-slate-950/60 rounded-2xl border border-amber-200 dark:border-amber-800/60">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-2xl bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold text-lg">
+                      🪔
+                    </div>
+                    <div>
+                      <h3 className="font-serif font-bold text-base text-slate-900 dark:text-white">
+                        Bookmarked Puja Procedures
+                      </h3>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                        {currentUser?.savedRituals?.length || 0} saved rituals in your personal profile for quick access during sadhana.
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsUserProfileModalOpen(false);
+                      openAskPanditWithGuide('');
+                    }}
+                    className="px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs flex items-center gap-1.5 transition-all shadow-xs self-start sm:self-auto shrink-0"
+                  >
+                    <Flame className="w-3.5 h-3.5" />
+                    <span>Explore All 6 Guides</span>
+                  </button>
+                </div>
+              </div>
+
+              {(!currentUser?.savedRituals || currentUser.savedRituals.length === 0) ? (
+                <div className="text-center py-12 px-6 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-800 space-y-3">
+                  <div className="w-14 h-14 rounded-full bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto text-xl">
+                    ✨
+                  </div>
+                  <h4 className="font-serif font-bold text-base text-slate-800 dark:text-slate-200">
+                    No Saved Puja Procedures Yet
+                  </h4>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto leading-relaxed">
+                    Bookmark your family's favorite puja procedures — such as Ashtaprakari Puja, Jinendra Abhishek & Snatra, Samayik Vidhi, or Evening Aarti — to access them quickly during temple or home rituals.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsUserProfileModalOpen(false);
+                      openAskPanditWithGuide('ashtaprakari');
+                    }}
+                    className="mt-2 px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs inline-flex items-center gap-1.5 transition-all shadow-xs"
+                  >
+                    <Flame className="w-3.5 h-3.5" />
+                    <span>Start Ashtaprakari Puja Guide</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {currentUser.savedRituals.map((ritual) => (
+                    <div
+                      key={ritual.id}
+                      className="p-4 rounded-2xl bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 hover:border-amber-300 dark:hover:border-amber-700/80 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xs"
+                    >
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="p-1 rounded-md bg-amber-500/20 text-amber-600 dark:text-amber-400">
+                            <BookmarkCheck className="w-4 h-4 fill-current" />
+                          </span>
+                          <h4 className="font-serif font-bold text-sm sm:text-base text-slate-900 dark:text-white">
+                            {ritual.title}
+                          </h4>
+                          {ritual.hindiTitle && (
+                            <span className="text-xs text-amber-800 dark:text-amber-300 font-serif">
+                              ({ritual.hindiTitle})
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-2 flex-wrap text-xs text-slate-500 dark:text-slate-400 pl-6">
+                          {ritual.tradition && (
+                            <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-amber-100 dark:bg-amber-950/60 text-amber-900 dark:text-amber-300 border border-amber-300/40">
+                              {ritual.tradition}
+                            </span>
+                          )}
+                          {ritual.category && (
+                            <span className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300">
+                              {ritual.category}
+                            </span>
+                          )}
+                          {ritual.durationMinutes && (
+                            <span className="flex items-center gap-1 text-[11px]">
+                              <Clock className="w-3 h-3 text-slate-400" />
+                              ~{ritual.durationMinutes} mins
+                            </span>
+                          )}
+                          {ritual.totalSteps && (
+                            <span className="text-[11px]">
+                              • {ritual.totalSteps} steps
+                            </span>
+                          )}
+                          <span className="text-[11px] text-slate-400">
+                            • Saved {new Date(ritual.savedAt).toLocaleDateString()}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsUserProfileModalOpen(false);
+                            openAskPanditWithGuide(ritual.id);
+                          }}
+                          className="px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs flex items-center gap-1.5 transition-all shadow-xs"
+                        >
+                          <span>Open Guide</span>
+                          <ArrowRight className="w-3.5 h-3.5" />
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => removeSavedRitual(ritual.id)}
+                          className="p-1.5 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
+                          title="Remove saved ritual"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Action Footer */}
           <div className="flex items-center justify-between gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
             <div className="text-[11px] text-slate-400">
@@ -1333,6 +1493,8 @@ export const UserProfileModal: React.FC = () => {
                 </span>
               ) : activeTab === 'donor' ? (
                 <span>{isBloodDonor ? `Blood Donor: ${bloodGroup}` : 'Not registered as donor'}</span>
+              ) : activeTab === 'rituals' ? (
+                <span>{currentUser?.savedRituals?.length || 0} Bookmarked Puja Rituals</span>
               ) : (
                 <span>Logged in as {currentUser.fullName}</span>
               )}
