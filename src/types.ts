@@ -733,3 +733,47 @@ export interface SavedPanditGuidance {
   stepGuide?: PanditStepGuide | null;
 }
 
+export type SanghaCategory =
+  | 'Sangha'
+  | 'Yuvak Mandal'
+  | 'Mahila Mandal'
+  | 'Jain Community Center'
+  | 'Seva Trust'
+  | 'Mahasangh';
+
+export type SanghaTradition =
+  | 'All Traditions'
+  | 'Swetambar Murtipujak'
+  | 'Digambar'
+  | 'Sthanakvasi'
+  | 'Terapanthi'
+  | 'All Jains';
+
+export interface JainSanghaMandal {
+  id: string;
+  name: string;
+  hindiName?: string;
+  category: SanghaCategory;
+  tradition: SanghaTradition;
+  city: string;
+  state: string;
+  country: string;
+  address: string;
+  lat: number;
+  lng: number;
+  contactPerson: string;
+  contactRole: string;
+  phone: string;
+  mobile: string;
+  email?: string;
+  whatsapp?: string;
+  website?: string;
+  memberHouseholdsCount: number;
+  establishedYear?: number;
+  activities: string[];
+  facilities: string[];
+  isVerified: boolean;
+  description: string;
+  operatingHours?: string;
+}
+

@@ -92,7 +92,8 @@ export const SitemapModal: React.FC<SitemapModalProps> = ({
     currentUser,
     isMatrimonialOnlyUser,
     isBusinessOnlyUser,
-    showToast
+    showToast,
+    openSanghaMap
   } = useApp();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -202,6 +203,28 @@ export const SitemapModal: React.FC<SitemapModalProps> = ({
           'community', 'roster', 'phone directory', 'pariwar'
         ],
         subFeatures: ['Verified Members', 'City / State Filters', 'Native Place Index', 'Digital Sangh ID', 'Direct Contact']
+      },
+      {
+        id: 'sangha-map',
+        title: 'Global Sangha Map (Mandals & Communities)',
+        hindiTitle: 'वैश्विक जैन संघ एवं मंडल मानचित्र',
+        description:
+          'Interactive Leaflet world map pinning local Jain Mandals, Yuva Mandals, Mahila Mandals, and community centers with city filtering, contact details, and self-registration.',
+        category: 'Directories',
+        icon: Compass,
+        iconBg: 'bg-amber-500/15 dark:bg-amber-500/20',
+        iconColor: 'text-amber-600 dark:text-amber-400',
+        badge: 'Leaflet Interactive',
+        badgeColor: 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-800',
+        customAction: () => {
+          openSanghaMap();
+          onClose();
+        },
+        keywords: [
+          'sangha', 'mandal', 'community', 'map', 'leaflet', 'pins', 'city filter',
+          'yuva mandal', 'mahila mandal', 'trust', 'sanstha', 'contact details'
+        ],
+        subFeatures: ['Cluster Map View', 'City & Category Filters', 'Community Contact Details', 'Mandal Self-Registration', 'Directions & GPS']
       },
       {
         id: 'emergency-donors',

@@ -30,13 +30,15 @@ export const GlobalSanghHighlights: React.FC = () => {
     matrimonials,
     bloodDonors,
     bhajans,
+    sanghas,
+    openSanghaMap,
     setActiveTab,
     setIsAISearchOpen,
     showToast,
     panchang
   } = useApp();
 
-  const [activeTab, setActiveTabFilter] = useState<'temples' | 'businesses' | 'matrimonial' | 'blood' | 'bhajans'>('temples');
+  const [activeTab, setActiveTabFilter] = useState<'temples' | 'businesses' | 'matrimonial' | 'blood' | 'bhajans' | 'sangha'>('temples');
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
 
   const toggleNavkarMantra = () => {
@@ -118,6 +120,7 @@ export const GlobalSanghHighlights: React.FC = () => {
       <div className="relative z-10 flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
         {[
           { id: 'temples', label: 'Holy Temples & Tirths', icon: MapPin, count: temples.length, color: 'text-emerald-600 dark:text-emerald-400' },
+          { id: 'sangha', label: 'Sangha & Mandals Map', icon: Compass, count: sanghas.length, color: 'text-purple-600 dark:text-purple-400' },
           { id: 'matrimonial', label: 'Matrimonial Matches', icon: Heart, count: matrimonials.length, color: 'text-red-600 dark:text-red-400' },
           { id: 'businesses', label: 'Verified Businesses', icon: Building2, count: businesses.length, color: 'text-amber-600 dark:text-amber-400' },
           { id: 'blood', label: 'Blood Donors Sangh', icon: Droplet, count: bloodDonors.length, color: 'text-rose-600 dark:text-rose-400' },
@@ -220,6 +223,65 @@ export const GlobalSanghHighlights: React.FC = () => {
                 className="text-xs font-bold text-amber-800 dark:text-amber-300 hover:text-amber-900 flex items-center gap-1 group cursor-pointer"
               >
                 <span>Browse All {temples.length} Sacred Temples & Tirths</span>
+                <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* 1.5 Sangha & Mandals Map Tab */}
+        {activeTab === 'sangha' && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {sanghas.slice(0, 4).map((s) => (
+                <div
+                  key={s.id}
+                  className="bg-white dark:bg-slate-900 border border-purple-200/80 dark:border-slate-800 rounded-2xl p-4 hover:border-purple-400 dark:hover:border-purple-500 hover:shadow-lg transition-all duration-300 space-y-3 flex flex-col justify-between group"
+                >
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="px-2 py-0.5 bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 rounded text-[9px] font-bold">
+                        {s.category}
+                      </span>
+                      <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">
+                        {s.tradition}
+                      </span>
+                    </div>
+
+                    <h3 className="font-serif font-bold text-sm text-slate-900 dark:text-white group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors line-clamp-1">
+                      {s.name}
+                    </h3>
+                    <p className="text-[11px] text-slate-600 dark:text-slate-300 line-clamp-1 flex items-center gap-1">
+                      <MapPin className="w-3 h-3 text-purple-500 shrink-0" />
+                      <span>{s.city}, {s.state}</span>
+                    </p>
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400 line-clamp-2">
+                      {s.description}
+                    </p>
+                  </div>
+
+                  <div className="border-t border-purple-100 dark:border-slate-800 pt-2 space-y-1 text-[10px] text-slate-600 dark:text-slate-300">
+                    <p className="truncate">👤 Contact: {s.contactPerson}</p>
+                    <p className="truncate font-mono">📞 {s.phone}</p>
+                  </div>
+
+                  <button
+                    onClick={() => openSanghaMap()}
+                    className="w-full py-2 bg-purple-50 dark:bg-slate-800 hover:bg-purple-100 dark:hover:bg-slate-700 text-purple-800 dark:text-purple-300 border border-purple-200 dark:border-slate-700 rounded-xl font-bold text-xs flex items-center justify-center gap-1 transition-all cursor-pointer min-h-[36px]"
+                  >
+                    <Compass className="w-3.5 h-3.5 text-purple-600" />
+                    <span>View on Leaflet Map</span>
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex justify-end pt-2">
+              <button
+                onClick={() => openSanghaMap()}
+                className="text-xs font-bold text-purple-700 dark:text-purple-400 hover:text-purple-800 flex items-center gap-1 group cursor-pointer"
+              >
+                <span>Explore Global Sangha Map with {sanghas.length} Pinned Mandals</span>
                 <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
               </button>
             </div>

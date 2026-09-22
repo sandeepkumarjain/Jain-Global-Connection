@@ -29,8 +29,10 @@ import {
   DashboardWidgetId,
   PrayerReminderSettings,
   PrayerReminderItem,
-  SavedRitualItem
+  SavedRitualItem,
+  JainSanghaMandal
 } from '../types';
+import { INITIAL_SANGHA_MANDALS } from '../data/sanghaCommunities';
 import { DEFAULT_PRAYER_SETTINGS } from '../utils/prayerReminderSound';
 import {
   loadUserDashboardWidgets,
@@ -314,6 +316,17 @@ interface AppContextType {
   userProfileTab: 'profile' | 'reminders' | 'rituals' | 'donor';
   setUserProfileTab: (tab: 'profile' | 'reminders' | 'rituals' | 'donor') => void;
   openPrayerRemindersSettings: () => void;
+
+  // Global Sangha Map & Mandals
+  sanghas: JainSanghaMandal[];
+  selectedSanghaCity: string;
+  setSelectedSanghaCity: (city: string) => void;
+  selectedSanghaMandal: JainSanghaMandal | null;
+  setSelectedSanghaMandal: (mandal: JainSanghaMandal | null) => void;
+  addSanghaMandal: (mandal: Omit<JainSanghaMandal, 'id' | 'isVerified'>) => JainSanghaMandal;
+  directorySubTab: 'census' | 'map';
+  setDirectorySubTab: (tab: 'census' | 'map') => void;
+  openSanghaMap: (city?: string) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -336,6 +349,7 @@ const STORAGE_KEYS = {
   MATRIMONIAL_MESSAGES: 'jcg_matrimonial_messages_v1',
   SUCCESS_STORIES: 'jcg_success_stories_v1',
   PRAYER_REMINDERS: 'jcg_prayer_reminders_v1',
+  SANGHAS: 'jcg_sanghas_v1',
 };
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -440,6 +454,40 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     localStorage.setItem('jcg_custom_pages_v1', JSON.stringify(customPages));
   }, [customPages]);
+
+  // Global Sangha Map & Mandals State
+  const [sanghas, setSanghas] = useState<JainSanghaMandal[]>(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.SANGHAS);
+    return saved ? JSON.parse(saved) : INITIAL_SANGHA_MANDALS;
+  });
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.SANGHAS, JSON.stringify(sanghas));
+  }, [sanghas]);
+
+  const [selectedSanghaCity, setSelectedSanghaCity] = useState<string>('All');
+  const [selectedSanghaMandal, setSelectedSanghaMandal] = useState<JainSanghaMandal | null>(null);
+  const [directorySubTab, setDirectorySubTab] = useState<'census' | 'map'>('census');
+
+  const addSanghaMandal = (mandalData: Omit<JainSanghaMandal, 'id' | 'isVerified'>): JainSanghaMandal => {
+    const newId = `sangha_${Date.now()}`;
+    const newMandal: JainSanghaMandal = {
+      ...mandalData,
+      id: newId,
+      isVerified: currentUser?.role === 'Super Admin' || currentUser?.role === 'Admin',
+    };
+    setSanghas((prev) => [newMandal, ...prev]);
+    showToast('Sangha Mandal Registered', `${newMandal.name} has been added to the Global Sangha Map.`, 'success');
+    return newMandal;
+  };
+
+  const openSanghaMap = (city?: string) => {
+    if (city) {
+      setSelectedSanghaCity(city);
+    }
+    setDirectorySubTab('map');
+    setActiveTab('directory');
+  };
 
   // Auto Update Jain Panchang, Pachkan Timings & Agam Quotes daily
   useEffect(() => {
@@ -3460,6 +3508,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setPanditInitialGuideKey,
         openAskPanditWithGuide,
         openSavedRitualsProfile,
+        sanghas,
+        selectedSanghaCity,
+        setSelectedSanghaCity,
+        selectedSanghaMandal,
+        setSelectedSanghaMandal,
+        addSanghaMandal,
+        directorySubTab,
+        setDirectorySubTab,
+        openSanghaMap,
       }}
     >
       {children}

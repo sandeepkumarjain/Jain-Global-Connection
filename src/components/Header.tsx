@@ -83,6 +83,9 @@ export const Header: React.FC = () => {
     togglePlaySong,
     setIsDashboardCustomizerOpen,
     openSitemap,
+    openSanghaMap,
+    sanghas,
+    directorySubTab,
   } = useApp();
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -801,6 +804,27 @@ export const Header: React.FC = () => {
                 );
               })}
 
+              {/* Global Sangha Map Quick Tab */}
+              {!isMatrimonialOnlyUser && !isBusinessOnlyUser && (
+                <button
+                  type="button"
+                  onClick={() => openSanghaMap()}
+                  className={`flex items-center gap-1.5 px-2.5 py-1.5 lg:px-3 lg:py-1.5 rounded-full text-[11px] lg:text-xs font-bold transition-all border shrink-0 whitespace-nowrap shadow-sm cursor-pointer ${
+                    activeTab === 'directory' && directorySubTab === 'map'
+                      ? 'border-amber-300 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 text-slate-950 font-extrabold shadow-md scale-[1.02]'
+                      : 'border-amber-500/40 bg-amber-950/80 text-amber-200 hover:text-white hover:bg-amber-900'
+                  }`}
+                  title="Interactive Leaflet Map of Jain Mandals & Communities Worldwide"
+                >
+                  <Compass className={`w-3.5 h-3.5 shrink-0 ${activeTab === 'directory' && directorySubTab === 'map' ? 'text-slate-950' : 'text-amber-400'}`} />
+                  <span className="hidden 2xl:inline">Sangha Map</span>
+                  <span className="2xl:hidden">Sangha Map</span>
+                  <span className="text-[9px] bg-amber-500/20 text-amber-300 font-extrabold px-1.5 py-0.2 rounded-full border border-amber-500/30">
+                    {sanghas.length}
+                  </span>
+                </button>
+              )}
+
               {/* Devotional Bhajans Button */}
               {!isMatrimonialOnlyUser && (
                 <button
@@ -998,6 +1022,24 @@ export const Header: React.FC = () => {
                     </button>
                   );
                 })}
+
+                {!isMatrimonialOnlyUser && !isBusinessOnlyUser && (
+                  <button
+                    onClick={() => {
+                      openSanghaMap();
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className="col-span-2 flex items-center justify-between p-2.5 rounded-xl text-xs font-bold bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 shadow-md"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Compass className="w-4 h-4 text-slate-950 shrink-0" />
+                      <span className="font-extrabold">Global Sangha Map (Mandals &amp; Communities)</span>
+                    </div>
+                    <span className="text-[10px] bg-slate-950/15 text-slate-950 px-2 py-0.5 rounded-full font-black">
+                      {sanghas.length} Pinned
+                    </span>
+                  </button>
+                )}
 
                 {!isMatrimonialOnlyUser && (
                   <button

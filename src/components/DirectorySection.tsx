@@ -29,12 +29,17 @@ import {
   LogIn,
   Clock,
   Handshake,
+  Compass,
 } from 'lucide-react';
 import { CommunityMemberProfile, FamilyMember, MatrimonialProfile } from '../types';
+import { GlobalSanghaMap } from './GlobalSanghaMap';
 
 export const DirectorySection: React.FC = () => {
   const {
     members,
+    sanghas,
+    directorySubTab,
+    setDirectorySubTab,
     openRegistrationModal,
     showToast,
     registerMatrimonialFromDirectory,
@@ -296,8 +301,72 @@ export const DirectorySection: React.FC = () => {
   return (
     <div className="space-y-6">
       
-      {/* Banner with Community Unity & Strength in Numbers Motto */}
-      <div className="bg-gradient-to-r from-slate-900 via-amber-950 to-slate-950 text-white rounded-2xl p-6 sm:p-8 shadow-xl border border-amber-800/40 relative overflow-hidden">
+      {/* Directory Sub-Navigation Bar: Census vs Global Sangha Map */}
+      <div className="bg-white dark:bg-slate-900 p-2 sm:p-2.5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
+        <div className="flex items-center gap-2 p-1 bg-slate-100 dark:bg-slate-800/80 rounded-xl">
+          <button
+            type="button"
+            onClick={() => setDirectorySubTab('census')}
+            className={`px-4 py-2.5 rounded-lg text-xs font-extrabold flex items-center justify-center gap-2 transition-all cursor-pointer flex-1 sm:flex-initial ${
+              directorySubTab === 'census'
+                ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 shadow-sm'
+                : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            <Users className="w-4 h-4" />
+            <span>Jain Census &amp; Family Directory</span>
+            <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-slate-950/10 text-slate-950 font-black">
+              {members.length}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setDirectorySubTab('map')}
+            className={`px-4 py-2.5 rounded-lg text-xs font-extrabold flex items-center justify-center gap-2 transition-all cursor-pointer flex-1 sm:flex-initial ${
+              directorySubTab === 'map'
+                ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 shadow-sm'
+                : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            <Compass className="w-4 h-4 text-amber-500" />
+            <span>Global Sangha Map</span>
+            <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-amber-500/20 text-amber-800 dark:text-amber-300 font-black">
+              {sanghas.length} Pinned
+            </span>
+          </button>
+        </div>
+
+        <div className="flex items-center justify-end px-2">
+          {directorySubTab === 'census' ? (
+            <button
+              type="button"
+              onClick={() => setDirectorySubTab('map')}
+              className="inline-flex items-center gap-1.5 text-xs font-extrabold text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 transition-colors cursor-pointer"
+            >
+              <MapPin className="w-3.5 h-3.5" />
+              <span>Explore Leaflet Mandals Map &rarr;</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setDirectorySubTab('census')}
+              className="inline-flex items-center gap-1.5 text-xs font-extrabold text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 transition-colors cursor-pointer"
+            >
+              <Users className="w-3.5 h-3.5" />
+              <span>View Family Head Census &rarr;</span>
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* RENDER ACTIVE SUBTAB CONTENT */}
+      {directorySubTab === 'map' ? (
+        <GlobalSanghaMap />
+      ) : (
+        <div className="space-y-6">
+          {/* Banner with Community Unity & Strength in Numbers Motto */}
+          <div className="bg-gradient-to-r from-slate-900 via-amber-950 to-slate-950 text-white rounded-2xl p-6 sm:p-8 shadow-xl border border-amber-800/40 relative overflow-hidden">
         <div className="relative z-10 max-w-4xl space-y-3">
           <div className="inline-flex items-center gap-2 px-3 py-1 bg-amber-500/20 border border-amber-500/40 rounded-full text-amber-300 text-xs font-bold uppercase tracking-wider">
             <Users className="w-3.5 h-3.5 text-amber-400" />
@@ -963,6 +1032,8 @@ export const DirectorySection: React.FC = () => {
 
             </form>
           </div>
+        </div>
+      )}
         </div>
       )}
     </div>
