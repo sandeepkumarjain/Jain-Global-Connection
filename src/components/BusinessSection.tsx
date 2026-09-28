@@ -4,7 +4,6 @@ import { useApp } from '../context/AppContext';
 import { QRCodeSVG } from 'qrcode.react';
 import { VerifiedBadge } from './VerifiedBadge';
 import { safeHtml2Canvas } from '../utils/safeHtml2Canvas';
-import jsPDF from 'jspdf';
 import { BusinessSkeleton } from './Skeletons';
 import {
   Building2,
@@ -44,7 +43,7 @@ import {
   FileText
 } from 'lucide-react';
 import { BusinessListing, JobItem, EndorsementCategory, Endorsement } from '../types';
-import { BusinessMapView } from './BusinessMapView';
+const BusinessMapView = React.lazy(() => import('./BusinessMapView').then((m) => ({ default: m.BusinessMapView })));
 
 const BRANDING_COVER_PRESETS = [
   { name: 'Gold Shimmer', url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=80' },
@@ -431,6 +430,7 @@ export const BusinessSection: React.FC = () => {
       const imgData = canvas.toDataURL('image/jpeg', 0.95);
       
       // Standard business card size in mm: 88mm x 55mm (landscape)
+      const { default: jsPDF } = await import('jspdf');
       const pdf = new jsPDF({
         orientation: 'landscape',
         unit: 'mm',
@@ -517,6 +517,7 @@ END:VCARD`;
       const imgData = canvas.toDataURL('image/jpeg', 0.95);
       
       // Standard A4 portrait PDF for printable store poster
+      const { default: jsPDF } = await import('jspdf');
       const pdf = new jsPDF({
         orientation: 'portrait',
         unit: 'mm',
@@ -978,6 +979,7 @@ END:VCARD`;
 
       {/* INTERACTIVE COMMERCIAL MAP VIEW */}
       {viewMode === 'map' && (
+        <React.Suspense fallback={<div className="h-64 animate-pulse bg-slate-100 dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800" role="status" aria-label="Loading map" />}>
         <BusinessMapView
           businesses={businesses}
           selectedCategory={selectedCategory}
@@ -990,6 +992,7 @@ END:VCARD`;
           setIsAuthModalOpen={setIsAuthModalOpen}
           showToast={showToast}
         />
+        </React.Suspense>
       )}
 
       {/* Business Cards Grid View or Skeleton Loading State */}
