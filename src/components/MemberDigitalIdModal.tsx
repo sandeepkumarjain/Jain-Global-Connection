@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
-import jsPDF from 'jspdf';
 import { safeHtml2Canvas } from '../utils/safeHtml2Canvas';
 import { useApp } from '../context/AppContext';
 import { User, CommunityMemberProfile } from '../types';
@@ -670,6 +669,7 @@ export const MemberDigitalIdModal: React.FC<MemberDigitalIdModalProps> = ({
       const imgData = canvas.toDataURL('image/jpeg', 0.95);
       
       // Standard ID Card dimension: 88mm x 55mm (landscape credit card pass size)
+      const { default: jsPDF } = await import('jspdf');
       const pdf = new jsPDF({
         orientation: 'landscape',
         unit: 'mm',

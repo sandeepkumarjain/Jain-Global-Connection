@@ -134,13 +134,10 @@ export const Header: React.FC = () => {
       return;
     }
 
-    // 1. Logged-out Guest User: Only Matrimonial requires login
+    // 1. Logged-out Guest User: every section opens as a public preview.
+    // Matrimonial shows privacy-masked profiles with sign-in calls to action
+    // instead of blocking visitors with an immediate login popup.
     if (!currentUser) {
-      if (tabId === 'matrimonial') {
-        setIsAuthModalOpen(true);
-        showToast('Login Required', 'Please sign in or register to access Matrimonial Directory.', 'info');
-        return;
-      }
       setActiveTab(tabId as any);
       return;
     }

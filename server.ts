@@ -1,8 +1,10 @@
 import express from "express";
+import fs from "fs";
 import path from "path";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI } from "@google/genai";
 import dotenv from "dotenv";
+import { ROUTES, routeFromPath, escapeHtml } from "./src/utils/routes";
 
 dotenv.config();
 
@@ -805,8 +807,129 @@ Note: If the inquiry is strictly philosophical or not asking for a ritual proced
 });
 
 
+
+// ============================================================
+// SEO: robots.txt, sitemap.xml and per-route meta pre-rendering
+// ============================================================
+
+const getBaseUrl = (req: express.Request): string => {
+  const envUrl = (process.env.APP_URL || "").trim();
+  if (envUrl.startsWith("http")) return envUrl.replace(/\/+$/, "");
+  const proto = (req.headers["x-forwarded-proto"] as string) || req.protocol || "https";
+  const host = req.headers["x-forwarded-host"] || req.get("host") || "localhost:3000";
+  return `${proto}://${host}`;
+};
+
+// robots.txt: allow public sections, keep admin and APIs out of the index.
+app.get("/robots.txt", (req, res) => {
+  const base = getBaseUrl(req);
+  res.type("text/plain").send(
+    [
+      "User-agent: *",
+      "Allow: /",
+      "Disallow: /admin",
+      "Disallow: /api/",
+      "",
+      `Sitemap: ${base}/sitemap.xml`,
+      "",
+    ].join("\n")
+  );
+});
+
+// sitemap.xml: every public, indexable section route.
+app.get("/sitemap.xml", (req, res) => {
+  const base = getBaseUrl(req);
+  const today = new Date().toISOString().slice(0, 10);
+  const urls = ROUTES.filter((r) => r.indexable)
+    .map(
+      (r) =>
+        `  <url>\n    <loc>${escapeHtml(base + r.path)}</loc>\n    <lastmod>${today}</lastmod>\n    <changefreq>${
+          r.tab === "home" ? "daily" : "weekly"
+        }</changefreq>\n    <priority>${r.tab === "home" ? "1.0" : "0.8"}</priority>\n  </url>`
+    )
+    .join("\n");
+  res
+    .type("application/xml")
+    .send(`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>`);
+});
+
+/**
+ * Inject per-route SEO meta tags and a crawlable static content block into
+ * index.html. The static block sits inside #root, so it is visible to every
+ * visitor (including crawlers and link-preview bots) until React mounts and
+ * replaces it. Same content for everyone - no cloaking.
+ */
+const renderSeoIndexHtml = (template: string, pathname: string, base: string): string => {
+  const route = routeFromPath(pathname) || ROUTES[0];
+  const canonical = escapeHtml(base + route.path);
+  const title = escapeHtml(route.title);
+  const description = escapeHtml(route.description);
+
+  // Crawlable static content (replaced by React on mount).
+  const navLinks = ROUTES.filter((r) => r.indexable)
+    .map((r) => `<li><a href="${escapeHtml(base + r.path)}">${escapeHtml(r.title.replace(/ \| Jain Connect Global$/, ""))}</a></li>`)
+    .join("");
+  const staticBlock = [
+    '<section style="max-width:720px;margin:2rem auto;padding:0 1rem;font-family:system-ui,sans-serif;color:#1c1917">',
+    `<h1 style="font-size:1.75rem;line-height:1.2">${title}</h1>`,
+    `<p style="font-size:1rem;line-height:1.6">${escapeHtml(route.summary)}</p>`,
+    `<p style="font-size:0.95rem;line-height:1.6">${description}</p>`,
+    '<nav aria-label="Site sections"><ul style="line-height:1.9;column-count:2;padding-left:1.25rem">',
+    navLinks,
+    "</ul></nav>",
+    '<p style="font-size:0.85rem;color:#78716c">Jain Connect Global by SKJ Tech World - loading the interactive experience...</p>',
+    "</section>",
+  ].join("");
+
+  const robotsMeta = route.indexable
+    ? '<meta name="robots" content="index, follow" />'
+    : '<meta name="robots" content="noindex, nofollow" />';
+
+  let html = template;
+  html = html.replace(/<title>[\s\S]*?<\/title>/, `<title>${title}</title>`);
+  html = html.replace(
+    /<meta name="description"[^>]*\/?>/,
+    `<meta name="description" content="${description}" />`
+  );
+  html = html.replace(
+    /<meta property="og:title"[^>]*\/?>/,
+    `<meta property="og:title" content="${title}" />`
+  );
+  html = html.replace(
+    /<meta property="og:description"[^>]*\/?>/,
+    `<meta property="og:description" content="${description}" />`
+  );
+  html = html.replace(
+    "</head>",
+    `  <link rel="canonical" href="${canonical}" />\n  <meta property="og:url" content="${canonical}" />\n  <meta property="og:type" content="website" />\n  <meta property="og:site_name" content="Jain Connect Global" />\n  <meta name="twitter:card" content="summary" />\n  ${robotsMeta}\n</head>`
+  );
+  html = html.replace('<div id="root"></div>', `<div id="root">${staticBlock}</div>`);
+  return html;
+};
+
+// SPA + SEO handler: serves index.html with per-route meta for every HTML GET.
+const createSpaSeoHandler = (templatePath: string) => {
+  let cachedTemplate: string | null = null;
+  return (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    if (req.method !== "GET") return next();
+    const acceptsHtml = (req.headers.accept || "").includes("text/html");
+    if (!acceptsHtml) return next();
+    try {
+      if (!cachedTemplate) {
+        cachedTemplate = fs.readFileSync(templatePath, "utf-8");
+      }
+      const html = renderSeoIndexHtml(cachedTemplate, req.path, getBaseUrl(req));
+      res.type("text/html").send(html);
+    } catch (err) {
+      next(err);
+    }
+  };
+};
+
 async function startServer() {
   if (process.env.NODE_ENV !== "production") {
+    // Dev: serve index.html with the same per-route SEO meta before Vite's SPA fallback.
+    app.use(createSpaSeoHandler(path.join(process.cwd(), "index.html")));
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
@@ -815,9 +938,7 @@ async function startServer() {
   } else {
     const distPath = path.join(process.cwd(), "dist");
     app.use(express.static(distPath));
-    app.get("*", (_req, res) => {
-      res.sendFile(path.join(distPath, "index.html"));
-    });
+    app.get("*", createSpaSeoHandler(path.join(distPath, "index.html")));
   }
 
   app.listen(PORT, "0.0.0.0", () => {

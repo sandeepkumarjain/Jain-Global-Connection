@@ -1,8 +1,9 @@
-import jsPDF from 'jspdf';
 import { safeHtml2Canvas } from './safeHtml2Canvas';
 import { MatrimonialProfile } from '../types';
 
 export async function generateBiodataPDF(profile: MatrimonialProfile, isUnlocked: boolean = true): Promise<void> {
+  // jsPDF is heavy; download it only when a biodata PDF is actually requested.
+  const { default: jsPDF } = await import('jspdf');
   const container = document.createElement('div');
   container.style.position = 'absolute';
   container.style.left = '-9999px';

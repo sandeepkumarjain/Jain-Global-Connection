@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { PhoneVerificationModal } from '../components/PhoneVerificationModal';
 import { getDailyJainPanchang } from '../utils/jainPanchang';
+import { tabFromPath, TAB_TO_PATH, AppTab } from '../utils/routes';
 import { getDailyTithiAlert } from '../utils/jainFestivalAlerts';
 import {
   User,
@@ -542,7 +543,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [isPlayingSong, setIsPlayingSong] = useState(false);
   const audioRef = React.useRef<HTMLAudioElement | null>(null);
 
-  const [activeTab, setActiveTab] = useState<TabOption>('home');
+  const [activeTab, setActiveTab] = useState<TabOption>(() => {
+    if (typeof window === 'undefined') return 'home';
+    return (tabFromPath(window.location.pathname) as TabOption) || 'home';
+  });
+
+  // Keep the browser URL in sync with the active tab so sections are
+  // deep-linkable and crawlable (/matrimonial, /business, /temples, ...).
+  useEffect(() => {
+    const path = TAB_TO_PATH[activeTab as AppTab] || '/';
+    if (window.location.pathname !== path) {
+      window.history.pushState({ tab: activeTab }, '', path);
+    }
+  }, [activeTab]);
+
+  // Handle browser Back / Forward navigation.
+  useEffect(() => {
+    const onPopState = () => {
+      const tab = tabFromPath(window.location.pathname);
+      if (tab) setActiveTab(tab as TabOption);
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
   const [language, setLanguageState] = useState<LanguageOption>(() => {
     const saved = localStorage.getItem('jain_connect_lang');
     return (saved as LanguageOption) || 'English';
