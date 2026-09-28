@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { Suspense } from 'react';
 import { motion } from 'motion/react';
 import { Helmet, HelmetProvider } from 'react-helmet-async';
 import { AppProvider, useApp } from './context/AppContext';
@@ -8,22 +8,8 @@ import { Footer } from './components/Footer';
 import { HeroBanner } from './components/HeroBanner';
 import { HomeDateBanner } from './components/HomeDateBanner';
 import { PanchangWidget } from './components/PanchangWidget';
-import { MatrimonialSection } from './components/MatrimonialSection';
-import { BusinessSection } from './components/BusinessSection';
-import { DirectorySection } from './components/DirectorySection';
-import { TempleSection } from './components/TempleSection';
-import { CommunityFeed } from './components/CommunityFeed';
-import { EmergencyDirectory } from './components/EmergencyDirectory';
-import { AdminPanel } from './components/AdminPanel';
 import { AuthModal } from './components/AuthModal';
 import { RegisterModal } from './components/RegisterModal';
-import { AISearchModal } from './components/AISearchModal';
-import { MembershipModal } from './components/MembershipModal';
-import { UserProfileModal } from './components/UserProfileModal';
-import { MemberDigitalIdModal } from './components/MemberDigitalIdModal';
-import { BhajanLibraryModal } from './components/BhajanLibraryModal';
-import { GmailCenterModal } from './components/GmailCenterModal';
-import { CentralNotificationCenterModal } from './components/CentralNotificationCenterModal';
 import { ReadingProgressBar } from './components/ReadingProgressBar';
 import { DailyTithiNotificationToast } from './components/DailyTithiNotificationToast';
 import { AudioPlayer } from './components/AudioPlayer';
@@ -33,13 +19,44 @@ import { GlobalSanghHighlights } from './components/GlobalSanghHighlights';
 import { JainPrinciplesSection } from './components/JainPrinciplesSection';
 import { VivahSuccessStoriesSection } from './components/VivahSuccessStoriesSection';
 import { MemberSuccessStoriesSlider } from './components/MemberSuccessStoriesSlider';
-import { AskPanditChatbot } from './components/AskPanditChatbot';
 import { ScrollReveal } from './components/ScrollReveal';
-import { CustomizableHomeDashboard } from './components/CustomizableHomeDashboard';
-import { DashboardCustomizerModal } from './components/DashboardCustomizerModal';
-import { SitemapModal } from './components/SitemapModal';
-import { PolicyModal } from './components/PolicyModal';
 import { PrayerReminderEngine } from './components/PrayerReminderEngine';
+import { MatrimonialPreview } from './components/MatrimonialPreview';
+import { getTabMetaData, TAB_TO_PATH, AppTab } from './utils/routes';
+
+// Heavy sections load on demand so first-time visitors only download what they view.
+const MatrimonialSection = React.lazy(() => import('./components/MatrimonialSection').then((m) => ({ default: m.MatrimonialSection })));
+const BusinessSection = React.lazy(() => import('./components/BusinessSection').then((m) => ({ default: m.BusinessSection })));
+const DirectorySection = React.lazy(() => import('./components/DirectorySection').then((m) => ({ default: m.DirectorySection })));
+const TempleSection = React.lazy(() => import('./components/TempleSection').then((m) => ({ default: m.TempleSection })));
+const CommunityFeed = React.lazy(() => import('./components/CommunityFeed').then((m) => ({ default: m.CommunityFeed })));
+const EmergencyDirectory = React.lazy(() => import('./components/EmergencyDirectory').then((m) => ({ default: m.EmergencyDirectory })));
+const AdminPanel = React.lazy(() => import('./components/AdminPanel').then((m) => ({ default: m.AdminPanel })));
+const AskPanditChatbot = React.lazy(() => import('./components/AskPanditChatbot').then((m) => ({ default: m.AskPanditChatbot })));
+const CustomizableHomeDashboard = React.lazy(() => import('./components/CustomizableHomeDashboard').then((m) => ({ default: m.CustomizableHomeDashboard })));
+
+// Rarely-opened modals load only the first time they are opened.
+const AISearchModal = React.lazy(() => import('./components/AISearchModal').then((m) => ({ default: m.AISearchModal })));
+const MembershipModal = React.lazy(() => import('./components/MembershipModal').then((m) => ({ default: m.MembershipModal })));
+const UserProfileModal = React.lazy(() => import('./components/UserProfileModal').then((m) => ({ default: m.UserProfileModal })));
+const MemberDigitalIdModal = React.lazy(() => import('./components/MemberDigitalIdModal').then((m) => ({ default: m.MemberDigitalIdModal })));
+const BhajanLibraryModal = React.lazy(() => import('./components/BhajanLibraryModal').then((m) => ({ default: m.BhajanLibraryModal })));
+const GmailCenterModal = React.lazy(() => import('./components/GmailCenterModal').then((m) => ({ default: m.GmailCenterModal })));
+const CentralNotificationCenterModal = React.lazy(() => import('./components/CentralNotificationCenterModal').then((m) => ({ default: m.CentralNotificationCenterModal })));
+const DashboardCustomizerModal = React.lazy(() => import('./components/DashboardCustomizerModal').then((m) => ({ default: m.DashboardCustomizerModal })));
+const SitemapModal = React.lazy(() => import('./components/SitemapModal').then((m) => ({ default: m.SitemapModal })));
+const PolicyModal = React.lazy(() => import('./components/PolicyModal').then((m) => ({ default: m.PolicyModal })));
+
+/** Lightweight loading placeholder while a lazily-loaded section downloads. */
+const SectionLoadingFallback: React.FC = () => (
+  <div className="space-y-4 animate-pulse" role="status" aria-label="Loading section">
+    <div className="h-8 w-56 bg-slate-200 dark:bg-slate-800 rounded-xl" />
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="h-48 bg-slate-100 dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800" />
+      <div className="h-48 bg-slate-100 dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800" />
+    </div>
+  </div>
+);
 import {
   CheckCircle2,
   AlertCircle,
@@ -58,62 +75,6 @@ import {
   Award,
   ArrowUp
 } from 'lucide-react';
-
-const getTabMetaData = (tab: string) => {
-  switch (tab) {
-    case 'matrimonial':
-      return {
-        title: 'Jain Matrimonial | Jain Connect Global',
-        description: 'Find verified Jain matrimonial profiles across Digambar, Shwetambar, Sthanakvasi, and Terapanthi sects.'
-      };
-    case 'business':
-      return {
-        title: 'Jain Business Directory | Jain Connect Global',
-        description: 'Discover and connect with trusted Jain entrepreneurs, businesses, and digital visiting cards globally.'
-      };
-    case 'directory':
-      return {
-        title: 'Global Member Directory | Jain Connect Global',
-        description: 'Search verified Jain members, community leaders, and local sanghs worldwide.'
-      };
-    case 'temple':
-      return {
-        title: 'Jain Temples & Teerth Directory | Jain Connect Global',
-        description: 'Explore holy Jain temples, teerthkshetras, dharmashalas, and trusts with photos and maps.'
-      };
-    case 'panchang':
-      return {
-        title: 'Jain Panchang & Daily Tithi | Jain Connect Global',
-        description: 'Access live Jain Panchang, Navkarshi, Chouvihar timings, Kalyanaks, and festive dates.'
-      };
-    case 'feed':
-      return {
-        title: 'Community Feed & News | Jain Connect Global',
-        description: 'Read community posts, announcements, upcoming events, and spiritual articles from the global Jain sangh.'
-      };
-    case 'emergency':
-      return {
-        title: 'Emergency Help & Blood Donors | Jain Connect Global',
-        description: '24/7 Jain emergency contacts, blood donor network, medical aid, and sangh support.'
-      };
-    case 'admin':
-      return {
-        title: 'Admin Control Panel | Jain Connect Global',
-        description: 'Manage Jain Connect Global members, business approvals, and platform settings.'
-      };
-    case 'pandit':
-      return {
-        title: 'Ask a Pandit (AI Scriptural Guide) | Jain Connect Global',
-        description: 'Instant scriptural answers on Jain rituals, Ashtaprakari Puja, Pachkan vows, and Agamas powered by Gemini 3.8 Flash.'
-      };
-    case 'home':
-    default:
-      return {
-        title: 'Jain Connect Global | Empowering Global Jain Sangh',
-        description: 'Connect with the global Jain community, explore Jain Panchang, daily tithi, quotes, and community news.'
-      };
-  }
-};
 
 const MainContent: React.FC = () => {
   const {
@@ -137,6 +98,11 @@ const MainContent: React.FC = () => {
     setIsDailyTithiAlertOpen,
     isSitemapOpen,
     setIsSitemapOpen,
+    isAISearchOpen,
+    isMembershipModalOpen,
+    isUserProfileModalOpen,
+    isDigitalIdModalOpen,
+    isBhajanModalOpen,
     systemSettings
   } = useApp();
 
@@ -174,6 +140,11 @@ const MainContent: React.FC = () => {
       <Helmet>
         <title>{tabMeta.title}</title>
         <meta name="description" content={tabMeta.description} />
+        <link
+          rel="canonical"
+          href={`${window.location.origin}${TAB_TO_PATH[activeTab as AppTab] || '/'}`}
+        />
+        {activeTab === 'admin' && <meta name="robots" content="noindex, nofollow" />}
       </Helmet>
 
       {/* Top Header */}
@@ -472,7 +443,9 @@ const MainContent: React.FC = () => {
               </div>
             ) : (
               /* AUTHENTICATED LOGGED-IN CUSTOMIZABLE DASHBOARD */
+              <Suspense fallback={<SectionLoadingFallback />}>
               <CustomizableHomeDashboard />
+            </Suspense>
             )}
           </div>
         )}
@@ -483,13 +456,11 @@ const MainContent: React.FC = () => {
         {activeTab === 'matrimonial' && (
           <ScrollReveal>
             {currentUser ? (
-              <MatrimonialSection />
+              <Suspense fallback={<SectionLoadingFallback />}>
+                <MatrimonialSection />
+              </Suspense>
             ) : (
-              <LoginRequiredView
-                title="Jain Matrimonial Bureau Access Restricted"
-                description="Candidate biodatas, family backgrounds, and contact details are strictly restricted to verified members."
-                sectionIcon="matrimonial"
-              />
+              <MatrimonialPreview />
             )}
           </ScrollReveal>
         )}
@@ -497,21 +468,27 @@ const MainContent: React.FC = () => {
         {/* Tab 3: Business Directory (Public Access) */}
         {activeTab === 'business' && (
           <ScrollReveal>
-            <BusinessSection />
+            <Suspense fallback={<SectionLoadingFallback />}>
+              <BusinessSection />
+            </Suspense>
           </ScrollReveal>
         )}
 
         {/* Tab 4: Jain Directory (Public Access) */}
         {activeTab === 'directory' && (
           <ScrollReveal>
-            <DirectorySection />
+            <Suspense fallback={<SectionLoadingFallback />}>
+              <DirectorySection />
+            </Suspense>
           </ScrollReveal>
         )}
 
         {/* Tab 5: Temple Directory (Public Access) */}
         {activeTab === 'temple' && (
           <ScrollReveal>
-            <TempleSection />
+            <Suspense fallback={<SectionLoadingFallback />}>
+              <TempleSection />
+            </Suspense>
           </ScrollReveal>
         )}
 
@@ -525,21 +502,27 @@ const MainContent: React.FC = () => {
         {/* Tab 7: Community Feed (Public Access) */}
         {activeTab === 'feed' && (
           <ScrollReveal>
-            <CommunityFeed />
+            <Suspense fallback={<SectionLoadingFallback />}>
+              <CommunityFeed />
+            </Suspense>
           </ScrollReveal>
         )}
 
         {/* Tab 8: Emergency Services (Public Access) */}
         {activeTab === 'emergency' && (
           <ScrollReveal>
-            <EmergencyDirectory />
+            <Suspense fallback={<SectionLoadingFallback />}>
+              <EmergencyDirectory />
+            </Suspense>
           </ScrollReveal>
         )}
 
         {/* Tab 10: Ask a Pandit AI Chatbot (Public Access) */}
         {activeTab === 'pandit' && (
           <ScrollReveal>
-            <AskPanditChatbot />
+            <Suspense fallback={<SectionLoadingFallback />}>
+              <AskPanditChatbot />
+            </Suspense>
           </ScrollReveal>
         )}
 
@@ -547,7 +530,9 @@ const MainContent: React.FC = () => {
         {activeTab === 'admin' && (
           <ScrollReveal>
             {currentUser ? (
-              <AdminPanel />
+              <Suspense fallback={<SectionLoadingFallback />}>
+                <AdminPanel />
+              </Suspense>
             ) : (
               <LoginRequiredView
                 title="Super Admin Control Panel Restricted"
@@ -564,39 +549,51 @@ const MainContent: React.FC = () => {
       {/* Global Modals */}
       <AuthModal />
       <RegisterModal />
-      <AISearchModal />
-      <MembershipModal />
-      <UserProfileModal />
-      <MemberDigitalIdModal />
-      <BhajanLibraryModal />
-      <GmailCenterModal
-        isOpen={isGmailCenterOpen}
-        onClose={() => setIsGmailCenterOpen(false)}
-        defaultRecipient={gmailModalData.recipient}
-        defaultSubject={gmailModalData.subject}
-        defaultBody={gmailModalData.body}
-      />
-      <CentralNotificationCenterModal
-        isOpen={isCentralNotifOpen}
-        onClose={() => setIsCentralNotifOpen(false)}
-      />
-      <DashboardCustomizerModal
-        isOpen={isDashboardCustomizerOpen}
-        onClose={() => setIsDashboardCustomizerOpen(false)}
-      />
+      <Suspense fallback={null}>
+        {isAISearchOpen && <AISearchModal />}
+        {isMembershipModalOpen && <MembershipModal />}
+        {isUserProfileModalOpen && <UserProfileModal />}
+        {isDigitalIdModalOpen && <MemberDigitalIdModal />}
+        {isBhajanModalOpen && <BhajanLibraryModal />}
+        {isGmailCenterOpen && (
+          <GmailCenterModal
+            isOpen={isGmailCenterOpen}
+            onClose={() => setIsGmailCenterOpen(false)}
+            defaultRecipient={gmailModalData.recipient}
+            defaultSubject={gmailModalData.subject}
+            defaultBody={gmailModalData.body}
+          />
+        )}
+        {isCentralNotifOpen && (
+          <CentralNotificationCenterModal
+            isOpen={isCentralNotifOpen}
+            onClose={() => setIsCentralNotifOpen(false)}
+          />
+        )}
+        {isDashboardCustomizerOpen && (
+          <DashboardCustomizerModal
+            isOpen={isDashboardCustomizerOpen}
+            onClose={() => setIsDashboardCustomizerOpen(false)}
+          />
+        )}
+        {isSitemapOpen && (
+          <SitemapModal
+            isOpen={isSitemapOpen}
+            onClose={() => setIsSitemapOpen(false)}
+            onOpenPolicy={(type) => setPolicyType(type)}
+          />
+        )}
+        {policyType && (
+          <PolicyModal
+            isOpen={Boolean(policyType)}
+            type={policyType}
+            onClose={() => setPolicyType(null)}
+          />
+        )}
+      </Suspense>
       <DailyTithiNotificationToast
         forceOpen={isDailyTithiAlertOpen}
         onClose={() => setIsDailyTithiAlertOpen(false)}
-      />
-      <SitemapModal
-        isOpen={isSitemapOpen}
-        onClose={() => setIsSitemapOpen(false)}
-        onOpenPolicy={(type) => setPolicyType(type)}
-      />
-      <PolicyModal
-        isOpen={Boolean(policyType)}
-        type={policyType}
-        onClose={() => setPolicyType(null)}
       />
       <PrayerReminderEngine />
       <AudioPlayer />
