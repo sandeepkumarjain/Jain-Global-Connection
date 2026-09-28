@@ -32,7 +32,7 @@ import {
   Compass,
 } from 'lucide-react';
 import { CommunityMemberProfile, FamilyMember, MatrimonialProfile } from '../types';
-import { GlobalSanghaMap } from './GlobalSanghaMap';
+const GlobalSanghaMap = React.lazy(() => import('./GlobalSanghaMap').then((m) => ({ default: m.GlobalSanghaMap })));
 
 export const DirectorySection: React.FC = () => {
   const {
@@ -362,7 +362,9 @@ export const DirectorySection: React.FC = () => {
 
       {/* RENDER ACTIVE SUBTAB CONTENT */}
       {directorySubTab === 'map' ? (
-        <GlobalSanghaMap />
+        <React.Suspense fallback={<div className="h-64 animate-pulse bg-slate-100 dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800" role="status" aria-label="Loading map" />}>
+          <GlobalSanghaMap />
+        </React.Suspense>
       ) : (
         <div className="space-y-6">
           {/* Banner with Community Unity & Strength in Numbers Motto */}
