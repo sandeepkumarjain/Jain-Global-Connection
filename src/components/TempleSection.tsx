@@ -26,7 +26,7 @@ import {
   Loader2
 } from 'lucide-react';
 import { TempleListing } from '../types';
-import { TempleMapView } from './TempleMapView';
+const TempleMapView = React.lazy(() => import('./TempleMapView').then((m) => ({ default: m.TempleMapView })));
 import { TempleSkeleton } from './Skeletons';
 import { Virtual3DTourModal } from './Virtual3DTourModal';
 import { VirtualTourButton } from './VirtualTourButton';
@@ -414,6 +414,7 @@ export const TempleSection: React.FC = () => {
           {/* Map View */}
           {(viewMode === 'map' || viewMode === 'both') && (
         <div className="space-y-3">
+          <React.Suspense fallback={<div className="h-64 animate-pulse bg-slate-100 dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800" role="status" aria-label="Loading map" />}>
           <TempleMapView
             temples={filtered}
             selectedTemple={selectedTemple}
@@ -428,6 +429,7 @@ export const TempleSection: React.FC = () => {
               setShowDonationModal(true);
             }}
           />
+          </React.Suspense>
         </div>
       )}
 
