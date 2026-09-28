@@ -1,0 +1,658 @@
+import React, { Suspense } from 'react';
+import { motion } from 'motion/react';
+import { Helmet, HelmetProvider } from 'react-helmet-async';
+import { AppProvider, useApp } from './context/AppContext';
+import { Header } from './components/Header';
+import { BreadcrumbNav } from './components/BreadcrumbNav';
+import { Footer } from './components/Footer';
+import { HeroBanner } from './components/HeroBanner';
+import { HomeDateBanner } from './components/HomeDateBanner';
+import { PanchangWidget } from './components/PanchangWidget';
+import { AuthModal } from './components/AuthModal';
+import { RegisterModal } from './components/RegisterModal';
+import { ReadingProgressBar } from './components/ReadingProgressBar';
+import { DailyTithiNotificationToast } from './components/DailyTithiNotificationToast';
+import { AudioPlayer } from './components/AudioPlayer';
+import { LoginRequiredView } from './components/LoginRequiredView';
+import { DailyJainWisdom } from './components/DailyJainWisdom';
+import { GlobalSanghHighlights } from './components/GlobalSanghHighlights';
+import { JainPrinciplesSection } from './components/JainPrinciplesSection';
+import { VivahSuccessStoriesSection } from './components/VivahSuccessStoriesSection';
+import { MemberSuccessStoriesSlider } from './components/MemberSuccessStoriesSlider';
+import { ScrollReveal } from './components/ScrollReveal';
+import { PrayerReminderEngine } from './components/PrayerReminderEngine';
+import { MatrimonialPreview } from './components/MatrimonialPreview';
+import { getTabMetaData, TAB_TO_PATH, AppTab } from './utils/routes';
+
+// Heavy sections load on demand so first-time visitors only download what they view.
+const MatrimonialSection = React.lazy(() => import('./components/MatrimonialSection').then((m) => ({ default: m.MatrimonialSection })));
+const BusinessSection = React.lazy(() => import('./components/BusinessSection').then((m) => ({ default: m.BusinessSection })));
+const DirectorySection = React.lazy(() => import('./components/DirectorySection').then((m) => ({ default: m.DirectorySection })));
+const TempleSection = React.lazy(() => import('./components/TempleSection').then((m) => ({ default: m.TempleSection })));
+const CommunityFeed = React.lazy(() => import('./components/CommunityFeed').then((m) => ({ default: m.CommunityFeed })));
+const EmergencyDirectory = React.lazy(() => import('./components/EmergencyDirectory').then((m) => ({ default: m.EmergencyDirectory })));
+const AdminPanel = React.lazy(() => import('./components/AdminPanel').then((m) => ({ default: m.AdminPanel })));
+const AskPanditChatbot = React.lazy(() => import('./components/AskPanditChatbot').then((m) => ({ default: m.AskPanditChatbot })));
+const CustomizableHomeDashboard = React.lazy(() => import('./components/CustomizableHomeDashboard').then((m) => ({ default: m.CustomizableHomeDashboard })));
+
+// Rarely-opened modals load only the first time they are opened.
+const AISearchModal = React.lazy(() => import('./components/AISearchModal').then((m) => ({ default: m.AISearchModal })));
+const MembershipModal = React.lazy(() => import('./components/MembershipModal').then((m) => ({ default: m.MembershipModal })));
+const UserProfileModal = React.lazy(() => import('./components/UserProfileModal').then((m) => ({ default: m.UserProfileModal })));
+const MemberDigitalIdModal = React.lazy(() => import('./components/MemberDigitalIdModal').then((m) => ({ default: m.MemberDigitalIdModal })));
+const BhajanLibraryModal = React.lazy(() => import('./components/BhajanLibraryModal').then((m) => ({ default: m.BhajanLibraryModal })));
+const GmailCenterModal = React.lazy(() => import('./components/GmailCenterModal').then((m) => ({ default: m.GmailCenterModal })));
+const CentralNotificationCenterModal = React.lazy(() => import('./components/CentralNotificationCenterModal').then((m) => ({ default: m.CentralNotificationCenterModal })));
+const DashboardCustomizerModal = React.lazy(() => import('./components/DashboardCustomizerModal').then((m) => ({ default: m.DashboardCustomizerModal })));
+const SitemapModal = React.lazy(() => import('./components/SitemapModal').then((m) => ({ default: m.SitemapModal })));
+const PolicyModal = React.lazy(() => import('./components/PolicyModal').then((m) => ({ default: m.PolicyModal })));
+
+/** Lightweight loading placeholder while a lazily-loaded section downloads. */
+const SectionLoadingFallback: React.FC = () => (
+  <div className="space-y-4 animate-pulse" role="status" aria-label="Loading section">
+    <div className="h-8 w-56 bg-slate-200 dark:bg-slate-800 rounded-xl" />
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="h-48 bg-slate-100 dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800" />
+      <div className="h-48 bg-slate-100 dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800" />
+    </div>
+  </div>
+);
+import {
+  CheckCircle2,
+  AlertCircle,
+  Info,
+  Heart,
+  Building2,
+  MapPin,
+  Users,
+  ShieldCheck,
+  Sparkles,
+  LogIn,
+  UserPlus,
+  Compass,
+  Lock,
+  Globe,
+  Award,
+  ArrowUp
+} from 'lucide-react';
+
+const MainContent: React.FC = () => {
+  const {
+    activeTab,
+    setActiveTab,
+    toast,
+    themeMode,
+    currentUser,
+    isMatrimonialOnlyUser,
+    isBusinessOnlyUser,
+    setIsAuthModalOpen,
+    setIsRegModalOpen,
+    isGmailCenterOpen,
+    setIsGmailCenterOpen,
+    gmailModalData,
+    isCentralNotifOpen,
+    setIsCentralNotifOpen,
+    isDashboardCustomizerOpen,
+    setIsDashboardCustomizerOpen,
+    isDailyTithiAlertOpen,
+    setIsDailyTithiAlertOpen,
+    isSitemapOpen,
+    setIsSitemapOpen,
+    isAISearchOpen,
+    isMembershipModalOpen,
+    isUserProfileModalOpen,
+    isDigitalIdModalOpen,
+    isBhajanModalOpen,
+    systemSettings
+  } = useApp();
+
+  const [policyType, setPolicyType] = React.useState<'terms' | 'privacy' | null>(null);
+
+  const tabMeta = getTabMetaData(activeTab);
+
+  const [showBackToTop, setShowBackToTop] = React.useState(false);
+
+  // Auto scroll to top when any tab or navigation option is clicked
+  React.useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [activeTab]);
+
+  // Track page scrolling to show/hide "Back to Top" button
+  React.useEffect(() => {
+    const handleScroll = () => {
+      if (window.scrollY > 250) {
+        setShowBackToTop(true);
+      } else {
+        setShowBackToTop(false);
+      }
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  return (
+    <div className="min-h-screen flex flex-col font-sans transition-colors duration-300 w-full max-w-full overflow-x-hidden bg-[#faf9f6] dark:bg-slate-950 text-stone-900 dark:text-stone-100">
+      <ReadingProgressBar />
+      <Helmet>
+        <title>{tabMeta.title}</title>
+        <meta name="description" content={tabMeta.description} />
+        <link
+          rel="canonical"
+          href={`${window.location.origin}${TAB_TO_PATH[activeTab as AppTab] || '/'}`}
+        />
+        {activeTab === 'admin' && <meta name="robots" content="noindex, nofollow" />}
+      </Helmet>
+
+      {/* Top Header */}
+      <Header />
+
+      {/* Dynamic Breadcrumb Navigation */}
+      <BreadcrumbNav />
+
+      {/* Main Body */}
+      <main className="flex-1 max-w-7xl w-full max-w-full mx-auto px-2.5 sm:px-6 pt-4 sm:pt-6 pb-12 space-y-6 sm:space-y-8 overflow-x-hidden">
+        {isMatrimonialOnlyUser ? (
+          <MatrimonialSection />
+        ) : isBusinessOnlyUser ? (
+          <BusinessSection />
+        ) : (
+          <>
+            {/* TAB 1: HOME VIEW */}
+        {activeTab === 'home' && (
+          <div className="space-y-6 sm:space-y-10">
+            {/* Website Overview Welcome Banner (Positioned on top of the website for visitors) */}
+            {!currentUser && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4 }}
+                className="bg-gradient-to-r from-amber-500/15 via-orange-500/10 to-amber-100/60 dark:from-slate-900 dark:via-amber-950/40 dark:to-slate-900 text-slate-900 dark:text-slate-100 rounded-3xl p-6 sm:p-10 shadow-xl border border-amber-200/80 dark:border-amber-800/40 relative overflow-hidden space-y-4"
+              >
+                <div className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-amber-100/80 dark:bg-amber-950/80 border border-amber-200 dark:border-amber-700/60 rounded-full text-amber-900 dark:text-amber-300 text-xs font-bold uppercase tracking-widest shadow-xs">
+                  <Globe className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                  <span>Welcome to Jain Connect Global</span>
+                </div>
+
+                <h2 className="text-2xl sm:text-4xl font-extrabold font-serif text-slate-900 dark:text-white max-w-3xl leading-tight">
+                  {systemSettings.aboutTitle || 'Welcome to Jain Connect Global'}
+                </h2>
+
+                <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 max-w-2xl leading-relaxed">
+                  {systemSettings.aboutDescription || 'One Unified Platform for Every Jain, Every Business, Every Temple, Every Family Worldwide.'} To protect family privacy and contact numbers, profile listings are reserved for authenticated members.
+                </p>
+
+                <div className="pt-3 flex flex-wrap items-center gap-3">
+                  <button
+                    onClick={() => setIsAuthModalOpen(true)}
+                    className="px-6 py-3 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 text-white font-black text-xs rounded-xl shadow-md hover:shadow-lg transition-all flex items-center gap-2 cursor-pointer"
+                  >
+                    <LogIn className="w-4 h-4 text-amber-200" />
+                    <span>Sign In to Your Account</span>
+                  </button>
+
+                  <button
+                    onClick={() => setIsRegModalOpen(true)}
+                    className="px-6 py-3 bg-white dark:bg-slate-800 hover:bg-amber-50 dark:hover:bg-slate-700 border border-amber-200/80 dark:border-slate-700 text-amber-900 dark:text-amber-300 font-bold text-xs rounded-xl shadow-xs hover:shadow-md transition-all flex items-center gap-2 cursor-pointer"
+                  >
+                    <UserPlus className="w-4 h-4 text-amber-700 dark:text-amber-400" />
+                    <span>Register New Listing</span>
+                  </button>
+                </div>
+              </motion.div>
+            )}
+
+            {/* Small Elegant Jain Tithi & Gregorian Date Banner */}
+            <HomeDateBanner />
+
+            {/* Hero Banner Carousel */}
+            <HeroBanner />
+
+            {/* GUEST VISITORS HOME VIEW (LOGGED OUT) */}
+            {!currentUser ? (
+              <div className="space-y-12">
+                {/* Daily Jain Panchang & Tithi Summary with Agam & Promotions */}
+                <ScrollReveal>
+                  <PanchangWidget />
+                </ScrollReveal>
+
+                {/* Global Sangh Hub & Quick Directory Explorer */}
+                <ScrollReveal>
+                  <GlobalSanghHighlights />
+                </ScrollReveal>
+
+                {/* Daily Jain Wisdom Scriptures & Quotes Carousel */}
+                <ScrollReveal>
+                  <DailyJainWisdom />
+                </ScrollReveal>
+                
+                {/* Portal Category Overview Cards (Logged Out) */}
+                <div className="space-y-6">
+                  <motion.div
+                    initial={{ opacity: 0, y: 15 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ duration: 0.4 }}
+                    className="text-center space-y-2 max-w-2xl mx-auto"
+                  >
+                    <span className="text-xs font-bold uppercase text-amber-600 dark:text-amber-400 tracking-wider">
+                      Explore Our Directory Portals
+                    </span>
+                    <h3 className="text-2xl font-extrabold font-serif text-slate-900 dark:text-white">
+                      Four Core Pillars of Jain Connect Global
+                    </h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      Sign in or register to unlock direct contact numbers, candidate biodatas, and interactive searches.
+                    </p>
+                  </motion.div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    
+                    {/* Portal 1: Matrimonial */}
+                    <motion.div
+                      initial={{ opacity: 0, y: 25 }}
+                      whileInView={{ opacity: 1, y: 0 }}
+                      viewport={{ once: true, margin: '-40px' }}
+                      transition={{ duration: 0.5, delay: 0.1 }}
+                      className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-lg space-y-4 hover:border-red-500/50 hover:scale-[1.02] hover:-translate-y-1 hover:shadow-2xl transition-all duration-300 group"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="p-3 bg-red-500/10 rounded-2xl border border-red-500/20 text-red-500 group-hover:scale-110 transition-transform duration-300">
+                          <Heart className="w-7 h-7 fill-red-500" />
+                        </div>
+                        <span className="text-[10px] font-bold px-2.5 py-1 bg-red-100 dark:bg-red-950/80 text-red-700 dark:text-red-300 rounded-full flex items-center gap-1">
+                          <Lock className="w-3 h-3" />
+                          <span>Protected Member Portal</span>
+                        </span>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <h4 className="text-lg font-bold font-serif text-slate-900 dark:text-white group-hover:text-red-500 transition-colors">
+                          {systemSettings.matrimonialHeading || '1. Jain Matrimonial Bureau'}
+                        </h4>
+                        <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                          Discover over 5,000+ verified Jain Grooms and Brides. Filter profiles by Jain Sect (Swetambar, Digambar, Terapanthi), Gotra, Qualification, Profession, and Strict Jain Diet preference.
+                        </p>
+                      </div>
+
+                      <button
+                        onClick={() => setIsAuthModalOpen(true)}
+                        className="w-full py-2.5 bg-red-50 dark:bg-red-950/40 hover:bg-red-100 dark:hover:bg-red-900/50 text-red-700 dark:text-red-300 font-bold text-xs rounded-xl border border-red-200 dark:border-red-900/50 transition-all flex items-center justify-center gap-1.5 min-h-[44px]"
+                      >
+                        <LogIn className="w-3.5 h-3.5" />
+                        <span>Sign In to Search Matrimonial Profiles</span>
+                      </button>
+                    </motion.div>
+
+                    {/* Portal 2: Business Directory */}
+                    <motion.div
+                      initial={{ opacity: 0, y: 25 }}
+                      whileInView={{ opacity: 1, y: 0 }}
+                      viewport={{ once: true, margin: '-40px' }}
+                      transition={{ duration: 0.5, delay: 0.2 }}
+                      className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-lg space-y-4 hover:border-amber-500/50 hover:scale-[1.02] hover:-translate-y-1 hover:shadow-2xl transition-all duration-300 group"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="p-3 bg-amber-500/10 rounded-2xl border border-amber-500/20 text-amber-500 group-hover:scale-110 transition-transform duration-300">
+                          <Building2 className="w-7 h-7" />
+                        </div>
+                        <span className="text-[10px] font-bold px-2.5 py-1 bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-300 rounded-full flex items-center gap-1">
+                          <Lock className="w-3 h-3" />
+                          <span>Protected Member Portal</span>
+                        </span>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <h4 className="text-lg font-bold font-serif text-slate-900 dark:text-white group-hover:text-amber-500 transition-colors">
+                          {systemSettings.businessHeading || '2. Jain Business & Commercial Directory'}
+                        </h4>
+                        <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                          Promote and connect with verified Jain-owned businesses worldwide. Featuring Jewellers, CAs, IT firms, Real Estate developers, Manufacturers, and Legal Advisors with GST verification.
+                        </p>
+                      </div>
+
+                      <button
+                        onClick={() => setIsAuthModalOpen(true)}
+                        className="w-full py-2.5 bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-900/50 text-amber-800 dark:text-amber-300 font-bold text-xs rounded-xl border border-amber-200 dark:border-amber-900/50 transition-all flex items-center justify-center gap-1.5 min-h-[44px]"
+                      >
+                        <LogIn className="w-3.5 h-3.5" />
+                        <span>Sign In to Access Business Directory</span>
+                      </button>
+                    </motion.div>
+
+                    {/* Portal 3: Temple Directory */}
+                    <motion.div
+                      initial={{ opacity: 0, y: 25 }}
+                      whileInView={{ opacity: 1, y: 0 }}
+                      viewport={{ once: true, margin: '-40px' }}
+                      transition={{ duration: 0.5, delay: 0.3 }}
+                      className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-lg space-y-4 hover:border-emerald-500/50 hover:scale-[1.02] hover:-translate-y-1 hover:shadow-2xl transition-all duration-300 group"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="p-3 bg-emerald-500/10 rounded-2xl border border-emerald-500/20 text-emerald-500 group-hover:scale-110 transition-transform duration-300">
+                          <MapPin className="w-7 h-7" />
+                        </div>
+                        <span className="text-[10px] font-bold px-2.5 py-1 bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 rounded-full flex items-center gap-1">
+                          <Lock className="w-3 h-3" />
+                          <span>Protected Member Portal</span>
+                        </span>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <h4 className="text-lg font-bold font-serif text-slate-900 dark:text-white group-hover:text-emerald-500 transition-colors">
+                          3. Holy Jain Temple & Tirth Directory
+                        </h4>
+                        <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                          Explore sacred Derasars globally with location coordinates, daily Aarti timings, Pakshal details, Dharamshala room availability, Bhojanashala facilities, and Live Darshan video feeds.
+                        </p>
+                      </div>
+
+                      <button
+                        onClick={() => setIsAuthModalOpen(true)}
+                        className="w-full py-2.5 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 text-emerald-800 dark:text-emerald-300 font-bold text-xs rounded-xl border border-emerald-200 dark:border-emerald-900/50 transition-all flex items-center justify-center gap-1.5 min-h-[44px]"
+                      >
+                        <LogIn className="w-3.5 h-3.5" />
+                        <span>Sign In to Browse Holy Temples</span>
+                      </button>
+                    </motion.div>
+
+                    {/* Portal 4: Jain Directory Census */}
+                    <motion.div
+                      initial={{ opacity: 0, y: 25 }}
+                      whileInView={{ opacity: 1, y: 0 }}
+                      viewport={{ once: true, margin: '-40px' }}
+                      transition={{ duration: 0.5, delay: 0.4 }}
+                      className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-lg space-y-4 hover:border-blue-500/50 hover:scale-[1.02] hover:-translate-y-1 hover:shadow-2xl transition-all duration-300 group"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="p-3 bg-blue-500/10 rounded-2xl border border-blue-500/20 text-blue-500 group-hover:scale-110 transition-transform duration-300">
+                          <Users className="w-7 h-7" />
+                        </div>
+                        <span className="text-[10px] font-bold px-2.5 py-1 bg-blue-100 dark:bg-blue-950/80 text-blue-700 dark:text-blue-300 rounded-full flex items-center gap-1">
+                          <Lock className="w-3 h-3" />
+                          <span>Protected Member Portal</span>
+                        </span>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <h4 className="text-lg font-bold font-serif text-slate-900 dark:text-white group-hover:text-blue-500 transition-colors">
+                          4. Jain Family & Community Directory
+                        </h4>
+                        <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                          Global digital census recording complete Jain family trees, blood group registries for emergency blood donation, QR digital community ID cards, and city-wise Jain mandals.
+                        </p>
+                      </div>
+
+                      <button
+                        onClick={() => setIsAuthModalOpen(true)}
+                        className="w-full py-2.5 bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-blue-800 dark:text-blue-300 font-bold text-xs rounded-xl border border-blue-200 dark:border-blue-900/50 transition-all flex items-center justify-center gap-1.5 min-h-[44px]"
+                      >
+                        <LogIn className="w-3.5 h-3.5" />
+                        <span>Sign In to Access Jain Directory</span>
+                      </button>
+                    </motion.div>
+                  </div>
+                </div>
+
+                {/* Member Success Stories Slider */}
+                <ScrollReveal>
+                  <MemberSuccessStoriesSlider />
+                </ScrollReveal>
+
+                {/* Core Jain Principles & Platform Security */}
+                <JainPrinciplesSection />
+
+                {/* Bottom Call to Action - Modern Gold Gradient Canvas */}
+                <div className="relative overflow-hidden bg-gradient-to-r from-amber-500 via-amber-600 to-amber-700 text-amber-950 rounded-3xl p-8 sm:p-10 shadow-2xl text-center space-y-5 border border-amber-300/40">
+                  {/* Subtle Background Pattern Accent */}
+                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-amber-300/20 via-transparent to-transparent pointer-events-none" />
+
+                  <div className="relative z-10 max-w-2xl mx-auto space-y-2">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-950/15 border border-amber-950/20 rounded-full text-[11px] font-extrabold uppercase tracking-widest text-amber-950">
+                      <Sparkles className="w-3.5 h-3.5 text-amber-950" />
+                      <span>Empowering Global Jain Unity</span>
+                    </span>
+                    <h3 className="text-2xl sm:text-4xl font-black font-serif tracking-tight text-amber-950">
+                      Join Over 10,000,000+ Jains Worldwide Today
+                    </h3>
+                    <p className="text-xs sm:text-sm font-semibold text-amber-950/85 leading-relaxed">
+                      Register your family details, matrimonial candidate profile, business listing, or temple trust for instant verification and global digital connectivity.
+                    </p>
+                  </div>
+
+                  <div className="relative z-10 flex flex-wrap items-center justify-center gap-3.5 pt-2">
+                    <button
+                      onClick={() => setIsAuthModalOpen(true)}
+                      className="px-6 py-3.5 bg-amber-950 hover:bg-black text-amber-100 font-extrabold text-xs rounded-2xl shadow-2xl hover:shadow-black/30 transition-all duration-300 flex items-center gap-2 cursor-pointer hover:-translate-y-0.5 active:translate-y-0"
+                    >
+                      <LogIn className="w-4 h-4 text-amber-400" />
+                      <span>Existing Member Sign In</span>
+                    </button>
+                    <button
+                      onClick={() => setIsRegModalOpen(true)}
+                      className="px-6 py-3.5 bg-white hover:bg-amber-50 text-amber-950 font-extrabold text-xs rounded-2xl shadow-2xl transition-all duration-300 flex items-center gap-2 cursor-pointer hover:-translate-y-0.5 active:translate-y-0"
+                    >
+                      <UserPlus className="w-4 h-4 text-amber-600" />
+                      <span>Free Family Profile Registration</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              /* AUTHENTICATED LOGGED-IN CUSTOMIZABLE DASHBOARD */
+              <Suspense fallback={<SectionLoadingFallback />}>
+              <CustomizableHomeDashboard />
+            </Suspense>
+            )}
+          </div>
+        )}
+
+        {/* PROTECTED TABS: REQUIRE LOGIN WHEN UNAUTHENTICATED */}
+
+        {/* Tab 2: Matrimonial (Restricted to logged-in users) */}
+        {activeTab === 'matrimonial' && (
+          <ScrollReveal>
+            {currentUser ? (
+              <Suspense fallback={<SectionLoadingFallback />}>
+                <MatrimonialSection />
+              </Suspense>
+            ) : (
+              <MatrimonialPreview />
+            )}
+          </ScrollReveal>
+        )}
+
+        {/* Tab 3: Business Directory (Public Access) */}
+        {activeTab === 'business' && (
+          <ScrollReveal>
+            <Suspense fallback={<SectionLoadingFallback />}>
+              <BusinessSection />
+            </Suspense>
+          </ScrollReveal>
+        )}
+
+        {/* Tab 4: Jain Directory (Public Access) */}
+        {activeTab === 'directory' && (
+          <ScrollReveal>
+            <Suspense fallback={<SectionLoadingFallback />}>
+              <DirectorySection />
+            </Suspense>
+          </ScrollReveal>
+        )}
+
+        {/* Tab 5: Temple Directory (Public Access) */}
+        {activeTab === 'temple' && (
+          <ScrollReveal>
+            <Suspense fallback={<SectionLoadingFallback />}>
+              <TempleSection />
+            </Suspense>
+          </ScrollReveal>
+        )}
+
+        {/* Tab 6: Panchang & Quotes (Public Access) */}
+        {activeTab === 'panchang' && (
+          <ScrollReveal>
+            <PanchangWidget />
+          </ScrollReveal>
+        )}
+
+        {/* Tab 7: Community Feed (Public Access) */}
+        {activeTab === 'feed' && (
+          <ScrollReveal>
+            <Suspense fallback={<SectionLoadingFallback />}>
+              <CommunityFeed />
+            </Suspense>
+          </ScrollReveal>
+        )}
+
+        {/* Tab 8: Emergency Services (Public Access) */}
+        {activeTab === 'emergency' && (
+          <ScrollReveal>
+            <Suspense fallback={<SectionLoadingFallback />}>
+              <EmergencyDirectory />
+            </Suspense>
+          </ScrollReveal>
+        )}
+
+        {/* Tab 10: Ask a Pandit AI Chatbot (Public Access) */}
+        {activeTab === 'pandit' && (
+          <ScrollReveal>
+            <Suspense fallback={<SectionLoadingFallback />}>
+              <AskPanditChatbot />
+            </Suspense>
+          </ScrollReveal>
+        )}
+
+        {/* Tab 9: Admin Control Panel */}
+        {activeTab === 'admin' && (
+          <ScrollReveal>
+            {currentUser ? (
+              <Suspense fallback={<SectionLoadingFallback />}>
+                <AdminPanel />
+              </Suspense>
+            ) : (
+              <LoginRequiredView
+                title="Super Admin Control Panel Restricted"
+                description="Sign in with Super Admin clearance to access approval management."
+                sectionIcon="admin"
+              />
+            )}
+          </ScrollReveal>
+        )}
+          </>
+        )}
+      </main>
+
+      {/* Global Modals */}
+      <AuthModal />
+      <RegisterModal />
+      <Suspense fallback={null}>
+        {isAISearchOpen && <AISearchModal />}
+        {isMembershipModalOpen && <MembershipModal />}
+        {isUserProfileModalOpen && <UserProfileModal />}
+        {isDigitalIdModalOpen && <MemberDigitalIdModal />}
+        {isBhajanModalOpen && <BhajanLibraryModal />}
+        {isGmailCenterOpen && (
+          <GmailCenterModal
+            isOpen={isGmailCenterOpen}
+            onClose={() => setIsGmailCenterOpen(false)}
+            defaultRecipient={gmailModalData.recipient}
+            defaultSubject={gmailModalData.subject}
+            defaultBody={gmailModalData.body}
+          />
+        )}
+        {isCentralNotifOpen && (
+          <CentralNotificationCenterModal
+            isOpen={isCentralNotifOpen}
+            onClose={() => setIsCentralNotifOpen(false)}
+          />
+        )}
+        {isDashboardCustomizerOpen && (
+          <DashboardCustomizerModal
+            isOpen={isDashboardCustomizerOpen}
+            onClose={() => setIsDashboardCustomizerOpen(false)}
+          />
+        )}
+        {isSitemapOpen && (
+          <SitemapModal
+            isOpen={isSitemapOpen}
+            onClose={() => setIsSitemapOpen(false)}
+            onOpenPolicy={(type) => setPolicyType(type)}
+          />
+        )}
+        {policyType && (
+          <PolicyModal
+            isOpen={Boolean(policyType)}
+            type={policyType}
+            onClose={() => setPolicyType(null)}
+          />
+        )}
+      </Suspense>
+      <DailyTithiNotificationToast
+        forceOpen={isDailyTithiAlertOpen}
+        onClose={() => setIsDailyTithiAlertOpen(false)}
+      />
+      <PrayerReminderEngine />
+      <AudioPlayer />
+
+      {/* Toast Notification Banner */}
+      {toast && (
+        <div className="fixed bottom-5 right-5 z-[100] animate-bounce">
+          <div
+            className={`flex items-start gap-3 p-4 rounded-xl shadow-2xl border text-xs font-medium max-w-sm ${
+              toast.type === 'success'
+                ? 'bg-slate-900 text-white border-emerald-500'
+                : toast.type === 'error'
+                ? 'bg-slate-900 text-white border-red-500'
+                : 'bg-slate-900 text-white border-amber-500'
+            }`}
+          >
+            {toast.type === 'success' ? (
+              <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+            ) : toast.type === 'error' ? (
+              <AlertCircle className="w-5 h-5 text-red-400 shrink-0" />
+            ) : (
+              <Info className="w-5 h-5 text-amber-400 shrink-0" />
+            )}
+            <div>
+              <p className="font-bold text-sm text-white">{toast.title}</p>
+              <p className="text-slate-300 text-[11px] mt-0.5">{toast.desc}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Unique Compact Floating Back to Top Button */}
+      {showBackToTop && (
+        <button
+          onClick={scrollToTop}
+          className="fixed bottom-5 right-4 sm:bottom-6 sm:right-6 z-50 w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-slate-950/85 hover:bg-amber-500 text-amber-400 hover:text-slate-950 border border-amber-500/50 hover:border-amber-300 shadow-xl shadow-amber-950/50 backdrop-blur-md flex items-center justify-center transition-all duration-300 group hover:scale-110 active:scale-90"
+          title="Back to Top"
+          aria-label="Back to top"
+        >
+          {/* Subtle glowing ring aura */}
+          <span className="absolute inset-0 rounded-full bg-amber-500/20 group-hover:bg-amber-400/30 blur-sm transition-all -z-10" />
+          <ArrowUp className="w-5 h-5 group-hover:-translate-y-1 transition-transform stroke-[2.5]" />
+        </button>
+      )}
+
+      {/* Footer */}
+      <Footer />
+    </div>
+  );
+};
+
+export function App() {
+  return (
+    <HelmetProvider>
+      <AppProvider>
+        <MainContent />
+      </AppProvider>
+    </HelmetProvider>
+  );
+}
+
+export default App;
