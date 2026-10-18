@@ -806,10 +806,19 @@ Note: If the inquiry is strictly philosophical or not asking for a ritual proced
 
 
 async function startServer() {
-  const isProduction =
-    process.env.NODE_ENV === "production" ||
-    Boolean(process.env.K_SERVICE) ||
-    (process.env.npm_lifecycle_event !== "dev" && fs.existsSync(path.join(process.cwd(), "dist", "index.html")));
+  const distPath = path.join(process.cwd(), "dist");
+  const distIndexHtml = path.join(distPath, "index.html");
+  const distExists = fs.existsSync(distIndexHtml);
+
+  // In development (e.g. npm run dev / tsx server.ts), use Vite middleware so client assets
+  // are compiled and served dynamically. In production (Cloud Run live deployment after npm run build),
+  // serve the pre-built static assets from dist.
+  const isDev =
+    process.env.npm_lifecycle_event === "dev" ||
+    process.env.NODE_ENV === "development" ||
+    (!distExists && process.env.NODE_ENV !== "production");
+
+  const isProduction = !isDev && distExists;
 
   if (!isProduction) {
     const { createServer: createViteServer } = await import("vite");
@@ -819,10 +828,13 @@ async function startServer() {
     });
     app.use(vite.middlewares);
   } else {
-    const distPath = path.join(process.cwd(), "dist");
     app.use(express.static(distPath));
     app.get("*", (_req, res) => {
-      res.sendFile(path.join(distPath, "index.html"));
+      if (fs.existsSync(distIndexHtml)) {
+        res.sendFile(distIndexHtml);
+      } else {
+        res.status(503).send("Application bundle is still building. Please refresh in a moment.");
+      }
     });
   }
 
