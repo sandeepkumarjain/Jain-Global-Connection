@@ -106,6 +106,16 @@ const TABLE_COLUMNS: Record<string, string[]> = {
     'id', 'profileId', 'brideName', 'groomName', 'marriageDate', 'matchSource',
     'feedback', 'rating', 'couplePhotoUrl', 'city', 'submittedBy', 'createdAt', 'isApproved', 'extraData'
   ],
+  sanghas: [
+    'id', 'applicationId', 'ownerUserId', 'name', 'hindiName', 'category', 'tradition',
+    'city', 'state', 'country', 'pincode', 'address', 'lat', 'lng', 'contactPerson', 'contactRole',
+    'phone', 'mobile', 'email', 'whatsapp', 'website', 'memberHouseholdsCount', 'establishedYear',
+    'activities', 'facilities', 'isVerified', 'status', 'description', 'operatingHours', 'createdAt', 'extraData'
+  ],
+  notifications: [
+    'id', 'userId', 'title', 'message', 'type', 'createdAt', 'isRead', 'senderId',
+    'senderName', 'senderPhoto', 'actionTab', 'actionEntityId', 'connectionStatus', 'extraData'
+  ],
 };
 
 // Runtime cache of columns known to be missing from remote PostgREST schema

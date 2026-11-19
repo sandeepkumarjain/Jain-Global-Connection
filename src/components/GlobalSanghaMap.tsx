@@ -6,6 +6,7 @@ import 'leaflet.markercluster/dist/MarkerCluster.css';
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 import { useApp } from '../context/AppContext';
 import { JainSanghaMandal, SanghaCategory, SanghaTradition } from '../types';
+import { PasswordInput } from './PasswordInput';
 import {
   MapPin,
   Search,
@@ -34,15 +35,23 @@ import {
   ChevronRight,
   Maximize2,
   Minimize2,
-  AlertCircle
+  AlertCircle,
+  LogIn,
+  LogOut,
+  Edit3,
+  Database,
+  Lock
 } from 'lucide-react';
 
-// Tile Layer Configurations
-const SANGHA_TILE_LAYERS = {
+// Tile Layer Configurations (100% keyless & CORS-enabled)
+const SANGHA_TILE_LAYERS: Record<
+  'cartoLight' | 'standardOsm' | 'cartoDark',
+  { name: string; url: string; overlayUrl?: string; attribution: string }
+> = {
   cartoLight: {
     name: 'Crisp Light',
-    url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-    attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}',
+    attribution: 'Tiles &copy; Esri &mdash; OpenStreetMap & GIS Community',
   },
   standardOsm: {
     name: 'OpenStreetMap',
@@ -51,8 +60,9 @@ const SANGHA_TILE_LAYERS = {
   },
   cartoDark: {
     name: 'Night Luxury',
-    url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-    attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+    overlayUrl: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}',
+    attribution: 'Tiles &copy; Esri &mdash; Dark Gray Canvas',
   },
 };
 
@@ -158,11 +168,17 @@ function createSanghaMarkerIcon(mandal: JainSanghaMandal, isSelected: boolean) {
 export const GlobalSanghaMap: React.FC = () => {
   const {
     sanghas,
+    linkedMandal,
+    linkSessionToMandal,
     selectedSanghaCity,
     setSelectedSanghaCity,
     selectedSanghaMandal,
     setSelectedSanghaMandal,
     addSanghaMandal,
+    updateSanghaMandal,
+    openRegistrationModal,
+    loginWithBackend,
+    logout,
     showToast,
     currentUser,
     setIsAuthModalOpen
@@ -170,6 +186,8 @@ export const GlobalSanghaMap: React.FC = () => {
 
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
+  const tileLayerRef = useRef<L.TileLayer | null>(null);
+  const overlayLayerRef = useRef<L.TileLayer | null>(null);
   const clusterGroupRef = useRef<L.MarkerClusterGroup | null>(null);
   const markersMapRef = useRef<Map<string, L.Marker>>(new Map());
 
@@ -182,8 +200,27 @@ export const GlobalSanghaMap: React.FC = () => {
   const [locationStatus, setLocationStatus] = useState<string>('');
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
+  const [editingMandalId, setEditingMandalId] = useState<string | null>(null);
+  const [isMandalLoginOpen, setIsMandalLoginOpen] = useState(false);
+  const [mandalLoginId, setMandalLoginId] = useState('');
+  const [mandalLoginPass, setMandalLoginPass] = useState('');
+  const [mandalLoginError, setMandalLoginError] = useState('');
+  const [isLoggingInMandal, setIsLoggingInMandal] = useState(false);
+  const [showMyMandalPortal, setShowMyMandalPortal] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [viewMode, setViewMode] = useState<'split' | 'map_only' | 'list_only'>('split');
+
+  const ownedMandals = useMemo(() => {
+    if (!currentUser) return [];
+    return sanghas.filter(
+      (s) =>
+        s.ownerUserId === currentUser.id ||
+        (currentUser.managedMandalId && s.id === currentUser.managedMandalId) ||
+        (currentUser.email &&
+          (s.adminEmail || s.email || '').toLowerCase() === currentUser.email.toLowerCase()) ||
+        (currentUser.applicationId && s.applicationId === currentUser.applicationId)
+    );
+  }, [sanghas, currentUser]);
 
   // Form State for registering new mandal
   const [regForm, setRegForm] = useState<Partial<JainSanghaMandal>>({
@@ -350,16 +387,33 @@ export const GlobalSanghaMap: React.FC = () => {
     const map = L.map(mapContainerRef.current, {
       center: initialCenter,
       zoom: 5,
+      minZoom: 2,
+      maxZoom: 19,
+      worldCopyJump: true,
+      maxBounds: [
+        [-85, -Infinity],
+        [85, Infinity],
+      ],
+      maxBoundsViscosity: 0.85,
       zoomControl: false,
       attributionControl: false,
     });
 
-    // Add Tile Layer
+    // Add initial Tile Layer
     const currentLayer = SANGHA_TILE_LAYERS[selectedTileLayer];
-    L.tileLayer(currentLayer.url, {
+    const baseTile = L.tileLayer(currentLayer.url, {
       maxZoom: 19,
       attribution: currentLayer.attribution,
     }).addTo(map);
+    tileLayerRef.current = baseTile;
+
+    if (currentLayer.overlayUrl) {
+      const overlayTile = L.tileLayer(currentLayer.overlayUrl, {
+        maxZoom: 19,
+        pane: 'overlayPane',
+      }).addTo(map);
+      overlayLayerRef.current = overlayTile;
+    }
 
     // Marker Cluster Group
     const clusterGroup = L.markerClusterGroup({
@@ -399,6 +453,10 @@ export const GlobalSanghaMap: React.FC = () => {
     clusterGroupRef.current = clusterGroup;
     mapInstanceRef.current = map;
 
+    const initialSizeTimer = setTimeout(() => {
+      map.invalidateSize();
+    }, 200);
+
     // Resize observer to prevent map rendering bugs when switching tabs
     const resizeObserver = new ResizeObserver(() => {
       map.invalidateSize();
@@ -406,14 +464,55 @@ export const GlobalSanghaMap: React.FC = () => {
     resizeObserver.observe(mapContainerRef.current);
 
     return () => {
+      clearTimeout(initialSizeTimer);
       resizeObserver.disconnect();
       if (clusterGroupRef.current) {
         clusterGroupRef.current.clearLayers();
       }
       map.remove();
       mapInstanceRef.current = null;
+      tileLayerRef.current = null;
+      overlayLayerRef.current = null;
     };
   }, []);
+
+  // Switch tile layers live when user clicks Crisp Light / OpenStreetMap / Night Luxury
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+
+    if (tileLayerRef.current) {
+      map.removeLayer(tileLayerRef.current);
+      tileLayerRef.current = null;
+    }
+    if (overlayLayerRef.current) {
+      map.removeLayer(overlayLayerRef.current);
+      overlayLayerRef.current = null;
+    }
+
+    const layerConfig = SANGHA_TILE_LAYERS[selectedTileLayer];
+    const nextTile = L.tileLayer(layerConfig.url, {
+      maxZoom: 19,
+      attribution: layerConfig.attribution,
+    }).addTo(map);
+    tileLayerRef.current = nextTile;
+
+    if (layerConfig.overlayUrl) {
+      const nextOverlay = L.tileLayer(layerConfig.overlayUrl, {
+        maxZoom: 19,
+        pane: 'overlayPane',
+      }).addTo(map);
+      overlayLayerRef.current = nextOverlay;
+    }
+  }, [selectedTileLayer]);
+
+  // Ensure Leaflet recalculates dimensions on fullscreen/viewMode toggles
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      mapInstanceRef.current?.invalidateSize();
+    }, 150);
+    return () => clearTimeout(timer);
+  }, [isFullscreen, viewMode]);
 
   // Update Markers when filteredMandals or selection changes
   useEffect(() => {
@@ -506,11 +605,101 @@ export const GlobalSanghaMap: React.FC = () => {
     }
   }, [filteredMandals, selectedSanghaMandal, selectedSanghaCity, setSelectedSanghaMandal]);
 
-  // Handle new Mandal Registration Submission
+  const handleOpenEditMandal = (mandal: JainSanghaMandal) => {
+    setEditingMandalId(mandal.id);
+    setRegForm({
+      name: mandal.name,
+      hindiName: mandal.hindiName || '',
+      category: mandal.category,
+      tradition: mandal.tradition,
+      city: mandal.city,
+      state: mandal.state,
+      country: mandal.country,
+      address: mandal.address,
+      lat: mandal.lat,
+      lng: mandal.lng,
+      contactPerson: mandal.contactPerson,
+      contactRole: mandal.contactRole,
+      phone: mandal.phone,
+      mobile: mandal.mobile,
+      email: mandal.email || '',
+      whatsapp: mandal.whatsapp || '',
+      website: mandal.website || '',
+      memberHouseholdsCount: mandal.memberHouseholdsCount,
+      establishedYear: mandal.establishedYear || 2000,
+      activities: mandal.activities || [],
+      facilities: mandal.facilities || [],
+      description: mandal.description || '',
+    });
+    setIsRegisterModalOpen(true);
+  };
+
+  const handleMandalLoginSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setMandalLoginError('');
+    if (!mandalLoginId.trim() || !mandalLoginPass) {
+      setMandalLoginError('Please enter your Mandal Email, Mobile, or Application ID and Password.');
+      return;
+    }
+    setIsLoggingInMandal(true);
+    try {
+      const trimmedId = mandalLoginId.trim();
+      const res = await loginWithBackend(trimmedId, mandalLoginPass, {
+        portal: trimmedId.includes('@') ? 'mandal_admin' : 'member',
+      });
+      if (res.success) {
+        setIsMandalLoginOpen(false);
+        setShowMyMandalPortal(true);
+        setMandalLoginId('');
+        setMandalLoginPass('');
+        if (res.linkedMandal) {
+          setSelectedSanghaMandal(res.linkedMandal);
+        } else if (res.mandals && res.mandals.length > 0) {
+          setSelectedSanghaMandal(res.mandals[0]);
+        }
+      } else {
+        setMandalLoginError(res.error || 'Invalid Mandal login credentials.');
+      }
+    } finally {
+      setIsLoggingInMandal(false);
+    }
+  };
+
+  // Handle new/edit Mandal Registration Submission
   const handleRegisterSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!regForm.name || !regForm.city || !regForm.address || !regForm.contactPerson || !regForm.mobile) {
       showToast('Incomplete Form', 'Please complete all mandatory mandal details.', 'error');
+      return;
+    }
+
+    if (editingMandalId) {
+      updateSanghaMandal(editingMandalId, {
+        name: regForm.name.trim(),
+        hindiName: regForm.hindiName?.trim(),
+        category: (regForm.category as SanghaCategory) || 'Sangha',
+        tradition: (regForm.tradition as SanghaTradition) || 'All Traditions',
+        city: regForm.city.trim(),
+        state: regForm.state?.trim() || 'Maharashtra',
+        country: regForm.country?.trim() || 'India',
+        address: regForm.address.trim(),
+        lat: Number(regForm.lat) || 19.0760,
+        lng: Number(regForm.lng) || 72.8777,
+        contactPerson: regForm.contactPerson.trim(),
+        contactRole: regForm.contactRole?.trim() || 'President',
+        phone: regForm.phone?.trim() || regForm.mobile.trim(),
+        mobile: regForm.mobile.trim(),
+        email: regForm.email?.trim(),
+        whatsapp: regForm.whatsapp?.trim() || regForm.mobile.trim(),
+        website: regForm.website?.trim(),
+        memberHouseholdsCount: Number(regForm.memberHouseholdsCount) || 250,
+        establishedYear: Number(regForm.establishedYear) || new Date().getFullYear(),
+        activities: regForm.activities || ['Pathshala', 'Paryushan Mahaparva'],
+        facilities: regForm.facilities || ['Community Hall'],
+        description: regForm.description?.trim() || 'Local Jain Mandal dedicated to spiritual seva and community harmony.',
+      });
+      setIsRegisterModalOpen(false);
+      setEditingMandalId(null);
       return;
     }
 
@@ -580,23 +769,40 @@ export const GlobalSanghaMap: React.FC = () => {
             <button
               onClick={handleDetectUserLocation}
               disabled={isLocating}
-              className="px-4 py-2.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border border-amber-500/40 text-xs font-extrabold flex items-center gap-2 transition-all cursor-pointer"
+              className="px-4 py-2.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border border-amber-500/40 text-xs font-extrabold flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap"
               title="Detect proximity to nearest Jain Mandals"
             >
               <Navigation className={`w-3.5 h-3.5 ${isLocating ? 'animate-spin' : 'text-amber-400'}`} />
               <span>{isLocating ? 'Detecting...' : 'Near Me'}</span>
             </button>
 
+            {currentUser ? (
+              <button
+                type="button"
+                onClick={() => setShowMyMandalPortal((prev) => !prev)}
+                className="px-4 py-2.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-200 border border-emerald-400/50 text-xs font-extrabold flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap"
+              >
+                <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                <span>My Mandal Portal ({ownedMandals.length})</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  setMandalLoginError('');
+                  setIsMandalLoginOpen(true);
+                }}
+                className="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white border border-white/25 text-xs font-extrabold flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap"
+              >
+                <LogIn className="w-4 h-4 text-amber-300" />
+                <span>Mandal Login</span>
+              </button>
+            )}
+
             <button
-              onClick={() => {
-                if (!currentUser) {
-                  setIsAuthModalOpen(true);
-                  showToast('Login Required', 'Please log in to register your local Jain Mandal or Sangha.', 'info');
-                  return;
-                }
-                setIsRegisterModalOpen(true);
-              }}
-              className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 text-xs font-extrabold flex items-center gap-2 shadow-lg transition-all cursor-pointer"
+              type="button"
+              onClick={() => openRegistrationModal('mandal')}
+              className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 text-xs font-extrabold flex items-center gap-2 shadow-lg transition-all cursor-pointer whitespace-nowrap"
             >
               <Plus className="w-4 h-4" />
               <span>Register Local Mandal</span>
@@ -611,6 +817,137 @@ export const GlobalSanghaMap: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Mandal Office Bearer Portal Banner (shown when signed in as Mandal or owning Mandals) */}
+      {currentUser && showMyMandalPortal && (currentUser.registrationType === 'Mandal' || ownedMandals.length > 0) && (
+        <div className="bg-gradient-to-r from-emerald-50 via-white to-amber-50 dark:from-emerald-950/30 dark:via-slate-900 dark:to-amber-950/20 border-2 border-emerald-400/70 dark:border-emerald-700/70 rounded-2xl p-4 sm:p-5 shadow-sm space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="space-y-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-600 text-white text-[10px] font-black uppercase tracking-wider">
+                  <Database className="w-3 h-3" />
+                  Mandal Admin Connected • Database Linked
+                </span>
+                {linkedMandal && (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-900 dark:text-amber-300 border border-amber-400/50 text-[10px] font-extrabold">
+                    Active Profile: {linkedMandal.name}
+                  </span>
+                )}
+                {currentUser.applicationId && (
+                  <span className="text-[11px] font-mono font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded">
+                    ID: {currentUser.applicationId}
+                  </span>
+                )}
+              </div>
+              <h3 className="text-base sm:text-lg font-extrabold text-slate-900 dark:text-white">
+                Jai Jinendra, {currentUser.fullName}! Manage Your Local Mandal
+              </h3>
+              <p className="text-xs text-slate-600 dark:text-slate-400">
+                Logged in as <strong>{currentUser.email || currentUser.mobile}</strong>. Changes made here persist directly to the database.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => openRegistrationModal('mandal')}
+                className="px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-extrabold flex items-center gap-1.5 shadow-sm transition cursor-pointer whitespace-nowrap"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Add Mandal</span>
+              </button>
+              <button
+                type="button"
+                onClick={logout}
+                className="px-3.5 py-2 rounded-xl bg-slate-200 dark:bg-slate-800 hover:bg-red-100 dark:hover:bg-red-950/60 text-slate-700 dark:text-slate-200 hover:text-red-600 text-xs font-bold flex items-center gap-1.5 transition cursor-pointer whitespace-nowrap"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>Sign Out</span>
+              </button>
+            </div>
+          </div>
+
+          {ownedMandals.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+              {ownedMandals.map((m) => {
+                const isActiveLinked = linkedMandal?.id === m.id;
+                return (
+                  <div
+                    key={m.id}
+                    className={`bg-white dark:bg-slate-900/90 rounded-xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs border ${
+                      isActiveLinked
+                        ? 'border-emerald-500 dark:border-emerald-500 ring-1 ring-emerald-500/30'
+                        : 'border-slate-200 dark:border-slate-700'
+                    }`}
+                  >
+                    <div className="min-w-0 space-y-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-extrabold text-sm text-slate-900 dark:text-white truncate">
+                          {m.name}
+                        </span>
+                        {isActiveLinked && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 text-[10px] font-black shrink-0">
+                            Active Session
+                          </span>
+                        )}
+                        {m.isVerified ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 text-[10px] font-bold shrink-0">
+                            <CheckCircle2 className="w-3 h-3" /> Verified
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 text-[10px] font-bold shrink-0">
+                            Pending Badge Review
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                        {m.category} • {m.tradition} • {m.city}, {m.state}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {!isActiveLinked && (
+                        <button
+                          type="button"
+                          onClick={() => linkSessionToMandal(m)}
+                          className="px-3 py-1.5 rounded-lg bg-emerald-100 dark:bg-emerald-950 hover:bg-emerald-200 text-emerald-800 dark:text-emerald-200 text-xs font-bold transition cursor-pointer"
+                        >
+                          Link Session
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => handleSelectMandal(m)}
+                        className="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-amber-100 dark:hover:bg-amber-950 text-slate-700 dark:text-slate-200 text-xs font-bold transition cursor-pointer"
+                      >
+                        View on Map
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenEditMandal(m)}
+                        className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-extrabold flex items-center gap-1 transition cursor-pointer"
+                      >
+                        <Edit3 className="w-3.5 h-3.5" />
+                        <span>Edit</span>
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="p-3 rounded-xl bg-white/80 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-xs text-slate-600 dark:text-slate-300 flex items-center justify-between gap-3">
+              <span>No mandal linked directly to this account yet. Register one now to manage it here.</span>
+              <button
+                type="button"
+                onClick={() => openRegistrationModal('mandal')}
+                className="px-3 py-1.5 rounded-lg bg-amber-500 text-slate-950 font-bold shrink-0 cursor-pointer"
+              >
+                Register Mandal
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Filter & Search Bar */}
       <div className="bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-3.5">
@@ -1153,12 +1490,15 @@ export const GlobalSanghaMap: React.FC = () => {
         </div>
       )}
 
-      {/* Register Local Mandal Modal */}
+      {/* Register / Edit Local Mandal Modal */}
       {isRegisterModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto animate-in fade-in">
           <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl max-w-xl w-full p-6 sm:p-7 relative max-h-[90vh] overflow-y-auto space-y-4">
             <button
-              onClick={() => setIsRegisterModalOpen(false)}
+              onClick={() => {
+                setIsRegisterModalOpen(false);
+                setEditingMandalId(null);
+              }}
               className="absolute right-5 top-5 p-2 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-800 dark:hover:text-slate-100"
             >
               <X className="w-5 h-5" />
@@ -1166,14 +1506,16 @@ export const GlobalSanghaMap: React.FC = () => {
 
             <div>
               <div className="inline-flex items-center gap-2 px-3 py-1 bg-amber-100 dark:bg-amber-950/80 rounded-full text-amber-800 dark:text-amber-300 text-xs font-extrabold mb-1">
-                <Plus className="w-3.5 h-3.5 text-amber-600" />
-                <span>Local Community Registration</span>
+                {editingMandalId ? <Edit3 className="w-3.5 h-3.5 text-amber-600" /> : <Plus className="w-3.5 h-3.5 text-amber-600" />}
+                <span>{editingMandalId ? 'Update Local Mandal' : 'Local Community Registration'}</span>
               </div>
               <h3 className="text-xl font-extrabold text-slate-900 dark:text-white font-serif">
-                Pin Your Jain Mandal on the Global Map
+                {editingMandalId ? 'Edit Your Local Jain Mandal' : 'Pin Your Jain Mandal on the Global Map'}
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Provide official contact information so visiting devotees, sadharmik families, and youths can find and connect with your mandal.
+                {editingMandalId
+                  ? 'Update contact information, member households, or description. Changes sync immediately to Supabase.'
+                  : 'Provide official contact information so visiting devotees, sadharmik families, and youths can find and connect with your mandal.'}
               </p>
             </div>
 
@@ -1404,7 +1746,10 @@ export const GlobalSanghaMap: React.FC = () => {
               <div className="pt-2 flex items-center justify-end gap-2.5">
                 <button
                   type="button"
-                  onClick={() => setIsRegisterModalOpen(false)}
+                  onClick={() => {
+                    setIsRegisterModalOpen(false);
+                    setEditingMandalId(null);
+                  }}
                   className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-bold"
                 >
                   Cancel
@@ -1413,10 +1758,130 @@ export const GlobalSanghaMap: React.FC = () => {
                   type="submit"
                   className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-extrabold shadow-md cursor-pointer"
                 >
-                  Pin Mandal on Global Map
+                  {editingMandalId ? 'Save Changes to Supabase' : 'Pin Mandal on Global Map'}
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Mandal Office Bearer Login Panel Modal */}
+      {isMandalLoginOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-amber-300 dark:border-amber-800 shadow-2xl max-w-md w-full p-6 sm:p-7 relative space-y-5 text-slate-800 dark:text-slate-100">
+            <button
+              type="button"
+              onClick={() => setIsMandalLoginOpen(false)}
+              className="absolute right-4 top-4 p-2 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-900 dark:hover:text-white"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="space-y-2 text-center">
+              <div className="w-14 h-14 mx-auto rounded-2xl bg-gradient-to-br from-amber-500 to-amber-700 flex items-center justify-center text-white shadow-lg">
+                <Compass className="w-7 h-7" />
+              </div>
+              <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 text-[10px] font-extrabold uppercase tracking-wider border border-emerald-300 dark:border-emerald-700">
+                <Database className="w-3 h-3" />
+                <span>Supabase Mandal Auth</span>
+              </div>
+              <h3 className="text-xl font-black font-serif text-slate-900 dark:text-white">
+                Local Mandal Login Panel
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Sign in with your Mandal Email, Mobile Number, or Application ID (<span className="font-mono">JCG-MND-...</span>) to manage your Mandal profile.
+              </p>
+            </div>
+
+            {mandalLoginError && (
+              <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/60 border border-red-200 dark:border-red-800 text-xs text-red-700 dark:text-red-300 flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                <span>{mandalLoginError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleMandalLoginSubmit} className="space-y-4 text-xs">
+              <div>
+                <label className="block font-bold text-slate-700 dark:text-slate-200 mb-1.5">
+                  Email / Mobile / Mandal App ID *
+                </label>
+                <div className="relative">
+                  <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. mandal@jainsangh.org or JCG-MND-123456"
+                    value={mandalLoginId}
+                    onChange={(e) => setMandalLoginId(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-amber-500 outline-none"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block font-bold text-slate-700 dark:text-slate-200">
+                    Password *
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsMandalLoginOpen(false);
+                      setIsAuthModalOpen(true);
+                    }}
+                    className="text-[11px] font-bold text-amber-600 dark:text-amber-400 hover:underline"
+                  >
+                    Forgot Password?
+                  </button>
+                </div>
+                <div className="relative">
+                  <PasswordInput
+                    value={mandalLoginPass}
+                    onChange={(e) => setMandalLoginPass(e.target.value)}
+                    placeholder="Enter your Mandal portal password"
+                    required
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={isLoggingInMandal}
+                className="w-full py-3 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-xs uppercase tracking-wider shadow-lg transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
+              >
+                <Lock className="w-4 h-4" />
+                <span>{isLoggingInMandal ? 'Verifying Credentials...' : 'Sign In to Mandal Portal'}</span>
+              </button>
+            </form>
+
+            <div className="pt-3 border-t border-slate-200 dark:border-slate-800 space-y-2.5 text-center text-xs">
+              <p className="text-slate-500 dark:text-slate-400">
+                Haven&apos;t registered your Local Sangh or Mandal yet?
+              </p>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsMandalLoginOpen(false);
+                    openRegistrationModal('mandal');
+                  }}
+                  className="flex-1 py-2.5 px-3 rounded-xl bg-amber-100 dark:bg-amber-950/60 hover:bg-amber-200 dark:hover:bg-amber-900/70 text-amber-900 dark:text-amber-300 font-extrabold border border-amber-300 dark:border-amber-700 transition cursor-pointer"
+                >
+                  + Register Local Mandal
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsMandalLoginOpen(false);
+                    setIsAuthModalOpen(true);
+                  }}
+                  className="flex-1 py-2.5 px-3 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold transition cursor-pointer"
+                >
+                  Member / Admin Login
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

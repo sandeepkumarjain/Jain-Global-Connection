@@ -29,6 +29,9 @@ import {
 import { useApp } from '../context/AppContext';
 import { MemberSuccessStory, SuccessStoryCategory } from '../types';
 import { INITIAL_MEMBER_SUCCESS_STORIES } from '../data/memberSuccessStories';
+import { db } from '../lib/firebase';
+import { doc, setDoc } from 'firebase/firestore';
+import { syncToSupabaseTable } from '../lib/supabase';
 
 const STORAGE_KEY = 'jcg_community_member_success_stories_v1';
 const LIKES_STORAGE_KEY = 'jcg_member_story_liked_ids_v1';
@@ -152,6 +155,21 @@ export const MemberSuccessStoriesSlider: React.FC = () => {
       return s;
     });
     saveStories(updated);
+    const updatedStory = updated.find((s) => s.id === storyId);
+    if (updatedStory) {
+      try {
+        if (db) setDoc(doc(db, 'success_stories', updatedStory.id), updatedStory, { merge: true }).catch(() => {});
+        syncToSupabaseTable('success_stories', {
+          ...updatedStory,
+          brideName: updatedStory.memberName || 'Community Member',
+          groomName: updatedStory.title || updatedStory.category,
+          feedback: updatedStory.story,
+          couplePhotoUrl: updatedStory.memberPhoto,
+          submittedBy: updatedStory.memberName,
+          isApproved: true,
+        });
+      } catch {}
+    }
 
     if (!isLiked) {
       showToast('Thank You!', 'Story upvoted. Positive feedback strengthens our community.', 'success');
@@ -189,7 +207,7 @@ export const MemberSuccessStoriesSlider: React.FC = () => {
     setIsSubmitting(true);
 
     const newStory: MemberSuccessStory = {
-      id: `story-${Date.now()}`,
+      id: `story_${Date.now()}`,
       memberName: formName.trim(),
       memberSurname: formSurname.trim() || undefined,
       memberPhoto: formPhoto.trim() || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=600&q=80',
@@ -210,6 +228,19 @@ export const MemberSuccessStoriesSlider: React.FC = () => {
 
     const updated = [newStory, ...stories];
     saveStories(updated);
+
+    try {
+      if (db) setDoc(doc(db, 'success_stories', newStory.id), newStory, { merge: true }).catch(() => {});
+      syncToSupabaseTable('success_stories', {
+        ...newStory,
+        brideName: newStory.memberName || 'Community Member',
+        groomName: newStory.title || newStory.category,
+        feedback: newStory.story,
+        couplePhotoUrl: newStory.memberPhoto,
+        submittedBy: newStory.memberName,
+        isApproved: true,
+      });
+    } catch {}
 
     // Trigger celebratory confetti
     try {

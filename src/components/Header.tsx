@@ -4,6 +4,7 @@ import { NAV_TRANSLATIONS } from '../utils/translations';
 import { useTypingPlaceholder } from '../hooks/useTypingPlaceholder';
 import { LanguageSwitcher } from './LanguageSwitcher';
 import { ThemeSwitcher } from './ThemeSwitcher';
+import { SyncStatusIndicator } from './SyncStatusIndicator';
 import {
   Search,
   Sparkles,
@@ -151,8 +152,8 @@ export const Header: React.FC = () => {
       return;
     }
 
-    // 3. Jain Directory, Business Directory, Temple Directory registered users can see all options except Matrimonial
-    if (['Business', 'Temple', 'Individual', 'NGO', 'Trust'].includes(currentUser.registrationType)) {
+    // 3. Jain Directory, Business Directory, Temple Directory, and Mandal registered users can see all options except Matrimonial
+    if (['Business', 'Temple', 'Individual', 'NGO', 'Trust', 'Mandal'].includes(currentUser.registrationType)) {
       if (tabId === 'matrimonial') {
         showToast(
           'Portal Restricted',
@@ -311,7 +312,7 @@ export const Header: React.FC = () => {
   return (
     <header className="sticky top-0 z-50 w-full max-w-full transition-colors duration-300">
       {/* Top Ticker & Utility Bar with Sacred Gold Graphics */}
-      <div className="bg-gradient-to-r from-amber-950 via-amber-900 to-amber-950 text-amber-100 text-xs py-1.5 px-2.5 sm:px-4 shadow-md border-b border-amber-600/30 relative w-full max-w-full">
+      <div className="bg-gradient-to-r from-amber-950 via-amber-900 to-amber-950 text-amber-100 text-xs py-1.5 px-2.5 sm:px-4 shadow-md border-b border-amber-600/30 relative z-30 w-full max-w-full">
         {/* Subtle Decorative Background Motif */}
         <div className="absolute inset-0 bg-[radial-gradient(#f59e0b_1px,transparent_1px)] [background-size:16px_16px] opacity-10 pointer-events-none" />
 
@@ -373,12 +374,15 @@ export const Header: React.FC = () => {
 
             {/* Language Switcher Dropdown */}
             <LanguageSwitcher variant="topbar" />
+
+            {/* Persistent Supabase Sync Status Indicator (Top-Right Corner) */}
+            <SyncStatusIndicator variant="topbar" />
           </div>
         </div>
       </div>
 
       {/* Main Glassmorphism Header */}
-      <div className="bg-white/95 dark:bg-slate-950/95 backdrop-blur-md border-b border-amber-200/40 dark:border-amber-900/40 shadow-sm transition-colors w-full max-w-full">
+      <div className="bg-white/95 dark:bg-slate-950/95 backdrop-blur-md border-b border-amber-200/40 dark:border-amber-900/40 shadow-sm transition-colors relative z-20 w-full max-w-full">
         <div className="max-w-7xl mx-auto px-2.5 sm:px-6 py-2 flex items-center justify-between gap-1.5 sm:gap-4 w-full max-w-full">
           
           {/* Logo & Branding */}
@@ -626,6 +630,20 @@ export const Header: React.FC = () => {
                         >
                           <ShieldCheck className="w-4 h-4 text-amber-600 shrink-0" />
                           <span>Admin Control Panel</span>
+                        </button>
+                      )}
+
+                      {currentUser.registrationType === 'Mandal' && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            openSanghaMap();
+                            setIsUserMenuOpen(false);
+                          }}
+                          className="w-full text-left px-3 py-2 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 font-bold flex items-center gap-2 cursor-pointer"
+                        >
+                          <Compass className="w-4 h-4 text-emerald-600 shrink-0" />
+                          <span>My Mandal Portal &amp; Sangha Map</span>
                         </button>
                       )}
 

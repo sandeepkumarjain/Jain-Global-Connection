@@ -233,11 +233,11 @@ function createUserLocationIcon() {
 // Available tile layers
 type TileLayerType = 'clean' | 'streets' | 'satellite' | 'dark';
 
-const TILE_LAYERS: Record<TileLayerType, { url: string; attribution: string; name: string }> = {
+const TILE_LAYERS: Record<TileLayerType, { url: string; overlayUrl?: string; attribution: string; name: string }> = {
   clean: {
     name: 'Clean Light',
-    url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-    attribution: '&copy; <a href="https://carto.com/">CARTO</a>, &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}',
+    attribution: 'Tiles &copy; Esri &mdash; &copy; OpenStreetMap contributors',
   },
   streets: {
     name: 'OpenStreetMap',
@@ -251,8 +251,9 @@ const TILE_LAYERS: Record<TileLayerType, { url: string; attribution: string; nam
   },
   dark: {
     name: 'Dark Mode',
-    url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-    attribution: '&copy; <a href="https://carto.com/">CARTO</a>, &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+    overlayUrl: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}',
+    attribution: 'Tiles &copy; Esri &mdash; Dark Gray Canvas',
   },
 };
 
@@ -271,6 +272,7 @@ export const TempleMapView: React.FC<TempleMapViewProps> = ({
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
   const tileLayerRef = useRef<L.TileLayer | null>(null);
+  const overlayLayerRef = useRef<L.TileLayer | null>(null);
   const markersClusterGroupRef = useRef<L.MarkerClusterGroup | null>(null);
   const routePolylineRef = useRef<L.Polyline | null>(null);
   const userMarkerRef = useRef<L.Marker | null>(null);
@@ -432,6 +434,14 @@ export const TempleMapView: React.FC<TempleMapViewProps> = ({
     const map = L.map(mapContainerRef.current, {
       center: [defaultCenter.lat, defaultCenter.lng],
       zoom: 6,
+      minZoom: 2,
+      maxZoom: 19,
+      worldCopyJump: true,
+      maxBounds: [
+        [-85, -Infinity],
+        [85, Infinity],
+      ],
+      maxBoundsViscosity: 0.85,
       zoomControl: false,
       attributionControl: false,
     });
@@ -444,6 +454,12 @@ export const TempleMapView: React.FC<TempleMapViewProps> = ({
     }).addTo(map);
 
     tileLayerRef.current = tileLayer;
+    if (layerConfig.overlayUrl) {
+      overlayLayerRef.current = L.tileLayer(layerConfig.overlayUrl, {
+        maxZoom: 19,
+        pane: 'overlayPane',
+      }).addTo(map);
+    }
 
     // Create Interactive Marker Cluster Group for Temples
     const clusterGroup = L.markerClusterGroup({
@@ -512,6 +528,10 @@ export const TempleMapView: React.FC<TempleMapViewProps> = ({
     if (!mapInstanceRef.current || !tileLayerRef.current) return;
     const map = mapInstanceRef.current;
     map.removeLayer(tileLayerRef.current);
+    if (overlayLayerRef.current) {
+      map.removeLayer(overlayLayerRef.current);
+      overlayLayerRef.current = null;
+    }
 
     const layerConfig = TILE_LAYERS[selectedLayer];
     const newTileLayer = L.tileLayer(layerConfig.url, {
@@ -520,6 +540,12 @@ export const TempleMapView: React.FC<TempleMapViewProps> = ({
     }).addTo(map);
 
     tileLayerRef.current = newTileLayer;
+    if (layerConfig.overlayUrl) {
+      overlayLayerRef.current = L.tileLayer(layerConfig.overlayUrl, {
+        maxZoom: 19,
+        pane: 'overlayPane',
+      }).addTo(map);
+    }
   }, [selectedLayer]);
 
   // ResizeObserver for dynamic container adjustments

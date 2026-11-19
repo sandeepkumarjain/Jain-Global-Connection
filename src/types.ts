@@ -4,7 +4,7 @@ export type TabOption = 'home' | 'matrimonial' | 'business' | 'directory' | 'tem
 
 export type UserStatus = 'Pending Approval' | 'Approved' | 'Rejected' | 'Suspended';
 
-export type RegistrationType = 'Individual' | 'Business' | 'Temple' | 'Marriage Profile' | 'NGO' | 'Trust';
+export type RegistrationType = 'Individual' | 'Business' | 'Temple' | 'Marriage Profile' | 'Mandal' | 'NGO' | 'Trust';
 
 export type JainSect = 'Swetambar Murtipujak' | 'Swetambar Sthanakvasi' | 'Swetambar Terapanthi' | 'Digambar Bisapanthi' | 'Digambar Terapanthi' | 'Digambar Taranpanthi' | 'Swetambar' | 'Digambar' | 'Sthanakvasi' | 'Terapanthi' | 'Swetambar & Digambar' | string;
 
@@ -88,6 +88,8 @@ export interface User {
   qrCodeUrl?: string;
   themePreference?: 'auto' | 'light' | 'dark';
   password?: string;
+  managedMandalId?: string;
+  managedMandalName?: string;
   permissions?: string[];
   rolePermissions?: Partial<RolePermissions>;
   prayerReminderSettings?: PrayerReminderSettings;
@@ -751,6 +753,8 @@ export type SanghaTradition =
 
 export interface JainSanghaMandal {
   id: string;
+  applicationId?: string;
+  ownerUserId?: string;
   name: string;
   hindiName?: string;
   category: SanghaCategory;
@@ -758,6 +762,7 @@ export interface JainSanghaMandal {
   city: string;
   state: string;
   country: string;
+  pincode?: string;
   address: string;
   lat: number;
   lng: number;
@@ -766,6 +771,8 @@ export interface JainSanghaMandal {
   phone: string;
   mobile: string;
   email?: string;
+  adminEmail?: string;
+  mandalAdminPassword?: string;
   whatsapp?: string;
   website?: string;
   memberHouseholdsCount: number;
@@ -773,7 +780,58 @@ export interface JainSanghaMandal {
   activities: string[];
   facilities: string[];
   isVerified: boolean;
+  status?: 'Pending Approval' | 'Approved' | 'Rejected';
   description: string;
   operatingHours?: string;
+  createdAt?: string;
+}
+
+export interface MandalAdmin {
+  id: string;
+  email: string;
+  password: string;
+  fullName: string;
+  mobile?: string;
+  role: 'Mandal Admin';
+  mandalId: string;
+  mandalName: string;
+  applicationId?: string;
+  city?: string;
+  state?: string;
+  isVerified?: boolean;
+  status: UserStatus;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export type ConflictResolutionChoice = 'local' | 'server' | 'custom';
+
+export interface SyncConflictFieldDiff {
+  field: string;
+  label: string;
+  localValue: unknown;
+  serverValue: unknown;
+}
+
+export interface SyncConflict {
+  id: string;
+  tableName: string;
+  tableLabel: string;
+  recordId: string;
+  recordTitle: string;
+  conflictType: 'both_modified' | 'server_updated' | 'mismatch';
+  localRecord: Record<string, any>;
+  serverRecord: Record<string, any>;
+  baselineRecord?: Record<string, any> | null;
+  differingFields: SyncConflictFieldDiff[];
+  detectedAt: string;
+  localUpdatedAt?: string;
+  serverUpdatedAt?: string;
+}
+
+export interface ConflictResolutionSelection {
+  conflictId: string;
+  choice: ConflictResolutionChoice;
+  mergedRecord?: Record<string, any>;
 }
 

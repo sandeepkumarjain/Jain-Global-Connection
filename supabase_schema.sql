@@ -284,14 +284,67 @@ CREATE TABLE IF NOT EXISTS public.success_stories (
   "extraData" JSONB DEFAULT '{}'::jsonb
 );
 
--- Enable Row Level Security (RLS) & Grant Public Access for all 15 tables
+-- 16. Global Sangha Mandals Table (Local Jain Mandals & Communities)
+CREATE TABLE IF NOT EXISTS public.sanghas (
+  id TEXT PRIMARY KEY,
+  "applicationId" TEXT,
+  "ownerUserId" TEXT,
+  name TEXT NOT NULL,
+  "hindiName" TEXT,
+  category TEXT DEFAULT 'Sangha',
+  tradition TEXT DEFAULT 'All Traditions',
+  city TEXT NOT NULL,
+  state TEXT,
+  country TEXT DEFAULT 'India',
+  pincode TEXT,
+  address TEXT NOT NULL,
+  lat DOUBLE PRECISION DEFAULT 19.0760,
+  lng DOUBLE PRECISION DEFAULT 72.8777,
+  "contactPerson" TEXT NOT NULL,
+  "contactRole" TEXT DEFAULT 'President',
+  phone TEXT,
+  mobile TEXT NOT NULL,
+  email TEXT,
+  whatsapp TEXT,
+  website TEXT,
+  "memberHouseholdsCount" INT DEFAULT 250,
+  "establishedYear" INT,
+  activities JSONB DEFAULT '[]'::jsonb,
+  facilities JSONB DEFAULT '[]'::jsonb,
+  "isVerified" BOOLEAN DEFAULT FALSE,
+  status TEXT DEFAULT 'Approved',
+  description TEXT,
+  "operatingHours" TEXT DEFAULT '08:00 AM - 08:00 PM',
+  "createdAt" TIMESTAMPTZ DEFAULT NOW(),
+  "extraData" JSONB DEFAULT '{}'::jsonb
+);
+
+-- 17. Notifications & Alerts Table
+CREATE TABLE IF NOT EXISTS public.notifications (
+  id TEXT PRIMARY KEY,
+  "userId" TEXT,
+  title TEXT NOT NULL,
+  message TEXT,
+  type TEXT DEFAULT 'General',
+  "isRead" BOOLEAN DEFAULT FALSE,
+  "senderId" TEXT,
+  "senderName" TEXT,
+  "senderPhoto" TEXT,
+  "actionTab" TEXT,
+  "actionEntityId" TEXT,
+  "connectionStatus" TEXT,
+  "createdAt" TIMESTAMPTZ DEFAULT NOW(),
+  "extraData" JSONB DEFAULT '{}'::jsonb
+);
+
+-- Enable Row Level Security (RLS) & Grant Public Access for all 17 tables
 DO $$
 DECLARE
   tbl TEXT;
   tables TEXT[] := ARRAY[
     'users', 'matrimonials', 'businesses', 'temples', 'members',
     'posts', 'news', 'ads', 'panchang', 'blood_donors',
-    'jobs', 'bhajans', 'pages', 'settings', 'success_stories'
+    'jobs', 'bhajans', 'pages', 'settings', 'success_stories', 'sanghas', 'notifications'
   ];
 BEGIN
   FOREACH tbl IN ARRAY tables LOOP
@@ -325,4 +378,12 @@ BEGIN
   ALTER TABLE public.temples ADD COLUMN IF NOT EXISTS "dharamshalaAvailable" BOOLEAN DEFAULT FALSE;
   ALTER TABLE public.temples ADD COLUMN IF NOT EXISTS "bhojanalayaAvailable" BOOLEAN DEFAULT FALSE;
   ALTER TABLE public.temples ADD COLUMN IF NOT EXISTS "googleMapUrl" TEXT;
+
+  ALTER TABLE public.sanghas ADD COLUMN IF NOT EXISTS "applicationId" TEXT;
+  ALTER TABLE public.sanghas ADD COLUMN IF NOT EXISTS "ownerUserId" TEXT;
+  ALTER TABLE public.sanghas ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'Approved';
+  ALTER TABLE public.sanghas ADD COLUMN IF NOT EXISTS pincode TEXT;
 END $$;
+
+-- Refresh PostgREST schema cache immediately
+NOTIFY pgrst, 'reload schema';

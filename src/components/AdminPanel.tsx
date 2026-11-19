@@ -65,7 +65,8 @@ import {
   BellRing,
   Volume2,
   VolumeX,
-  Activity
+  Activity,
+  Copy
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -119,6 +120,8 @@ export const AdminPanel: React.FC = () => {
     businesses,
     temples,
     members,
+    sanghas,
+    notifications,
     posts,
     news,
     jobs,
@@ -134,6 +137,7 @@ export const AdminPanel: React.FC = () => {
     currentSong,
     togglePlaySong,
     customPages,
+    successStories,
     addCustomPage,
     updateCustomPage,
     deleteCustomPage,
@@ -151,6 +155,8 @@ export const AdminPanel: React.FC = () => {
     deleteTemple,
     approveMatrimonial,
     deleteMatrimonial,
+    approveSanghaMandal,
+    deleteSanghaMandal,
     dispatchApprovalEmail,
     toggleUserVerification,
     toggleUserBadge,
@@ -177,7 +183,14 @@ export const AdminPanel: React.FC = () => {
     isSupabaseConnected,
     lastSupabaseSyncStatus,
     lastSupabaseSyncMessage,
-    lastSupabaseSyncDetails
+    lastSupabaseSyncDetails,
+    autoSyncEnabled,
+    setAutoSyncEnabled,
+    isAutoSyncing,
+    lastAutoSyncTime,
+    lastAutoSyncCollections,
+    pendingSyncConflicts,
+    setIsConflictModalOpen,
   } = useApp();
 
   type AdminTab =
@@ -198,7 +211,7 @@ export const AdminPanel: React.FC = () => {
     | 'settings';
 
   const [activeAdminTab, setActiveAdminTab] = useState<AdminTab>('overview');
-  const [pendingSubTab, setPendingSubTab] = useState<'all' | 'users' | 'matrimonials' | 'businesses' | 'temples' | 'members'>('all');
+  const [pendingSubTab, setPendingSubTab] = useState<'all' | 'users' | 'matrimonials' | 'businesses' | 'temples' | 'members' | 'sanghas'>('all');
 
   // Real-time Activity Log State & Filters
   const [activityLogs, setActivityLogs] = useState<AdminActivityLogEntry[]>([]);
@@ -1051,13 +1064,15 @@ export const AdminPanel: React.FC = () => {
   const pendingBusinesses = businesses.filter((b) => b.status === 'Pending Approval' || (b.status as string) === 'Pending' || !b.isVerified);
   const pendingTemples = temples.filter((t) => !t.isVerified);
   const pendingMembers = members.filter((m) => !m.isVerified);
+  const pendingSanghas = sanghas.filter((s) => !s.isVerified || s.status === 'Pending Approval');
 
   const totalPendingRequests =
     pendingUsers.length +
     pendingMatrimonials.length +
     pendingBusinesses.length +
     pendingTemples.length +
-    pendingMembers.length;
+    pendingMembers.length +
+    pendingSanghas.length;
 
   const handleSelectBusinessForAd = (bizId: string) => {
     setSelectedBusinessId(bizId);
@@ -1669,6 +1684,7 @@ export const AdminPanel: React.FC = () => {
               { id: 'businesses', label: `Businesses (${pendingBusinesses.length})` },
               { id: 'temples', label: `Temples (${pendingTemples.length})` },
               { id: 'members', label: `Directory Members (${pendingMembers.length})` },
+              { id: 'sanghas', label: `Local Mandals (${pendingSanghas.length})` },
             ].map((sub) => (
               <button
                 key={sub.id}
@@ -1840,6 +1856,54 @@ export const AdminPanel: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => deleteTemple(t.id)}
+                        className="py-1.5 px-3 bg-red-100 dark:bg-red-950/60 text-red-700 dark:text-red-300 rounded-lg text-xs font-bold hover:bg-red-200 transition-all flex items-center justify-center gap-1 cursor-pointer"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" /> Delete
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Pending Local Mandals */}
+          {(pendingSubTab === 'all' || pendingSubTab === 'sanghas') && pendingSanghas.length > 0 && (
+            <div className="space-y-3">
+              <h4 className="text-xs font-black text-slate-700 dark:text-slate-300 uppercase">
+                Pending Local Mandals &amp; Sanghs ({pendingSanghas.length})
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {pendingSanghas.map((s) => (
+                  <div key={s.id} className="p-4 rounded-xl border border-amber-200 dark:border-amber-900/60 bg-amber-50/20 dark:bg-slate-800/80 space-y-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <p className="font-extrabold text-xs text-slate-900 dark:text-white">{s.name}</p>
+                        <p className="text-[10px] text-slate-500">
+                          {s.category} • {s.tradition} • {s.city}, {s.state}
+                        </p>
+                        <p className="text-[10px] text-slate-500">
+                          Contact: {s.contactPerson} ({s.mobile})
+                        </p>
+                      </div>
+                      {s.applicationId && (
+                        <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300">
+                          {s.applicationId}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-2 pt-1 border-t border-slate-200 dark:border-slate-700">
+                      <button
+                        type="button"
+                        onClick={() => approveSanghaMandal(s.id)}
+                        className="flex-1 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-extrabold transition-all flex items-center justify-center gap-1 cursor-pointer"
+                      >
+                        <CheckCircle className="w-3.5 h-3.5" /> Verify Mandal
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => deleteSanghaMandal(s.id)}
                         className="py-1.5 px-3 bg-red-100 dark:bg-red-950/60 text-red-700 dark:text-red-300 rounded-lg text-xs font-bold hover:bg-red-200 transition-all flex items-center justify-center gap-1 cursor-pointer"
                       >
                         <Trash2 className="w-3.5 h-3.5" /> Delete
@@ -4485,11 +4549,40 @@ export const AdminPanel: React.FC = () => {
                 Supabase Database Migration & Management
               </h3>
               <p className="text-xs text-slate-600 dark:text-slate-400 font-medium">
-                All 14 platform collections and records are now migrated to Supabase PostgreSQL schema connected with GitHub.
+                All 17 platform collections and records (including Local Sanghas &amp; Mandals and Notifications) are synchronized with Supabase PostgreSQL schema.
               </p>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2.5">
+              {/* Auto-Sync Live Toggle Pill */}
+              <button
+                type="button"
+                onClick={() => setAutoSyncEnabled(!autoSyncEnabled)}
+                className={`px-3.5 py-2.5 rounded-xl border text-xs font-extrabold flex items-center gap-2 cursor-pointer transition-all ${
+                  autoSyncEnabled
+                    ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-200 border-emerald-300 dark:border-emerald-700 hover:bg-emerald-100 dark:hover:bg-emerald-900/60'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-300 dark:border-slate-700 hover:bg-slate-200'
+                }`}
+                title="Toggle automatic background cloud sync whenever anyone registers or uploads data"
+              >
+                <span
+                  className={`w-2.5 h-2.5 rounded-full ${
+                    isAutoSyncing
+                      ? 'bg-amber-500 animate-ping'
+                      : autoSyncEnabled
+                      ? 'bg-emerald-500 animate-pulse'
+                      : 'bg-slate-400'
+                  }`}
+                />
+                <span>
+                  {isAutoSyncing
+                    ? 'Auto-Syncing...'
+                    : autoSyncEnabled
+                    ? 'Auto-Sync: ON'
+                    : 'Auto-Sync: OFF'}
+                </span>
+              </button>
+
               <button
                 type="button"
                 disabled={isSyncingSupabase}
@@ -4502,6 +4595,29 @@ export const AdminPanel: React.FC = () => {
             </div>
           </div>
 
+          {pendingSyncConflicts.length > 0 && (
+            <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border-2 border-amber-400/70 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                <div>
+                  <h4 className="text-xs font-black text-amber-950 dark:text-amber-200">
+                    {pendingSyncConflicts.length} Data Conflict(s) Detected Between Local &amp; Supabase Server
+                  </h4>
+                  <p className="text-[11px] text-amber-800 dark:text-amber-300/90 mt-0.5">
+                    Conflicting records were paused to prevent overwriting remote or local edits. Choose the version to keep for each record.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsConflictModalOpen(true)}
+                className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs shrink-0 shadow-md cursor-pointer transition-colors"
+              >
+                Resolve Conflicts ({pendingSyncConflicts.length})
+              </button>
+            </div>
+          )}
+
           {/* Supabase Connection & Transfer Visual Status Indicator */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             {/* 1. Connection Status Card */}
@@ -4512,7 +4628,7 @@ export const AdminPanel: React.FC = () => {
             }`}>
               <div className="flex items-center justify-between">
                 <span className="text-[10px] font-black uppercase tracking-wider block text-slate-500 dark:text-slate-400">
-                  Connection Status
+                  Connection &amp; Auto-Sync
                 </span>
                 <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${
                   isSupabaseConnected
@@ -4531,10 +4647,19 @@ export const AdminPanel: React.FC = () => {
                     {isSupabaseConnected ? 'Supabase Cloud PostgreSQL' : 'Supabase Client Ready'}
                   </h4>
                   <p className="text-[11px] text-slate-600 dark:text-slate-400 font-medium">
-                    {isSupabaseConnected
-                      ? 'Environment variables verified & active.'
+                    {isAutoSyncing
+                      ? 'Auto-syncing latest website changes to Supabase & Firestore...'
+                      : autoSyncEnabled
+                      ? `Live Auto-Sync active across all 17 tables${lastAutoSyncTime ? ` • Last auto-sync ${lastAutoSyncTime}` : ''}.`
+                      : isSupabaseConnected
+                      ? 'Environment variables verified & active (Auto-Sync paused).'
                       : 'Provide VITE_SUPABASE_URL in settings for live API sync.'}
                   </p>
+                  {lastAutoSyncCollections.length > 0 && autoSyncEnabled && (
+                    <p className="text-[10px] text-emerald-700 dark:text-emerald-300 font-mono mt-0.5">
+                      Updated: {lastAutoSyncCollections.join(', ')}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
@@ -4599,22 +4724,80 @@ export const AdminPanel: React.FC = () => {
                   </div>
 
                   <p className="text-xs text-slate-700 dark:text-slate-300 font-medium leading-relaxed">
-                    {lastSupabaseSyncMessage || 'Click "Sync All Data to Supabase" to initiate full PostgreSQL synchronization across all 14 database collections.'}
+                    {lastSupabaseSyncMessage || 'Click "Sync All Data to Supabase" to initiate full PostgreSQL synchronization across all 17 database collections.'}
                   </p>
 
-                  {lastSupabaseSyncDetails && lastSupabaseSyncDetails.tableErrors.length > 0 && (
-                    <div className="mt-2 p-2 rounded bg-amber-100/80 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-800 text-[11px] text-amber-900 dark:text-amber-200 font-mono">
-                      <span className="font-bold block mb-1">Notice Details:</span>
-                      <ul className="list-disc list-inside space-y-0.5">
-                        {lastSupabaseSyncDetails.tableErrors.map((err, idx) => (
-                          <li key={idx}>{err}</li>
-                        ))}
-                      </ul>
-                      <p className="mt-1 font-sans text-[10px] text-amber-800 dark:text-amber-300">
-                        Tip: Ensure all tables are initialized by executing <code>supabase_schema.sql</code> in your Supabase SQL Editor.
-                      </p>
-                    </div>
-                  )}
+                  {lastSupabaseSyncDetails && lastSupabaseSyncDetails.tableErrors.length > 0 && (() => {
+                    const missingNotificationsSql = `CREATE TABLE IF NOT EXISTS public.notifications (
+  id TEXT PRIMARY KEY,
+  "userId" TEXT,
+  title TEXT NOT NULL,
+  message TEXT,
+  type TEXT DEFAULT 'General',
+  "isRead" BOOLEAN DEFAULT FALSE,
+  "senderId" TEXT,
+  "senderName" TEXT,
+  "senderPhoto" TEXT,
+  "actionTab" TEXT,
+  "actionEntityId" TEXT,
+  "connectionStatus" TEXT,
+  "createdAt" TIMESTAMPTZ DEFAULT NOW(),
+  "extraData" JSONB DEFAULT '{}'::jsonb
+);
+ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Public Access notifications" ON public.notifications;
+CREATE POLICY "Public Access notifications" ON public.notifications FOR ALL USING (true) WITH CHECK (true);
+NOTIFY pgrst, 'reload schema';`;
+
+                    const hasMissingNotifications = lastSupabaseSyncDetails.tableErrors.some((err) =>
+                      err.toLowerCase().includes('public.notifications')
+                    );
+
+                    return (
+                      <div className="mt-2 p-3 rounded-xl bg-amber-100/80 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-800 text-[11px] text-amber-900 dark:text-amber-200 space-y-2.5">
+                        <div className="font-mono">
+                          <span className="font-bold block mb-1">Notice Details:</span>
+                          <ul className="list-disc list-inside space-y-0.5">
+                            {lastSupabaseSyncDetails.tableErrors.map((err, idx) => (
+                              <li key={idx}>{err}</li>
+                            ))}
+                          </ul>
+                          <p className="mt-1.5 font-sans text-[11px] text-amber-800 dark:text-amber-300">
+                            Tip: Ensure all tables are initialized by executing <code>supabase_schema.sql</code> in your Supabase SQL Editor.
+                          </p>
+                        </div>
+
+                        {hasMissingNotifications && (
+                          <div className="p-2.5 rounded-lg bg-slate-900 text-slate-100 border border-amber-400/40 space-y-2">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <span className="font-sans text-[11px] font-bold text-amber-300">
+                                Quick Fix SQL for missing <code>public.notifications</code> table:
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(missingNotificationsSql);
+                                  showToast(
+                                    'SQL Copied to Clipboard!',
+                                    'Paste & Run in Supabase SQL Editor, then click "Sync All Data to Supabase".',
+                                    'success',
+                                    6000
+                                  );
+                                }}
+                                className="px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-sans font-black text-[10px] flex items-center gap-1 cursor-pointer transition"
+                              >
+                                <Copy className="w-3 h-3" />
+                                <span>Copy SQL Fix</span>
+                              </button>
+                            </div>
+                            <pre className="text-[10px] font-mono text-emerald-300 overflow-x-auto whitespace-pre-wrap leading-relaxed">
+                              {missingNotificationsSql}
+                            </pre>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
             </div>
@@ -4640,12 +4823,13 @@ export const AdminPanel: React.FC = () => {
           <div className="space-y-3">
             <h4 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
               <Server className="w-4 h-4 text-emerald-500" />
-              <span>Migrated Supabase PostgreSQL Tables (14 Tables)</span>
+              <span>Migrated Supabase PostgreSQL Tables (17 Tables)</span>
             </h4>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {[
                 { name: 'public.users', title: 'Registered Users', count: users.length, fields: 'id, fullName, email, mobile, role, status, city, state, gotra' },
+                { name: 'public.sanghas', title: 'Local Sangha & Mandals', count: sanghas.length, fields: 'id, applicationId, name, category, tradition, city, state, contactPerson, mobile, status, isVerified' },
                 { name: 'public.matrimonials', title: 'Matrimonial Profiles', count: matrimonials.length, fields: 'id, fullName, age, gender, sect, gotra, city, occupation' },
                 { name: 'public.businesses', title: 'Business Directory', count: businesses.length, fields: 'id, businessName, category, city, mobile, status, isVerified' },
                 { name: 'public.temples', title: 'Temple Directory', count: temples.length, fields: 'id, templeName, sect, city, address, trustContact, timings' },
@@ -4653,10 +4837,13 @@ export const AdminPanel: React.FC = () => {
                 { name: 'public.posts', title: 'Community Feed Posts', count: posts.length, fields: 'id, authorName, authorRole, content, category, likesCount' },
                 { name: 'public.news', title: 'Global News Feed', count: news.length, fields: 'id, title, summary, category, publishedDate, author' },
                 { name: 'public.ads', title: 'Promotional Banners', count: ads.length, fields: 'id, title, sponsorName, offerDiscount, contactMobile, expiryDate' },
+                { name: 'public.panchang', title: 'Daily Jain Panchang', count: 1, fields: 'id, date, tithi, sunrise, sunset, choghadiyaDay, quote' },
                 { name: 'public.blood_donors', title: 'Emergency Blood Donors', count: bloodDonors.length, fields: 'id, name, bloodGroup, city, state, mobile, available' },
                 { name: 'public.jobs', title: 'Job Openings', count: jobs.length, fields: 'id, title, company, location, type, salary, contactEmail' },
                 { name: 'public.bhajans', title: 'Bhajan & Stavan Library', count: bhajans.length, fields: 'id, title, hindiTitle, category, singer, audioUrl, lyrics' },
                 { name: 'public.pages', title: 'Custom CMS Pages', count: customPages.length, fields: 'id, title, slug, category, bannerImage, content, isPublished' },
+                { name: 'public.success_stories', title: 'Vivah Success Stories', count: successStories.length, fields: 'id, profileId, brideName, groomName, marriageDate, city' },
+                { name: 'public.notifications', title: 'Notifications & Alerts', count: notifications.length, fields: 'id, userId, title, type, isRead, createdAt' },
                 { name: 'public.settings', title: 'Portal Configuration', count: 1, fields: 'appName, tagline, contactPhone, contactEmail, address, colors' },
               ].map((col) => (
                 <div key={col.name} className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-2">
@@ -4693,7 +4880,7 @@ export const AdminPanel: React.FC = () => {
               <button
                 type="button"
                 onClick={() => {
-                  const masterObj = { users, matrimonials, businesses, temples, members, posts, news, ads, bloodDonors, jobs, bhajans, customPages, systemSettings };
+                  const masterObj = { users, sanghas, matrimonials, businesses, temples, members, posts, news, ads, bloodDonors, jobs, bhajans, customPages, notifications, systemSettings };
                   const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(masterObj, null, 2));
                   const downloadAnchor = document.createElement('a');
                   downloadAnchor.setAttribute("href", dataStr);

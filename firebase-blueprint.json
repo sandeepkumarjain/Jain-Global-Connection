@@ -66,6 +66,70 @@
         "createdAt": { "type": "string" }
       },
       "required": ["authorId", "content"]
+    },
+    "SanghaMandal": {
+      "title": "Local Jain Sangha / Mandal",
+      "description": "Registered Jain Sangha or Local Mandal profile linked to Mandal Admin lead",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "applicationId": { "type": "string" },
+        "ownerUserId": { "type": "string" },
+        "name": { "type": "string", "maxLength": 200 },
+        "category": { "type": "string", "maxLength": 80 },
+        "tradition": { "type": "string", "maxLength": 80 },
+        "city": { "type": "string", "maxLength": 100 },
+        "state": { "type": "string", "maxLength": 100 },
+        "country": { "type": "string", "maxLength": 100 },
+        "address": { "type": "string", "maxLength": 400 },
+        "contactPerson": { "type": "string", "maxLength": 120 },
+        "contactRole": { "type": "string", "maxLength": 100 },
+        "mobile": { "type": "string", "maxLength": 30 },
+        "email": { "type": "string", "format": "email", "maxLength": 150 },
+        "adminEmail": { "type": "string", "format": "email", "maxLength": 150 },
+        "isVerified": { "type": "boolean" },
+        "status": { "type": "string", "enum": ["Pending Approval", "Approved", "Rejected"] },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "name", "city", "contactPerson", "mobile"]
+    },
+    "Notification": {
+      "title": "App Notification",
+      "description": "Community or user-targeted notification alert",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "title": { "type": "string", "maxLength": 200 },
+        "message": { "type": "string", "maxLength": 1000 },
+        "type": { "type": "string", "maxLength": 50 },
+        "isRead": { "type": "boolean" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "title", "message"]
+    },
+    "MandalAdmin": {
+      "title": "Mandal Admin Credential",
+      "description": "Dedicated Mandal Admin lead credentials linked to a registered Local Mandal profile",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "email": { "type": "string", "format": "email", "maxLength": 150 },
+        "password": { "type": "string", "maxLength": 128 },
+        "fullName": { "type": "string", "maxLength": 120 },
+        "mobile": { "type": "string", "maxLength": 30 },
+        "role": { "type": "string", "enum": ["Mandal Admin"] },
+        "mandalId": { "type": "string" },
+        "mandalName": { "type": "string", "maxLength": 200 },
+        "applicationId": { "type": "string" },
+        "city": { "type": "string", "maxLength": 100 },
+        "state": { "type": "string", "maxLength": 100 },
+        "isVerified": { "type": "boolean" },
+        "status": { "type": "string", "enum": ["Pending Approval", "Approved", "Rejected", "Suspended"] },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "email", "password", "mandalId", "mandalName"]
     }
   },
   "firestore": {
@@ -84,6 +148,18 @@
     "/feed_posts/{postId}": {
       "schema": { "$ref": "#/entities/FeedPost" },
       "description": "Global community posts"
+    },
+    "/sanghas/{sanghaId}": {
+      "schema": { "$ref": "#/entities/SanghaMandal" },
+      "description": "Global Sangha & Local Mandals collection"
+    },
+    "/mandal_admins/{adminId}": {
+      "schema": { "$ref": "#/entities/MandalAdmin" },
+      "description": "Mandal Admin credentials and linked Mandal session records"
+    },
+    "/notifications/{notifId}": {
+      "schema": { "$ref": "#/entities/Notification" },
+      "description": "System and user notifications"
     }
   }
 }

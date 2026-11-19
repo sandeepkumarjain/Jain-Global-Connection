@@ -30,9 +30,14 @@ import {
   Mail,
   Clock,
   ChevronDown,
-  Lock
+  Lock,
+  Compass,
+  Globe,
+  Navigation,
+  LogIn
 } from 'lucide-react';
 import { FamilyMember } from '../types';
+import { SanghaService } from '../lib/services';
 
 export const RegisterModal: React.FC = () => {
   const {
@@ -43,11 +48,13 @@ export const RegisterModal: React.FC = () => {
     addBusiness,
     addTemple,
     addCommunityMember,
+    addSanghaMandal,
+    openSanghaMap,
     registerUser,
     showToast
   } = useApp();
 
-  const [panelType, setPanelType] = useState<'matrimonial' | 'business' | 'temple' | 'family'>(regModalTab || 'business');
+  const [panelType, setPanelType] = useState<'matrimonial' | 'business' | 'temple' | 'family' | 'mandal'>(regModalTab || 'business');
   const [submissionSuccessData, setSubmissionSuccessData] = useState<{
     appId: string;
     applicantName: string;
@@ -374,6 +381,74 @@ export const RegisterModal: React.FC = () => {
       bloodGroup: 'O+',
     },
   ]);
+
+  // 5. LOCAL SANGHA MANDAL SPECIFIC FIELDS
+  const [mandalName, setMandalName] = useState('');
+  const [mandalHindiName, setMandalHindiName] = useState('');
+  const [mandalCategory, setMandalCategory] = useState<'Sangha' | 'Yuvak Mandal' | 'Mahila Mandal' | 'Jain Community Center' | 'Seva Trust' | 'Mahasangh'>('Sangha');
+  const [mandalTradition, setMandalTradition] = useState<'All Traditions' | 'Swetambar Murtipujak' | 'Digambar' | 'Sthanakvasi' | 'Terapanthi' | 'All Jains'>('All Traditions');
+  const [mandalContactRole, setMandalContactRole] = useState('President / Secretary');
+  const [mandalPhone, setMandalPhone] = useState('');
+  const [mandalHouseholds, setMandalHouseholds] = useState('');
+  const [mandalEstYear, setMandalEstYear] = useState('');
+  const [mandalHours, setMandalHours] = useState('6:30 AM - 9:00 PM');
+  const [mandalLat, setMandalLat] = useState('19.0760');
+  const [mandalLng, setMandalLng] = useState('72.8777');
+  const [mandalActivities, setMandalActivities] = useState<string[]>(['Daily Puja & Aarti', 'Pathshala for Children']);
+  const [mandalFacilities, setMandalFacilities] = useState<string[]>(['Bhojanashala', 'Library / Granth Bhandar']);
+  const [mandalDescription, setMandalDescription] = useState('');
+  const [isDetectingMandalGps, setIsDetectingMandalGps] = useState(false);
+
+  const MANDAL_ACTIVITY_OPTIONS = [
+    'Daily Puja & Aarti',
+    'Pathshala for Children',
+    'Samayik & Pratikraman',
+    'Paryushan Mahaparv',
+    'Chaturmas Pravas',
+    'Ahimsa & Jivdaya Seva',
+    'Youth & Mahila Mandal',
+    'Blood & Medical Camps',
+  ];
+
+  const MANDAL_FACILITY_OPTIONS = [
+    'Bhojanashala',
+    'Dharamshala Rooms',
+    'Library / Granth Bhandar',
+    'Upashraya Hall',
+    'Ayambilshala',
+    'Medical / Charitable Clinic',
+    'Wheelchair Access',
+    'Parking Available',
+  ];
+
+  const handleToggleMandalChip = (
+    list: string[],
+    setList: React.Dispatch<React.SetStateAction<string[]>>,
+    value: string
+  ) => {
+    setList((prev) => (prev.includes(value) ? prev.filter((item) => item !== value) : [...prev, value]));
+  };
+
+  const handleDetectMandalGps = () => {
+    if (!navigator.geolocation) {
+      showToast('GPS Unavailable', 'Browser geolocation is not supported on this device.', 'info');
+      return;
+    }
+    setIsDetectingMandalGps(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setMandalLat(pos.coords.latitude.toFixed(6));
+        setMandalLng(pos.coords.longitude.toFixed(6));
+        setIsDetectingMandalGps(false);
+        showToast('Coordinates Captured', 'Exact GPS latitude and longitude updated.', 'success');
+      },
+      () => {
+        setIsDetectingMandalGps(false);
+        showToast('Location Notice', 'Could not detect GPS automatically. Default city coordinates retained.', 'info');
+      },
+      { timeout: 6000 }
+    );
+  };
 
   if (!isRegModalOpen) return null;
 
@@ -753,6 +828,80 @@ export const RegisterModal: React.FC = () => {
       });
 
       generatedAppId = createdMem.applicationId || registeredUsr.applicationId || createdMem.id;
+    } else if (panelType === 'mandal') {
+      const generatedMandalAppId = `JCG-MND-${Math.floor(100000 + Math.random() * 900000)}`;
+      const mandalId = `sangha_${Date.now()}`;
+      const userId = `usr_${Date.now()}`;
+      const resolvedMandalName = mandalName || `${city || 'Local'} Jain Sangh Mandal`;
+      const resolvedAdminEmail = (email || 'mandal@jainconnect.org').trim();
+      const resolvedPassword = password || 'Jain@123';
+
+      const registeredUsr = registerUser({
+        id: userId,
+        applicationId: generatedMandalAppId,
+        fullName: headFullName || mandalName || 'Mandal Office Bearer',
+        surname,
+        email: resolvedAdminEmail,
+        password: resolvedPassword,
+        mobile,
+        whatsapp: whatsapp || mobile,
+        registrationType: 'Mandal',
+        managedMandalId: mandalId,
+        managedMandalName: resolvedMandalName,
+        status: 'Approved',
+        city: city || 'Mumbai',
+        state: state || 'Maharashtra',
+        country: country || 'India',
+        address: address || '',
+        pincode: pincode || '',
+        sect,
+      });
+
+      const createdMandal = addSanghaMandal({
+        id: mandalId,
+        applicationId: generatedMandalAppId,
+        ownerUserId: registeredUsr.id,
+        status: 'Pending Approval',
+        name: resolvedMandalName,
+        hindiName: mandalHindiName || undefined,
+        category: mandalCategory,
+        tradition: mandalTradition,
+        city: city || 'Mumbai',
+        state: state || 'Maharashtra',
+        country: country || 'India',
+        pincode: pincode || undefined,
+        address: address || `${city || 'Local'} Jain Sangh Bhavan`,
+        lat: parseFloat(mandalLat) || 19.076,
+        lng: parseFloat(mandalLng) || 72.8777,
+        contactPerson: headFullName || 'Mandal Secretary',
+        contactRole: mandalContactRole || 'President / Secretary',
+        mobile: mobile || '+91 98000 00000',
+        phone: mandalPhone || mobile || '+91 98000 00000',
+        whatsapp: whatsapp || mobile || '+91 98000 00000',
+        email: resolvedAdminEmail,
+        adminEmail: resolvedAdminEmail,
+        mandalAdminPassword: resolvedPassword,
+        website: websiteUrl || undefined,
+        memberHouseholdsCount: parseInt(mandalHouseholds, 10) || 150,
+        establishedYear: parseInt(mandalEstYear, 10) || undefined,
+        operatingHours: mandalHours || '6:30 AM - 9:00 PM',
+        activities: mandalActivities.length > 0 ? mandalActivities : ['Daily Puja & Aarti', 'Pathshala'],
+        facilities: mandalFacilities.length > 0 ? mandalFacilities : ['Bhojanashala', 'Library'],
+        description:
+          mandalDescription ||
+          `Official ${mandalTradition} Jain Sangh & Local Mandal serving families in ${city || 'the city'}, ${state || ''}.`,
+      });
+
+      SanghaService.registerMandalWithAccount(createdMandal, {
+        ...registeredUsr,
+        password: resolvedPassword,
+        managedMandalId: mandalId,
+        managedMandalName: resolvedMandalName,
+      }).catch((err) => {
+        console.warn('Mandal backend sync warning:', err);
+      });
+
+      generatedAppId = generatedMandalAppId;
     }
 
     // Trigger Celebratory Confetti
@@ -817,13 +966,19 @@ export const RegisterModal: React.FC = () => {
             {/* Title & Status */}
             <div className="space-y-2 max-w-lg">
               <span className="inline-block px-3.5 py-1 bg-amber-100 dark:bg-amber-900/60 text-amber-800 dark:text-amber-300 rounded-full text-xs font-black uppercase tracking-widest border border-amber-300 dark:border-amber-700">
-                Status: Pending Admin Approval
+                {submissionSuccessData.panelType === 'mandal'
+                  ? 'Mandal Portal Login Active • Saved to Supabase'
+                  : 'Status: Pending Admin Approval'}
               </span>
               <h2 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white">
-                Application Submitted Successfully!
+                {submissionSuccessData.panelType === 'mandal'
+                  ? 'Local Mandal Registered Successfully!'
+                  : 'Application Submitted Successfully!'}
               </h2>
               <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300">
-                Your application details have been saved in the database and sent to the Admin Panel for verification.
+                {submissionSuccessData.panelType === 'mandal'
+                  ? 'Your Local Mandal is now listed on the Global Sangha Map and saved to the Supabase database. You can sign into the Mandal Login Panel immediately using your Email, Mobile, or Application ID.'
+                  : 'Your application details have been saved in the database and sent to the Admin Panel for verification.'}
               </p>
             </div>
 
@@ -857,6 +1012,18 @@ export const RegisterModal: React.FC = () => {
               </div>
             </div>
 
+            {submissionSuccessData.panelType === 'mandal' && (
+              <div className="w-full max-w-md bg-emerald-50 dark:bg-emerald-950/50 p-4 rounded-2xl border border-emerald-300 dark:border-emerald-800 text-left space-y-1.5 shadow-sm">
+                <div className="flex items-center gap-2 text-emerald-900 dark:text-emerald-200 font-bold text-xs">
+                  <LogIn className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                  <span>Mandal Login Panel Credentials Ready</span>
+                </div>
+                <p className="text-[11px] text-emerald-800 dark:text-emerald-300 leading-relaxed">
+                  Login ID: <strong>{submissionSuccessData.registeredEmail}</strong> or <strong>{submissionSuccessData.appId}</strong> • Use the password you created to manage your Mandal in the <strong>Mandal Login Panel</strong> while Admin verifies your official blue badge.
+                </p>
+              </div>
+            )}
+
             {/* Official Approval Email Notice */}
             <div className="w-full max-w-md bg-slate-50 dark:bg-slate-800/80 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 text-left space-y-2 shadow-sm">
               <div className="flex items-center gap-2 text-slate-900 dark:text-slate-100 font-bold text-xs">
@@ -883,14 +1050,28 @@ export const RegisterModal: React.FC = () => {
             )}
 
             {/* Close / Proceed Button */}
-            <div className="pt-2 w-full max-w-md">
+            <div className="pt-2 w-full max-w-md flex flex-col sm:flex-row gap-2.5">
+              {submissionSuccessData.panelType === 'mandal' && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSubmissionSuccessData(null);
+                    setIsRegModalOpen(false);
+                    openSanghaMap();
+                  }}
+                  className="flex-1 py-3.5 bg-slate-900 dark:bg-slate-800 hover:bg-slate-800 dark:hover:bg-slate-700 text-amber-400 font-black text-xs rounded-xl shadow-lg border border-amber-500/40 transition uppercase tracking-wider flex items-center justify-center gap-1.5"
+                >
+                  <Compass className="w-4 h-4" />
+                  <span>Open Sangha Map</span>
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => {
                   setSubmissionSuccessData(null);
                   setIsRegModalOpen(false);
                 }}
-                className="w-full py-3.5 bg-gradient-to-r from-amber-500 via-amber-600 to-amber-700 hover:from-amber-600 hover:to-amber-800 text-amber-950 font-black text-xs rounded-xl shadow-xl transition uppercase tracking-wider"
+                className="flex-1 py-3.5 bg-gradient-to-r from-amber-500 via-amber-600 to-amber-700 hover:from-amber-600 hover:to-amber-800 text-amber-950 font-black text-xs rounded-xl shadow-xl transition uppercase tracking-wider"
               >
                 Done & Close Window
               </button>
@@ -1035,8 +1216,8 @@ export const RegisterModal: React.FC = () => {
           </p>
         </div>
 
-        {/* 4 Specialized Category Selector Tabs */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-1.5 bg-slate-100 dark:bg-slate-800/80 rounded-2xl text-xs font-bold">
+        {/* 5 Specialized Category Selector Columns */}
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 p-1.5 bg-slate-100 dark:bg-slate-800/80 rounded-2xl text-xs font-bold">
           <button
             type="button"
             onClick={() => setPanelType('matrimonial')}
@@ -1088,6 +1269,19 @@ export const RegisterModal: React.FC = () => {
             <Users className="w-3.5 h-3.5 shrink-0" />
             <span className="truncate">Jain Directory</span>
           </button>
+
+          <button
+            type="button"
+            onClick={() => setPanelType('mandal')}
+            className={`col-span-2 sm:col-span-1 flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-xl transition-all ${
+              panelType === 'mandal'
+                ? 'bg-amber-600 text-white shadow-md'
+                : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+            }`}
+          >
+            <Compass className="w-3.5 h-3.5 shrink-0" />
+            <span className="truncate">Local Mandal</span>
+          </button>
         </div>
 
         {/* Privacy & Purpose Banner for Family Registration */}
@@ -1128,6 +1322,7 @@ export const RegisterModal: React.FC = () => {
                 {panelType === 'business' && 'Business Owner / Representative Contact Info'}
                 {panelType === 'temple' && 'Trustee / Temple Contact Person Info'}
                 {panelType === 'family' && 'Head of Family Member Details'}
+                {panelType === 'mandal' && 'Mandal Office Bearer & Login Account Credentials'}
               </span>
             </h4>
 
@@ -1159,10 +1354,12 @@ export const RegisterModal: React.FC = () => {
               </div>
 
               <div>
-                <label className="block font-bold mb-1 text-slate-700 dark:text-slate-200">Contact Email *</label>
+                <label className="block font-bold mb-1 text-slate-700 dark:text-slate-200">
+                  {panelType === 'mandal' ? 'Mandal Admin Registered Email *' : 'Contact Email *'}
+                </label>
                 <input
                   type="email"
-                  placeholder="email@example.com"
+                  placeholder={panelType === 'mandal' ? 'lead@yourmandal.org' : 'email@example.com'}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
@@ -1171,11 +1368,13 @@ export const RegisterModal: React.FC = () => {
               </div>
 
               <div>
-                <label className="block font-bold mb-1 text-slate-700 dark:text-slate-200">Create Account Password *</label>
+                <label className="block font-bold mb-1 text-slate-700 dark:text-slate-200">
+                  {panelType === 'mandal' ? 'Dedicated Mandal Admin Password *' : 'Create Account Password *'}
+                </label>
                 <PasswordInput
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Create a strong password"
+                  placeholder={panelType === 'mandal' ? 'Set dedicated Mandal Admin password' : 'Create a strong password'}
                   showStrengthIndicator={true}
                   required
                 />
@@ -3530,11 +3729,309 @@ export const RegisterModal: React.FC = () => {
             </div>
           )}
 
+          {/* PANEL 5: LOCAL SANGHA & MANDAL REGISTRATION FORM */}
+          {panelType === 'mandal' && (
+            <div className="bg-gradient-to-br from-amber-500/10 via-orange-500/5 to-emerald-500/10 p-5 rounded-3xl border border-amber-300 dark:border-amber-800 space-y-4 shadow-sm">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-amber-200 dark:border-amber-800/60">
+                <div>
+                  <h4 className="font-extrabold text-sm text-amber-700 dark:text-amber-400 flex items-center gap-1.5">
+                    <Compass className="w-4 h-4 shrink-0" />
+                    <span>Local Jain Sangh &amp; Mandal Details</span>
+                  </h4>
+                  <p className="text-[11px] text-slate-600 dark:text-slate-400 mt-0.5">
+                    Listed immediately on the Global Sangha Map &amp; persisted to Supabase with active Mandal Login access.
+                  </p>
+                </div>
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-100 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 text-[10px] font-extrabold border border-emerald-300 dark:border-emerald-700 shrink-0">
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  Supabase Synced
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold mb-1 text-slate-700 dark:text-slate-200">
+                    Sangh / Mandal Name *
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Shri Mumbai Shwetambar Jain Sangh"
+                    value={mandalName}
+                    onChange={(e) => setMandalName(e.target.value)}
+                    required
+                    className="w-full p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold mb-1 text-slate-700 dark:text-slate-200">
+                    Hindi Name (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. श्री जैन संघ एवं मंडल"
+                    value={mandalHindiName}
+                    onChange={(e) => setMandalHindiName(e.target.value)}
+                    className="w-full p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold mb-1 text-slate-700 dark:text-slate-200">
+                    Mandal Category *
+                  </label>
+                  <select
+                    value={mandalCategory}
+                    onChange={(e) => setMandalCategory(e.target.value as any)}
+                    className="w-full p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 font-bold"
+                  >
+                    <option value="Sangha">Sangha / Derasar Trust</option>
+                    <option value="Yuvak Mandal">Youth / Yuvak Mandal</option>
+                    <option value="Mahila Mandal">Mahila Mandal</option>
+                    <option value="Jain Community Center">Jain Community Center</option>
+                    <option value="Seva Trust">Seva &amp; Charity Trust</option>
+                    <option value="Mahasangh">Apex Mahasangh</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-bold mb-1 text-slate-700 dark:text-slate-200">
+                    Jain Tradition *
+                  </label>
+                  <select
+                    value={mandalTradition}
+                    onChange={(e) => setMandalTradition(e.target.value as any)}
+                    className="w-full p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 font-bold"
+                  >
+                    <option value="All Traditions">All Traditions (United)</option>
+                    <option value="Swetambar Murtipujak">Swetambar Murtipujak</option>
+                    <option value="Digambar">Digambar</option>
+                    <option value="Terapanthi">Terapanthi</option>
+                    <option value="Sthanakvasi">Sthanakvasi</option>
+                    <option value="All Jains">All Jains</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-bold mb-1 text-slate-700 dark:text-slate-200">
+                    Office Bearer Role *
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. President / General Secretary / Trustee"
+                    value={mandalContactRole}
+                    onChange={(e) => setMandalContactRole(e.target.value)}
+                    required
+                    className="w-full p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold mb-1 text-slate-700 dark:text-slate-200">
+                    Office Landline / Alternate Phone
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 022-22014567"
+                    value={mandalPhone}
+                    onChange={(e) => setMandalPhone(e.target.value)}
+                    className="w-full p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700"
+                  />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block font-bold mb-1 text-slate-700 dark:text-slate-200">
+                    Full Mandal / Bhavan Street Address *
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Building Name, Street, Area, Landmark"
+                    value={address}
+                    onChange={(e) => setAddress(e.target.value)}
+                    required
+                    className="w-full p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold mb-1 text-slate-700 dark:text-slate-200">
+                    Pincode / ZIP Code
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 400004"
+                    value={pincode}
+                    onChange={(e) => setPincode(e.target.value)}
+                    className="w-full p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block font-bold mb-1 text-slate-700 dark:text-slate-200">
+                      Member Families
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      placeholder="e.g. 450"
+                      value={mandalHouseholds}
+                      onChange={(e) => setMandalHouseholds(e.target.value)}
+                      className="w-full p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold mb-1 text-slate-700 dark:text-slate-200">
+                      Est. Year
+                    </label>
+                    <input
+                      type="number"
+                      min="1800"
+                      max="2030"
+                      placeholder="e.g. 1978"
+                      value={mandalEstYear}
+                      onChange={(e) => setMandalEstYear(e.target.value)}
+                      className="w-full p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block font-bold mb-1 text-slate-700 dark:text-slate-200">
+                    Daily Opening Hours / Timings
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 6:30 AM - 9:00 PM"
+                    value={mandalHours}
+                    onChange={(e) => setMandalHours(e.target.value)}
+                    className="w-full p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold mb-1 text-slate-700 dark:text-slate-200 flex items-center gap-1">
+                    <Globe className="w-3.5 h-3.5 text-amber-600" />
+                    <span>Official Website (Optional)</span>
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="https://www.jainsangh.org"
+                    value={websiteUrl}
+                    onChange={(e) => setWebsiteUrl(e.target.value)}
+                    className="w-full p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700"
+                  />
+                </div>
+              </div>
+
+              {/* Map Coordinates + Auto-Detect GPS */}
+              <div className="p-3 rounded-2xl bg-white/80 dark:bg-slate-900/70 border border-slate-200 dark:border-slate-700 space-y-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="font-bold text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
+                    <MapPin className="w-3.5 h-3.5 text-amber-600" />
+                    <span>Map Pin Coordinates (Latitude &amp; Longitude)</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleDetectMandalGps}
+                    disabled={isDetectingMandalGps}
+                    className="px-3 py-1.5 rounded-lg bg-amber-100 dark:bg-amber-900/60 hover:bg-amber-200 dark:hover:bg-amber-800 text-amber-900 dark:text-amber-200 font-bold text-[11px] flex items-center gap-1.5 transition"
+                  >
+                    <Navigation className="w-3.5 h-3.5" />
+                    <span>{isDetectingMandalGps ? 'Detecting GPS...' : 'Auto-Detect GPS'}</span>
+                  </button>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    type="text"
+                    placeholder="Latitude (e.g. 19.0760)"
+                    value={mandalLat}
+                    onChange={(e) => setMandalLat(e.target.value)}
+                    className="w-full p-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-mono text-[11px]"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Longitude (e.g. 72.8777)"
+                    value={mandalLng}
+                    onChange={(e) => setMandalLng(e.target.value)}
+                    className="w-full p-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-mono text-[11px]"
+                  />
+                </div>
+              </div>
+
+              {/* Community Activities & Facilities Chips */}
+              <div className="space-y-2">
+                <label className="block font-bold text-slate-700 dark:text-slate-200">
+                  Community Activities
+                </label>
+                <div className="flex flex-wrap gap-1.5">
+                  {MANDAL_ACTIVITY_OPTIONS.map((act) => {
+                    const active = mandalActivities.includes(act);
+                    return (
+                      <button
+                        key={act}
+                        type="button"
+                        onClick={() => handleToggleMandalChip(mandalActivities, setMandalActivities, act)}
+                        className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border transition ${
+                          active
+                            ? 'bg-amber-600 text-white border-amber-600 shadow-sm'
+                            : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-amber-400'
+                        }`}
+                      >
+                        {act}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="block font-bold text-slate-700 dark:text-slate-200">
+                  Available Facilities
+                </label>
+                <div className="flex flex-wrap gap-1.5">
+                  {MANDAL_FACILITY_OPTIONS.map((fac) => {
+                    const active = mandalFacilities.includes(fac);
+                    return (
+                      <button
+                        key={fac}
+                        type="button"
+                        onClick={() => handleToggleMandalChip(mandalFacilities, setMandalFacilities, fac)}
+                        className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border transition ${
+                          active
+                            ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+                            : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-emerald-400'
+                        }`}
+                      >
+                        {fac}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold mb-1 text-slate-700 dark:text-slate-200">
+                  About the Sangh / Mandal
+                </label>
+                <textarea
+                  rows={3}
+                  placeholder="Share details about Pujya Sadhu/Sadhviji Chaturmas, Pathshala timings, community seva, and Trust activities..."
+                  value={mandalDescription}
+                  onChange={(e) => setMandalDescription(e.target.value)}
+                  className="w-full p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700"
+                />
+              </div>
+            </div>
+          )}
+
           {/* Admin Verification Notice */}
           <div className="p-3 bg-amber-50 dark:bg-amber-950/40 rounded-2xl border border-amber-300 dark:border-amber-800 text-[11px] text-amber-900 dark:text-amber-200 flex items-center gap-2.5 shadow-inner">
             <Info className="w-5 h-5 text-amber-500 shrink-0" />
             <span>
-              All submissions are verified by Super Admin before public badge display.
+              {panelType === 'mandal'
+                ? 'Your Mandal Login credentials will be active immediately and persisted to Supabase. Super Admin reviews your listing for the official Blue Verification Badge.'
+                : 'All submissions are verified by Super Admin before public badge display.'}
             </span>
           </div>
 
@@ -3544,7 +4041,11 @@ export const RegisterModal: React.FC = () => {
             className="w-full py-3.5 bg-gradient-to-r from-amber-500 via-amber-600 to-amber-700 hover:from-amber-600 hover:to-amber-800 text-amber-950 font-black text-xs rounded-2xl shadow-xl transition-all flex items-center justify-center gap-2 uppercase tracking-wider"
           >
             <UserPlus className="w-4 h-4" />
-            <span>Submit {panelType.toUpperCase()} Application for Verification</span>
+            <span>
+              {panelType === 'mandal'
+                ? 'Register Local Mandal & Activate Login Account'
+                : `Submit ${panelType.toUpperCase()} Application for Verification`}
+            </span>
           </button>
         </form>
         </>

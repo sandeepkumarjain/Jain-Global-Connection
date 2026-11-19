@@ -40,6 +40,7 @@ import { DashboardCustomizerModal } from './components/DashboardCustomizerModal'
 import { SitemapModal } from './components/SitemapModal';
 import { PolicyModal } from './components/PolicyModal';
 import { PrayerReminderEngine } from './components/PrayerReminderEngine';
+import { DataConflictModal } from './components/DataConflictModal';
 import {
   CheckCircle2,
   AlertCircle,
@@ -600,6 +601,7 @@ const MainContent: React.FC = () => {
       />
       <PrayerReminderEngine />
       <AudioPlayer />
+      <DataConflictModal />
 
       {/* Toast Notification Banner */}
       {toast && (

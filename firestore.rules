@@ -118,6 +118,39 @@ service cloud.firestore {
     match /jobs/{jobId} {
       allow read, write: if true;
     }
+
+    // Local Jain Sanghas & Mandals
+    match /sanghas/{sanghaId} {
+      allow read: if true;
+      allow write: if isValidId(sanghaId);
+    }
+
+    // Mandal Admins Collection (Dedicated Mandal Lead Authentication)
+    match /mandal_admins/{adminId} {
+      allow read: if true;
+      allow write: if isValidId(adminId)
+        && incoming().email is string
+        && incoming().password is string
+        && incoming().mandalId is string;
+    }
+
+    // Notifications
+    match /notifications/{notifId} {
+      allow read: if true;
+      allow write: if isValidId(notifId);
+    }
+
+    // Matrimonial Messages
+    match /matrimonial_messages/{msgId} {
+      allow read: if true;
+      allow write: if isValidId(msgId);
+    }
+
+    // Success Stories
+    match /success_stories/{storyId} {
+      allow read: if true;
+      allow write: if isValidId(storyId);
+    }
   }
 }
 

@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { PasswordInput } from './PasswordInput';
+import { MandalAdminLoginForm } from './MandalAdminLoginForm';
 import {
   LogIn,
   X,
-  Lock,
   Mail,
   AlertTriangle,
   KeyRound,
@@ -12,23 +12,33 @@ import {
   CheckCircle2,
   RefreshCw,
   Send,
-  Smartphone
+  Smartphone,
+  Compass,
+  ShieldCheck
 } from 'lucide-react';
 
 export const AuthModal: React.FC = () => {
   const {
     isAuthModalOpen,
     setIsAuthModalOpen,
-    setIsRegModalOpen,
-    login,
+    openRegistrationModal,
+    openSanghaMap,
+    loginWithBackend,
     resetUserPassword,
     showToast,
-    users
+    users,
+    sanghas
   } = useApp();
 
   const [mode, setMode] = useState<'login' | 'forgot'>('login');
+  const [portalTab, setPortalTab] = useState<'member' | 'mandal_admin'>('member');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Member / Super Admin fields
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [prefillMandalEmail, setPrefillMandalEmail] = useState('');
+
   const [errorMessage, setErrorMessage] = useState('');
   const [infoMessage, setInfoMessage] = useState('');
 
@@ -46,7 +56,7 @@ export const AuthModal: React.FC = () => {
 
   if (!isAuthModalOpen) return null;
 
-  const handleLoginSubmit = (e: React.FormEvent) => {
+  const handleMemberLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage('');
     setInfoMessage('');
@@ -54,12 +64,20 @@ export const AuthModal: React.FC = () => {
       setErrorMessage('Please enter both Login ID and Password.');
       return;
     }
-    const success = login(email, password);
-    if (success) {
-      setIsAuthModalOpen(false);
-      setErrorMessage('');
-    } else {
-      setErrorMessage('You have entered wrong. Please enter the correct ID or Password');
+    setIsSubmitting(true);
+    try {
+      const res = await loginWithBackend(email.trim(), password, { portal: 'member' });
+      if (res.success) {
+        setIsAuthModalOpen(false);
+        setErrorMessage('');
+        if (res.user?.registrationType === 'Mandal' || res.linkedMandal) {
+          openSanghaMap(res.linkedMandal?.city);
+        }
+      } else {
+        setErrorMessage(res.error || 'You have entered wrong. Please enter the correct ID or Password');
+      }
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -70,39 +88,54 @@ export const AuthModal: React.FC = () => {
 
     const query = forgotInput.trim();
     if (!query) {
-      setErrorMessage('Please enter your 10-digit Registered Mobile Number.');
+      setErrorMessage('Please enter your 10-digit Registered Mobile Number or Email.');
       return;
     }
 
-    // Find registered user by mobile, username, or email
+    // Find registered user by mobile, email, or applicationId, or fallback to sangha record
     const queryLower = query.toLowerCase();
     const queryDigits = query.replace(/[^0-9]/g, '');
 
     const foundUser = users.find(
       (u) =>
         (queryDigits.length >= 8 && (u.mobile || '').replace(/[^0-9]/g, '').includes(queryDigits)) ||
-        (u.username || '').toLowerCase() === queryLower ||
-        (u.email || '').toLowerCase() === queryLower
+        (u.email || '').toLowerCase() === queryLower ||
+        (u.applicationId || '').toLowerCase() === queryLower
     );
+
+    const foundMandal = !foundUser
+      ? sanghas.find(
+          (s) =>
+            (s.adminEmail || '').toLowerCase() === queryLower ||
+            (s.email || '').toLowerCase() === queryLower ||
+            (queryDigits.length >= 8 && (s.mobile || '').replace(/[^0-9]/g, '').includes(queryDigits))
+        )
+      : undefined;
 
     let mobileToUse = '';
     if (foundUser && foundUser.mobile) {
       mobileToUse = foundUser.mobile.replace(/[^0-9]/g, '');
+    } else if (foundMandal && foundMandal.mobile) {
+      mobileToUse = foundMandal.mobile.replace(/[^0-9]/g, '');
     } else if (queryDigits.length >= 10) {
       mobileToUse = queryDigits;
     }
 
     if (!mobileToUse || mobileToUse.length < 10) {
       if (foundUser && !foundUser.mobile) {
-        setErrorMessage(`Found account for ${foundUser.fullName}, but no registered mobile number is attached. Please enter your 10-digit registered mobile number.`);
+        setErrorMessage(
+          `Found account for ${foundUser.fullName}, but no registered mobile number is attached. Please enter your 10-digit registered mobile number.`
+        );
       } else {
-        setErrorMessage('No registered user account found with this Mobile Number. Please verify and try again.');
+        setErrorMessage('No registered user account found with this Mobile Number or Email. Please verify and try again.');
       }
       return;
     }
 
     setIsSendingOtp(true);
-    const userKey = foundUser ? (foundUser.mobile || foundUser.email || foundUser.username) : mobileToUse;
+    const userKey = foundUser
+      ? foundUser.mobile || foundUser.email
+      : foundMandal?.mobile || foundMandal?.email || mobileToUse;
     setTargetUserIdentifier(userKey);
     setTargetMobileNumber(mobileToUse);
 
@@ -122,7 +155,12 @@ export const AuthModal: React.FC = () => {
         setMaskedMobile(data.mobileMasked || `+91 ***** ${mobileToUse.slice(-4)}`);
         setForgotStep('otp');
         setInfoMessage(`SMS OTP Code dispatched to registered mobile number ${data.mobileMasked || mobileToUse}.`);
-        showToast('SMS OTP Sent!', `6-Digit OTP code sent to registered mobile number ${data.mobileMasked || mobileToUse}`, 'success', 8000);
+        showToast(
+          'SMS OTP Sent!',
+          `6-Digit OTP code sent to registered mobile number ${data.mobileMasked || mobileToUse}`,
+          'success',
+          8000
+        );
       } else {
         setErrorMessage(data.error || 'Failed to send OTP to registered mobile number.');
       }
@@ -154,7 +192,6 @@ export const AuthModal: React.FC = () => {
       return;
     }
 
-    // Verify OTP via server API
     try {
       const response = await fetch('/api/otp/verify', {
         method: 'POST',
@@ -167,7 +204,9 @@ export const AuthModal: React.FC = () => {
 
       const data = await response.json();
       if (!data.success && !data.verified) {
-        setErrorMessage(data.error || 'Invalid or expired OTP code. Please enter the correct 6-digit OTP sent to your registered mobile.');
+        setErrorMessage(
+          data.error || 'Invalid or expired OTP code. Please enter the correct 6-digit OTP sent to your registered mobile.'
+        );
         return;
       }
     } catch (err) {
@@ -178,11 +217,14 @@ export const AuthModal: React.FC = () => {
       }
     }
 
-    // Reset password in system
     const res = resetUserPassword(targetUserIdentifier || targetMobileNumber || forgotInput, newPassword);
     if (res.success) {
-      setEmail(targetUserIdentifier || targetMobileNumber || forgotInput);
-      setPassword(newPassword);
+      if (portalTab === 'mandal_admin') {
+        setPrefillMandalEmail(res.userEmail || prefillMandalEmail);
+      } else {
+        setEmail(targetUserIdentifier || targetMobileNumber || forgotInput);
+        setPassword(newPassword);
+      }
       setMode('login');
       setForgotStep('mobile');
       setEnteredOtp('');
@@ -207,10 +249,10 @@ export const AuthModal: React.FC = () => {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-md overflow-y-auto">
       <div className="bg-white dark:bg-slate-900 border-2 border-amber-300 dark:border-amber-800 rounded-3xl w-full max-w-lg p-5 sm:p-7 shadow-2xl relative space-y-4 my-auto max-h-[90vh] overflow-y-auto no-scrollbar text-slate-800 dark:text-slate-100">
-        
         <button
           type="button"
           onClick={handleClose}
+          aria-label="Close login modal"
           className="absolute top-4 right-4 p-1.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-slate-700 dark:hover:text-white transition-colors cursor-pointer"
         >
           <X className="w-5 h-5" />
@@ -225,10 +267,50 @@ export const AuthModal: React.FC = () => {
           </h3>
           <p className="text-xs text-amber-700 dark:text-amber-400 font-semibold">
             {mode === 'login'
-              ? 'Sign in to access your Jain Profile & Super Admin Panel'
+              ? portalTab === 'mandal_admin'
+                ? 'Dedicated Mandal Admin Portal • Profile Session Linking'
+                : 'Sign in to access your Jain Profile & Super Admin Panel'
               : 'Registered Mobile OTP Password Reset Service'}
           </p>
         </div>
+
+        {/* Portal Switcher: Member / Super Admin vs. Mandal Admin */}
+        {mode === 'login' && (
+          <div className="grid grid-cols-2 gap-2 p-1 rounded-2xl bg-slate-100 dark:bg-slate-800/80 text-xs font-bold">
+            <button
+              type="button"
+              onClick={() => {
+                setPortalTab('member');
+                setErrorMessage('');
+                setInfoMessage('');
+              }}
+              className={`py-2.5 px-3 rounded-xl flex items-center justify-center gap-1.5 transition cursor-pointer ${
+                portalTab === 'member'
+                  ? 'bg-amber-600 text-white shadow-sm'
+                  : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+              }`}
+            >
+              <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
+              <span>Member / Admin</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setPortalTab('mandal_admin');
+                setErrorMessage('');
+                setInfoMessage('');
+              }}
+              className={`py-2.5 px-3 rounded-xl flex items-center justify-center gap-1.5 transition cursor-pointer ${
+                portalTab === 'mandal_admin'
+                  ? 'bg-amber-600 text-white shadow-sm'
+                  : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+              }`}
+            >
+              <Compass className="w-3.5 h-3.5 shrink-0" />
+              <span>Mandal Admin</span>
+            </button>
+          </div>
+        )}
 
         {/* Error Alert Box */}
         {errorMessage && (
@@ -251,67 +333,87 @@ export const AuthModal: React.FC = () => {
         )}
 
         {mode === 'login' ? (
-          /* Login Form */
-          <form onSubmit={handleLoginSubmit} className="space-y-4 text-xs pt-1">
-            <div>
-              <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-                Login ID / Registered Email / Mobile
-              </label>
-              <div className="relative">
-                <input
-                  type="text"
-                  placeholder="Enter email ID, mobile or admin username"
-                  value={email}
+          portalTab === 'member' ? (
+            /* Member / Super Admin Login Form */
+            <form onSubmit={handleMemberLoginSubmit} className="space-y-4 text-xs pt-1">
+              <div>
+                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Login ID / Registered Email / Mobile
+                </label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="Enter email ID, mobile or admin username"
+                    value={email}
+                    onChange={(e) => {
+                      setEmail(e.target.value);
+                      if (errorMessage) setErrorMessage('');
+                    }}
+                    required
+                    className="w-full pl-9 pr-3 py-3 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-500 font-medium"
+                  />
+                  <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-3.5" />
+                </div>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="font-bold text-slate-700 dark:text-slate-300">
+                    Password
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMode('forgot');
+                      setForgotStep('mobile');
+                      setErrorMessage('');
+                      setInfoMessage('');
+                      if (email) setForgotInput(email);
+                    }}
+                    className="text-xs font-black text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-1 cursor-pointer"
+                  >
+                    <KeyRound className="w-3.5 h-3.5" />
+                    <span>Forgot Password?</span>
+                  </button>
+                </div>
+                <PasswordInput
+                  value={password}
                   onChange={(e) => {
-                    setEmail(e.target.value);
+                    setPassword(e.target.value);
                     if (errorMessage) setErrorMessage('');
                   }}
+                  placeholder="••••••••"
                   required
-                  className="w-full pl-9 pr-3 py-3 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-500 font-medium"
                 />
-                <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-3.5" />
               </div>
-            </div>
 
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="font-bold text-slate-700 dark:text-slate-300">
-                  Password
-                </label>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMode('forgot');
-                    setForgotStep('mobile');
-                    setErrorMessage('');
-                    setInfoMessage('');
-                    if (email) setForgotInput(email);
-                  }}
-                  className="text-xs font-black text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-1 cursor-pointer"
-                >
-                  <KeyRound className="w-3.5 h-3.5" />
-                  <span>Forgot Password?</span>
-                </button>
-              </div>
-              <PasswordInput
-                value={password}
-                onChange={(e) => {
-                  setPassword(e.target.value);
-                  if (errorMessage) setErrorMessage('');
-                }}
-                placeholder="••••••••"
-                required
-              />
-            </div>
-
-            <button
-              type="submit"
-              className="w-full py-3.5 bg-gradient-to-r from-amber-500 via-amber-600 to-amber-700 text-slate-950 font-black text-xs sm:text-sm rounded-2xl shadow-lg hover:from-amber-600 hover:to-amber-800 transition-all flex items-center justify-center gap-2 cursor-pointer border border-amber-300"
-            >
-              <LogIn className="w-4 h-4" />
-              <span>Sign In to Account</span>
-            </button>
-          </form>
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="w-full py-3.5 bg-gradient-to-r from-amber-500 via-amber-600 to-amber-700 text-slate-950 font-black text-xs sm:text-sm rounded-2xl shadow-lg hover:from-amber-600 hover:to-amber-800 transition-all flex items-center justify-center gap-2 cursor-pointer border border-amber-300 disabled:opacity-60"
+              >
+                <LogIn className="w-4 h-4" />
+                <span>{isSubmitting ? 'Signing In...' : 'Sign In to Account'}</span>
+              </button>
+            </form>
+          ) : (
+            /* Dedicated Mandal Admin Login Component */
+            <MandalAdminLoginForm
+              initialEmail={prefillMandalEmail}
+              onForgotPassword={(enteredEmail) => {
+                setMode('forgot');
+                setForgotStep('mobile');
+                setErrorMessage('');
+                setInfoMessage('');
+                if (enteredEmail) setForgotInput(enteredEmail);
+              }}
+              onSuccess={(_admin, linkedMandal) => {
+                setIsAuthModalOpen(false);
+                setErrorMessage('');
+                openSanghaMap(linkedMandal?.city);
+              }}
+            />
+          )
         ) : (
           /* Forgot Password Flow (SMS OTP to Registered Mobile Number) */
           <div className="space-y-4 text-xs pt-1">
@@ -323,18 +425,18 @@ export const AuthModal: React.FC = () => {
                     <span>Registered Mobile OTP Password Reset</span>
                   </div>
                   <p className="text-xs text-amber-900/90 dark:text-amber-200/90 leading-relaxed font-medium">
-                    Please enter your <strong>Registered Mobile Number</strong>. We will send a 6-digit SMS OTP verification code to your registered mobile phone.
+                    Please enter your <strong>Registered Mobile Number</strong> (or registered email). We will send a 6-digit SMS OTP verification code to your registered mobile phone.
                   </p>
                 </div>
 
                 <div>
                   <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Registered Mobile Number
+                    Registered Mobile Number or Email
                   </label>
                   <div className="relative">
                     <input
-                      type="tel"
-                      placeholder="Enter 10-digit registered mobile number (e.g. 9514237277)..."
+                      type="text"
+                      placeholder="Enter 10-digit mobile number or registered email..."
                       value={forgotInput}
                       onChange={(e) => {
                         setForgotInput(e.target.value);
@@ -389,7 +491,8 @@ export const AuthModal: React.FC = () => {
                     <span>SMS OTP Dispatched to Registered Mobile</span>
                   </div>
                   <p className="text-xs text-amber-900/90 dark:text-amber-200/90 font-medium">
-                    6-digit verification code sent to registered mobile number <span className="font-bold underline">{maskedMobile || targetMobileNumber}</span>. Please enter the code below to reset your password.
+                    6-digit verification code sent to registered mobile number{' '}
+                    <span className="font-bold underline">{maskedMobile || targetMobileNumber}</span>. Please enter the code below to reset your password.
                   </p>
                 </div>
 
@@ -463,7 +566,7 @@ export const AuthModal: React.FC = () => {
                     className="flex-1 py-3 bg-gradient-to-r from-emerald-500 via-emerald-600 to-teal-700 text-white font-extrabold rounded-xl shadow-md hover:from-emerald-600 hover:to-teal-800 transition-all flex items-center justify-center gap-2 cursor-pointer"
                   >
                     <CheckCircle2 className="w-4 h-4" />
-                    <span>Verify OTP & Reset Password</span>
+                    <span>Verify OTP &amp; Reset Password</span>
                   </button>
                 </div>
               </form>
@@ -474,16 +577,18 @@ export const AuthModal: React.FC = () => {
         {/* Switch to Registration */}
         <div className="pt-3 text-center border-t border-slate-200 dark:border-slate-800">
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            Don&apos;t have an account yet?{' '}
+            {portalTab === 'mandal_admin'
+              ? "Haven't registered your Local Mandal yet?"
+              : "Don't have an account yet?"}{' '}
             <button
               type="button"
               onClick={() => {
                 setIsAuthModalOpen(false);
-                setIsRegModalOpen(true);
+                openRegistrationModal(portalTab === 'mandal_admin' ? 'mandal' : undefined);
               }}
               className="font-extrabold text-amber-600 dark:text-amber-400 hover:underline cursor-pointer ml-1"
             >
-              Register Now
+              {portalTab === 'mandal_admin' ? 'Register Local Mandal' : 'Register Now'}
             </button>
           </p>
         </div>
@@ -491,5 +596,6 @@ export const AuthModal: React.FC = () => {
     </div>
   );
 };
+
 
 
