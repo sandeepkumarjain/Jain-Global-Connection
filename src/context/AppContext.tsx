@@ -208,6 +208,8 @@ interface AppContextType {
   isRitualSaved: (ritualId: string) => boolean;
   approveUser: (userId: string) => void;
   rejectUser: (userId: string) => void;
+  batchApproveUsers: (userIds: string[]) => number;
+  batchRejectUsers: (userIds: string[]) => number;
   suspendUser: (userId: string) => void;
   deleteUser: (userId: string) => void;
   verifyUserBadge: (userId: string) => void;
@@ -217,11 +219,17 @@ interface AppContextType {
   // Directory CRUD & Approval Actions
   addCommunityMember: (mem: Partial<CommunityMemberProfile>) => CommunityMemberProfile;
   approveCommunityMember: (memId: string) => void;
+  rejectCommunityMember: (memId: string) => void;
+  batchApproveMembers: (memberIds: string[]) => number;
+  batchRejectMembers: (memberIds: string[]) => number;
   deleteCommunityMember: (memId: string) => void;
   addBusiness: (biz: Partial<BusinessListing>) => BusinessListing;
   updateBusinessListing: (bizId: string, updates: Partial<BusinessListing>) => void;
   endorseBusiness: (bizId: string, category: EndorsementCategory, comment?: string) => { success: boolean; message: string };
   approveBusiness: (bizId: string) => void;
+  rejectBusiness: (bizId: string) => void;
+  batchApproveBusinesses: (bizIds: string[]) => number;
+  batchRejectBusinesses: (bizIds: string[]) => number;
   deleteBusiness: (bizId: string) => void;
   addTemple: (tpl: Partial<TempleListing>) => TempleListing;
   updateTemple: (tplId: string, updates: Partial<TempleListing>) => void;
@@ -2475,7 +2483,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setUsers((prev) =>
       prev.map((u) => {
         if (u.id === userId) {
-          const updated = { ...u, status: 'Rejected' as const };
+          const updated = { ...u, status: 'Rejected' as const, isVerified: false };
           try {
             setDoc(doc(db, 'users', u.id), updated, { merge: true });
             syncToSupabaseTable('users', updated);
@@ -2486,6 +2494,92 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       })
     );
     showToast('User Application Rejected', 'User status set to Rejected.', 'info');
+  };
+
+  const batchApproveUsers = (userIds: string[]): number => {
+    const idSet = new Set(userIds);
+    const targets = users.filter((u) => idSet.has(u.id) || (u.applicationId && idSet.has(u.applicationId)));
+    if (targets.length === 0) return 0;
+
+    const updatedUsersList = targets.map((u) => ({
+      ...u,
+      status: 'Approved' as const,
+      isVerified: true,
+    }));
+    const updatedMap = new Map(updatedUsersList.map((u) => [u.id, u]));
+
+    setUsers((prev) => prev.map((u) => updatedMap.get(u.id) || u));
+
+    try {
+      for (const u of updatedUsersList) {
+        if (db) setDoc(doc(db, 'users', u.id), u, { merge: true }).catch(() => {});
+      }
+      syncToSupabaseTable('users', updatedUsersList);
+    } catch (e) {
+      console.warn('Batch approve users sync error:', e);
+    }
+
+    const emailSet = new Set(updatedUsersList.map((u) => (u.email || '').toLowerCase()).filter(Boolean));
+    const appIdSet = new Set(updatedUsersList.map((u) => u.applicationId).filter(Boolean) as string[]);
+    const linkedBiz = businesses.filter(
+      (b) =>
+        updatedMap.has(b.ownerId) ||
+        (b.email && emailSet.has(b.email.toLowerCase())) ||
+        (b.applicationId && appIdSet.has(b.applicationId))
+    );
+    if (linkedBiz.length > 0) {
+      const updatedLinkedBiz = linkedBiz.map((b) => ({ ...b, status: 'Approved' as const, isVerified: true }));
+      const bizMap = new Map(updatedLinkedBiz.map((b) => [b.id, b]));
+      setBusinesses((prev) => prev.map((b) => bizMap.get(b.id) || b));
+      try {
+        for (const b of updatedLinkedBiz) {
+          if (db) setDoc(doc(db, 'businesses', b.id), b, { merge: true }).catch(() => {});
+        }
+        syncToSupabaseTable('businesses', updatedLinkedBiz);
+      } catch (e) {}
+    }
+
+    for (const u of updatedUsersList) {
+      dispatchApprovalEmail(u.fullName, u.email, u.applicationId || u.id, u.registrationType || 'Jain Member Account');
+    }
+
+    showToast(
+      'Batch User Approval Complete',
+      `Approved ${updatedUsersList.length} pending user account(s) and synchronized with database.`,
+      'success'
+    );
+    return updatedUsersList.length;
+  };
+
+  const batchRejectUsers = (userIds: string[]): number => {
+    const idSet = new Set(userIds);
+    const targets = users.filter((u) => idSet.has(u.id) || (u.applicationId && idSet.has(u.applicationId)));
+    if (targets.length === 0) return 0;
+
+    const rejectedList = targets.map((u) => ({
+      ...u,
+      status: 'Rejected' as const,
+      isVerified: false,
+    }));
+    const rejectedMap = new Map(rejectedList.map((u) => [u.id, u]));
+
+    setUsers((prev) => prev.map((u) => rejectedMap.get(u.id) || u));
+
+    try {
+      for (const u of rejectedList) {
+        if (db) setDoc(doc(db, 'users', u.id), u, { merge: true }).catch(() => {});
+      }
+      syncToSupabaseTable('users', rejectedList);
+    } catch (e) {
+      console.warn('Batch reject users sync error:', e);
+    }
+
+    showToast(
+      'Batch User Rejection Complete',
+      `Rejected ${rejectedList.length} user account application(s).`,
+      'info'
+    );
+    return rejectedList.length;
   };
 
   const suspendUser = (userId: string) => {
@@ -2651,7 +2745,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setMembers((prev) =>
       prev.map((m) => {
         if (m.id === memId || m.applicationId === memId) {
-          targetMem = { ...m, isVerified: true };
+          targetMem = { ...m, isVerified: true, status: 'Approved' };
           return targetMem;
         }
         return m;
@@ -2677,6 +2771,95 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         'success'
       );
     }
+  };
+
+  const rejectCommunityMember = (memId: string) => {
+    const targetMem = members.find((m) => m.id === memId || m.applicationId === memId);
+    if (!targetMem) return;
+    const rejectedMem: CommunityMemberProfile = {
+      ...targetMem,
+      isVerified: false,
+      status: 'Rejected',
+    };
+    setMembers((prev) => prev.map((m) => (m.id === rejectedMem.id ? rejectedMem : m)));
+    try {
+      if (db) setDoc(doc(db, 'members', rejectedMem.id), rejectedMem, { merge: true }).catch(() => {});
+      syncToSupabaseTable('members', rejectedMem);
+    } catch (e) {
+      console.warn('Reject member sync error:', e);
+    }
+    showToast('Member Listing Rejected', `Member "${targetMem.name}" marked as Rejected.`, 'info');
+  };
+
+  const batchApproveMembers = (memberIds: string[]): number => {
+    const idSet = new Set(memberIds);
+    const targets = members.filter((m) => idSet.has(m.id) || (m.applicationId && idSet.has(m.applicationId)));
+    if (targets.length === 0) return 0;
+
+    const updatedList: CommunityMemberProfile[] = targets.map((m) => ({
+      ...m,
+      isVerified: true,
+      status: 'Approved',
+    }));
+    const updatedMap = new Map(updatedList.map((m) => [m.id, m]));
+
+    setMembers((prev) => prev.map((m) => updatedMap.get(m.id) || m));
+
+    try {
+      for (const m of updatedList) {
+        if (db) setDoc(doc(db, 'members', m.id), m, { merge: true }).catch(() => {});
+      }
+      syncToSupabaseTable('members', updatedList);
+    } catch (e) {
+      console.warn('Batch approve members sync error:', e);
+    }
+
+    for (const m of updatedList) {
+      dispatchApprovalEmail(
+        m.name || (m as any).fullName || 'Jain Member',
+        m.email,
+        m.applicationId || m.id,
+        'Family & Community Directory'
+      );
+    }
+
+    showToast(
+      'Batch Member Approval Complete',
+      `Approved and verified ${updatedList.length} member listing(s) in database.`,
+      'success'
+    );
+    return updatedList.length;
+  };
+
+  const batchRejectMembers = (memberIds: string[]): number => {
+    const idSet = new Set(memberIds);
+    const targets = members.filter((m) => idSet.has(m.id) || (m.applicationId && idSet.has(m.applicationId)));
+    if (targets.length === 0) return 0;
+
+    const rejectedList: CommunityMemberProfile[] = targets.map((m) => ({
+      ...m,
+      isVerified: false,
+      status: 'Rejected',
+    }));
+    const rejectedMap = new Map(rejectedList.map((m) => [m.id, m]));
+
+    setMembers((prev) => prev.map((m) => rejectedMap.get(m.id) || m));
+
+    try {
+      for (const m of rejectedList) {
+        if (db) setDoc(doc(db, 'members', m.id), m, { merge: true }).catch(() => {});
+      }
+      syncToSupabaseTable('members', rejectedList);
+    } catch (e) {
+      console.warn('Batch reject members sync error:', e);
+    }
+
+    showToast(
+      'Batch Member Rejection Complete',
+      `Rejected ${rejectedList.length} member listing(s) and updated database.`,
+      'info'
+    );
+    return rejectedList.length;
   };
 
   const deleteCommunityMember = (memId: string) => {
@@ -2782,6 +2965,116 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         'success'
       );
     }
+  };
+
+  const rejectBusiness = (bizId: string) => {
+    const targetBiz = businesses.find((b) => b.id === bizId || b.applicationId === bizId);
+    if (!targetBiz) return;
+    const rejectedBiz: BusinessListing = {
+      ...targetBiz,
+      status: 'Rejected',
+      isVerified: false,
+    };
+    setBusinesses((prev) => prev.map((b) => (b.id === rejectedBiz.id ? rejectedBiz : b)));
+    try {
+      if (db) setDoc(doc(db, 'businesses', rejectedBiz.id), rejectedBiz, { merge: true }).catch(() => {});
+      syncToSupabaseTable('businesses', rejectedBiz);
+    } catch (e) {
+      console.warn('Reject business sync error:', e);
+    }
+    showToast('Business Rejected', `Business "${targetBiz.businessName}" marked as Rejected.`, 'info');
+  };
+
+  const batchApproveBusinesses = (bizIds: string[]): number => {
+    const idSet = new Set(bizIds);
+    const targets = businesses.filter((b) => idSet.has(b.id) || (b.applicationId && idSet.has(b.applicationId)));
+    if (targets.length === 0) return 0;
+
+    const updatedList: BusinessListing[] = targets.map((b) => ({
+      ...b,
+      status: 'Approved',
+      isVerified: true,
+    }));
+    const updatedMap = new Map(updatedList.map((b) => [b.id, b]));
+
+    setBusinesses((prev) => prev.map((b) => updatedMap.get(b.id) || b));
+
+    try {
+      for (const b of updatedList) {
+        if (db) setDoc(doc(db, 'businesses', b.id), b, { merge: true }).catch(() => {});
+      }
+      syncToSupabaseTable('businesses', updatedList);
+    } catch (e) {
+      console.warn('Batch approve businesses sync error:', e);
+    }
+
+    const ownerIds = new Set(updatedList.map((b) => b.ownerId).filter(Boolean));
+    const ownerEmails = new Set(updatedList.map((b) => (b.email || '').toLowerCase()).filter(Boolean));
+    const linkedUsers = users.filter(
+      (u) => ownerIds.has(u.id) || (u.email && ownerEmails.has(u.email.toLowerCase()))
+    );
+    if (linkedUsers.length > 0) {
+      const updatedUsersList = linkedUsers.map((u) => ({
+        ...u,
+        status: 'Approved' as const,
+        isVerified: true,
+      }));
+      const usrMap = new Map(updatedUsersList.map((u) => [u.id, u]));
+      setUsers((prev) => prev.map((u) => usrMap.get(u.id) || u));
+      try {
+        for (const u of updatedUsersList) {
+          if (db) setDoc(doc(db, 'users', u.id), u, { merge: true }).catch(() => {});
+        }
+        syncToSupabaseTable('users', updatedUsersList);
+      } catch (e) {}
+    }
+
+    for (const b of updatedList) {
+      dispatchApprovalEmail(
+        b.businessName,
+        b.email,
+        b.applicationId || b.id,
+        'Business Directory Listing'
+      );
+    }
+
+    showToast(
+      'Batch Business Approval Complete',
+      `Approved and verified ${updatedList.length} business listing(s) in database.`,
+      'success'
+    );
+    return updatedList.length;
+  };
+
+  const batchRejectBusinesses = (bizIds: string[]): number => {
+    const idSet = new Set(bizIds);
+    const targets = businesses.filter((b) => idSet.has(b.id) || (b.applicationId && idSet.has(b.applicationId)));
+    if (targets.length === 0) return 0;
+
+    const rejectedList: BusinessListing[] = targets.map((b) => ({
+      ...b,
+      status: 'Rejected',
+      isVerified: false,
+    }));
+    const rejectedMap = new Map(rejectedList.map((b) => [b.id, b]));
+
+    setBusinesses((prev) => prev.map((b) => rejectedMap.get(b.id) || b));
+
+    try {
+      for (const b of rejectedList) {
+        if (db) setDoc(doc(db, 'businesses', b.id), b, { merge: true }).catch(() => {});
+      }
+      syncToSupabaseTable('businesses', rejectedList);
+    } catch (e) {
+      console.warn('Batch reject businesses sync error:', e);
+    }
+
+    showToast(
+      'Batch Business Rejection Complete',
+      `Rejected ${rejectedList.length} business listing(s) and updated database.`,
+      'info'
+    );
+    return rejectedList.length;
   };
 
   const deleteBusiness = (bizId: string) => {
@@ -3318,6 +3611,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [pendingSyncConflicts, setPendingSyncConflicts] = useState<SyncConflict[]>([]);
   const [isConflictModalOpen, setIsConflictModalOpen] = useState(false);
   const [isResolvingConflicts, setIsResolvingConflicts] = useState(false);
+  const isSuperAdminRef = React.useRef<boolean>(false);
+  isSuperAdminRef.current = currentUser?.role === 'Super Admin';
 
   const recordServerBaselines = (tableName: string, data: any) => {
     if (!data) return;
@@ -3806,7 +4101,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         if (detectedConflicts.length > 0) {
           mergePendingConflicts(detectedConflicts);
-          setIsConflictModalOpen(true);
           setLastSupabaseSyncTime(timeStr);
           setLastSupabaseSyncStatus('partial');
           setLastSupabaseSyncMessage(
@@ -3816,12 +4110,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             totalSynced: totalSupabaseRows,
             tableErrors: [`${detectedConflicts.length} record conflict(s) awaiting user resolution`],
           });
-          showToast(
-            'Sync Conflict Detected',
-            `${detectedConflicts.length} local change(s) conflict with Supabase server data. Please select the version to keep.`,
-            'info',
-            6000
-          );
+          if (isSuperAdminRef.current) {
+            setIsConflictModalOpen(true);
+            showToast(
+              'Sync Conflict Detected',
+              `${detectedConflicts.length} local change(s) conflict with Supabase server data. Please select the version to keep.`,
+              'info',
+              6000
+            );
+          }
         } else if (isSupabaseConfigured()) {
           setLastSupabaseSyncTime(timeStr);
           if (tableErrors.length > 0) {
@@ -4934,6 +5231,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         isRitualSaved,
         approveUser,
         rejectUser,
+        batchApproveUsers,
+        batchRejectUsers,
         suspendUser,
         deleteUser,
         verifyUserBadge,
@@ -4941,10 +5240,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         toggleCommunityMemberBadge,
         addCommunityMember,
         approveCommunityMember,
+        rejectCommunityMember,
+        batchApproveMembers,
+        batchRejectMembers,
         deleteCommunityMember,
         addBusiness,
         updateBusinessListing,
         approveBusiness,
+        rejectBusiness,
+        batchApproveBusinesses,
+        batchRejectBusinesses,
         deleteBusiness,
         addTemple,
         updateTemple,

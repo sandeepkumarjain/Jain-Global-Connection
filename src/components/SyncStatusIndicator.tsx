@@ -38,6 +38,7 @@ export const SyncStatusIndicator: React.FC<SyncStatusIndicatorProps> = ({
     syncAllDataToSupabase,
     pendingSyncConflicts,
     setIsConflictModalOpen,
+    isSuperAdmin,
   } = useApp();
 
   const [isOpen, setIsOpen] = useState(false);
@@ -61,6 +62,10 @@ export const SyncStatusIndicator: React.FC<SyncStatusIndicatorProps> = ({
       document.removeEventListener('keydown', handleEscape);
     };
   }, []);
+
+  if (!isSuperAdmin) {
+    return null;
+  }
 
   const isSyncing = isSyncingSupabase || isAutoSyncing;
   const hasFailure =

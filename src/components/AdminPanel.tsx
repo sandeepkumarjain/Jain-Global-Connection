@@ -5,6 +5,7 @@ import { useApp } from '../context/AppContext';
 import { User, AdBanner, BhajanSong, MatrimonialProfile, BusinessListing, TempleListing, CommunityMemberProfile, CommunityPost, JobItem, BloodDonor, CustomPage } from '../types';
 import { syncToSupabaseTable } from '../lib/supabase';
 import { AdminOverviewDashboard } from './AdminOverviewDashboard';
+import { SyncStatusIndicator } from './SyncStatusIndicator';
 import {
   ShieldCheck,
   UserCheck,
@@ -144,11 +145,19 @@ export const AdminPanel: React.FC = () => {
     togglePublishPage,
     approveUser,
     rejectUser,
+    batchApproveUsers,
+    batchRejectUsers,
     suspendUser,
     deleteUser,
     approveCommunityMember,
+    rejectCommunityMember,
+    batchApproveMembers,
+    batchRejectMembers,
     deleteCommunityMember,
     approveBusiness,
+    rejectBusiness,
+    batchApproveBusinesses,
+    batchRejectBusinesses,
     addBusiness,
     deleteBusiness,
     approveTemple,
@@ -191,6 +200,7 @@ export const AdminPanel: React.FC = () => {
     lastAutoSyncCollections,
     pendingSyncConflicts,
     setIsConflictModalOpen,
+    isSuperAdmin,
   } = useApp();
 
   type AdminTab =
@@ -1058,12 +1068,14 @@ export const AdminPanel: React.FC = () => {
     setEditingPage(null);
   };
 
-  // Pending items counts
+  // Pending items counts (exclude explicitly Rejected records)
   const pendingUsers = users.filter((u) => u.status === 'Pending Approval');
   const pendingMatrimonials = matrimonials.filter((m) => !m.isVerified);
-  const pendingBusinesses = businesses.filter((b) => b.status === 'Pending Approval' || (b.status as string) === 'Pending' || !b.isVerified);
+  const pendingBusinesses = businesses.filter(
+    (b) => b.status !== 'Rejected' && (b.status === 'Pending Approval' || (b.status as string) === 'Pending' || !b.isVerified)
+  );
   const pendingTemples = temples.filter((t) => !t.isVerified);
-  const pendingMembers = members.filter((m) => !m.isVerified);
+  const pendingMembers = members.filter((m) => m.status !== 'Rejected' && !m.isVerified);
   const pendingSanghas = sanghas.filter((s) => !s.isVerified || s.status === 'Pending Approval');
 
   const totalPendingRequests =
@@ -1073,6 +1085,189 @@ export const AdminPanel: React.FC = () => {
     pendingTemples.length +
     pendingMembers.length +
     pendingSanghas.length;
+
+  // Superadmin Batch Approval Selection State
+  const [selectedPendingBizIds, setSelectedPendingBizIds] = useState<string[]>([]);
+  const [selectedPendingMemberIds, setSelectedPendingMemberIds] = useState<string[]>([]);
+  const [selectedPendingUserIds, setSelectedPendingUserIds] = useState<string[]>([]);
+  const [selectedBizQueueIds, setSelectedBizQueueIds] = useState<string[]>([]);
+  const [selectedDirMemberIds, setSelectedDirMemberIds] = useState<string[]>([]);
+  const [isBatchProcessing, setIsBatchProcessing] = useState(false);
+
+  // Keep selections synced with currently pending items
+  useEffect(() => {
+    const validBiz = new Set(pendingBusinesses.map((b) => b.id));
+    setSelectedPendingBizIds((prev) => prev.filter((id) => validBiz.has(id)));
+    setSelectedBizQueueIds((prev) => prev.filter((id) => validBiz.has(id)));
+
+    const validMem = new Set(pendingMembers.map((m) => m.id));
+    setSelectedPendingMemberIds((prev) => prev.filter((id) => validMem.has(id)));
+    setSelectedDirMemberIds((prev) => prev.filter((id) => validMem.has(id)));
+
+    const validUsr = new Set(pendingUsers.map((u) => u.id));
+    setSelectedPendingUserIds((prev) => prev.filter((id) => validUsr.has(id)));
+  }, [businesses, members, users]);
+
+  const toggleIdInSelection = (
+    setter: React.Dispatch<React.SetStateAction<string[]>>,
+    id: string
+  ) => {
+    setter((prev) => (prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]));
+  };
+
+  const toggleAllInSelection = (
+    setter: React.Dispatch<React.SetStateAction<string[]>>,
+    ids: string[]
+  ) => {
+    setter((prev) => {
+      const allSelected = ids.length > 0 && ids.every((id) => prev.includes(id));
+      return allSelected ? [] : [...ids];
+    });
+  };
+
+  const totalSelectedPending =
+    selectedPendingBizIds.length + selectedPendingMemberIds.length + selectedPendingUserIds.length;
+
+  const handleClearPendingSelections = () => {
+    setSelectedPendingBizIds([]);
+    setSelectedPendingMemberIds([]);
+    setSelectedPendingUserIds([]);
+  };
+
+  const handleBatchApproveSelectedPending = async () => {
+    if (!isSuperAdmin || totalSelectedPending === 0 || isBatchProcessing) return;
+    setIsBatchProcessing(true);
+    try {
+      let approvedBizCount = 0;
+      let approvedMemCount = 0;
+      let approvedUsrCount = 0;
+
+      if (selectedPendingBizIds.length > 0) {
+        approvedBizCount = batchApproveBusinesses(selectedPendingBizIds);
+      }
+      if (selectedPendingMemberIds.length > 0) {
+        approvedMemCount = batchApproveMembers(selectedPendingMemberIds);
+      }
+      if (selectedPendingUserIds.length > 0) {
+        approvedUsrCount = batchApproveUsers(selectedPendingUserIds);
+      }
+
+      const totalDone = approvedBizCount + approvedMemCount + approvedUsrCount;
+      if (totalDone > 0) {
+        await logAdminActivity(
+          'APPROVAL',
+          'System',
+          `Batch Approved ${totalDone} Pending Listing(s)`,
+          `Super Admin batch approved ${approvedBizCount} business(es), ${approvedMemCount} directory member(s), and ${approvedUsrCount} user account(s) in a single action.`,
+          undefined,
+          `${totalDone} Listings`,
+          'SUCCESS'
+        );
+        showToast(
+          'Batch Approval Completed',
+          `Successfully approved ${totalDone} selected listing(s) (${approvedBizCount} Business, ${approvedMemCount} Directory Member, ${approvedUsrCount} User Account).`,
+          'success'
+        );
+      }
+      handleClearPendingSelections();
+    } finally {
+      setIsBatchProcessing(false);
+    }
+  };
+
+  const handleBatchRejectSelectedPending = async () => {
+    if (!isSuperAdmin || totalSelectedPending === 0 || isBatchProcessing) return;
+    setIsBatchProcessing(true);
+    try {
+      let rejectedBizCount = 0;
+      let rejectedMemCount = 0;
+      let rejectedUsrCount = 0;
+
+      if (selectedPendingBizIds.length > 0) {
+        rejectedBizCount = batchRejectBusinesses(selectedPendingBizIds);
+      }
+      if (selectedPendingMemberIds.length > 0) {
+        rejectedMemCount = batchRejectMembers(selectedPendingMemberIds);
+      }
+      if (selectedPendingUserIds.length > 0) {
+        rejectedUsrCount = batchRejectUsers(selectedPendingUserIds);
+      }
+
+      const totalDone = rejectedBizCount + rejectedMemCount + rejectedUsrCount;
+      if (totalDone > 0) {
+        await logAdminActivity(
+          'DELETION',
+          'System',
+          `Batch Rejected ${totalDone} Pending Listing(s)`,
+          `Super Admin batch rejected ${rejectedBizCount} business(es), ${rejectedMemCount} directory member(s), and ${rejectedUsrCount} user account(s) in a single action.`,
+          undefined,
+          `${totalDone} Listings`,
+          'WARNING'
+        );
+        showToast(
+          'Batch Rejection Completed',
+          `Rejected ${totalDone} selected listing(s) (${rejectedBizCount} Business, ${rejectedMemCount} Directory Member, ${rejectedUsrCount} User Account).`,
+          'info'
+        );
+      }
+      handleClearPendingSelections();
+    } finally {
+      setIsBatchProcessing(false);
+    }
+  };
+
+  const handleBatchBizQueueAction = async (action: 'approve' | 'reject') => {
+    if (!isSuperAdmin || selectedBizQueueIds.length === 0 || isBatchProcessing) return;
+    setIsBatchProcessing(true);
+    try {
+      const count =
+        action === 'approve'
+          ? batchApproveBusinesses(selectedBizQueueIds)
+          : batchRejectBusinesses(selectedBizQueueIds);
+      if (count > 0) {
+        logBizAction(
+          `Batch ${action === 'approve' ? 'APPROVED' : 'REJECTED'} ${count} business listing(s) by Super Admin.`
+        );
+        await logAdminActivity(
+          action === 'approve' ? 'APPROVAL' : 'DELETION',
+          'Business',
+          `Batch ${action === 'approve' ? 'Approved' : 'Rejected'} ${count} Business Listing(s)`,
+          `Super Admin batch ${action === 'approve' ? 'verified and approved' : 'rejected'} ${count} business listing(s) from Verification Queue.`,
+          undefined,
+          `${count} Businesses`,
+          action === 'approve' ? 'SUCCESS' : 'WARNING'
+        );
+      }
+      setSelectedBizQueueIds([]);
+    } finally {
+      setIsBatchProcessing(false);
+    }
+  };
+
+  const handleBatchDirMembersAction = async (action: 'approve' | 'reject') => {
+    if (!isSuperAdmin || selectedDirMemberIds.length === 0 || isBatchProcessing) return;
+    setIsBatchProcessing(true);
+    try {
+      const count =
+        action === 'approve'
+          ? batchApproveMembers(selectedDirMemberIds)
+          : batchRejectMembers(selectedDirMemberIds);
+      if (count > 0) {
+        await logAdminActivity(
+          action === 'approve' ? 'APPROVAL' : 'DELETION',
+          'Member',
+          `Batch ${action === 'approve' ? 'Approved' : 'Rejected'} ${count} Directory Member(s)`,
+          `Super Admin batch ${action === 'approve' ? 'verified and approved' : 'rejected'} ${count} directory member listing(s).`,
+          undefined,
+          `${count} Members`,
+          action === 'approve' ? 'SUCCESS' : 'WARNING'
+        );
+      }
+      setSelectedDirMemberIds([]);
+    } finally {
+      setIsBatchProcessing(false);
+    }
+  };
 
   const handleSelectBusinessForAd = (bizId: string) => {
     setSelectedBusinessId(bizId);
@@ -1269,6 +1464,12 @@ export const AdminPanel: React.FC = () => {
 
         {/* Header Right Actions & Stats */}
         <div className="flex flex-col items-start md:items-end gap-2.5">
+          {isSuperAdmin && (
+            <div className="self-end">
+              <SyncStatusIndicator variant="topbar" />
+            </div>
+          )}
+
           {/* Real-time Business Approval Alert Badge */}
           {pendingBusinesses.length > 0 && (
             <button
@@ -1701,53 +1902,196 @@ export const AdminPanel: React.FC = () => {
             ))}
           </div>
 
+          {/* Superadmin Batch Approval Action Bar */}
+          {isSuperAdmin &&
+            (pendingBusinesses.length > 0 || pendingMembers.length > 0 || pendingUsers.length > 0) && (
+              <div className="p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-slate-900 via-amber-950/70 to-slate-900 text-white border border-amber-500/50 shadow-lg flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+                <div className="space-y-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="px-2 py-0.5 rounded-full bg-amber-400 text-slate-950 text-[10px] font-black uppercase tracking-wider">
+                      Batch Approval
+                    </span>
+                    <span className="text-xs font-extrabold text-white">
+                      {totalSelectedPending > 0
+                        ? `${totalSelectedPending} listing(s) selected`
+                        : 'Select multiple pending business or member listings below'}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+                    {pendingBusinesses.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          toggleAllInSelection(
+                            setSelectedPendingBizIds,
+                            pendingBusinesses.map((b) => b.id)
+                          )
+                        }
+                        className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-200 border border-slate-700 font-bold cursor-pointer transition-colors"
+                      >
+                        {pendingBusinesses.every((b) => selectedPendingBizIds.includes(b.id))
+                          ? `Deselect Businesses (${pendingBusinesses.length})`
+                          : `Select All Businesses (${pendingBusinesses.length})`}
+                      </button>
+                    )}
+                    {pendingMembers.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          toggleAllInSelection(
+                            setSelectedPendingMemberIds,
+                            pendingMembers.map((m) => m.id)
+                          )
+                        }
+                        className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-emerald-200 border border-slate-700 font-bold cursor-pointer transition-colors"
+                      >
+                        {pendingMembers.every((m) => selectedPendingMemberIds.includes(m.id))
+                          ? `Deselect Directory Members (${pendingMembers.length})`
+                          : `Select All Directory Members (${pendingMembers.length})`}
+                      </button>
+                    )}
+                    {pendingUsers.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          toggleAllInSelection(
+                            setSelectedPendingUserIds,
+                            pendingUsers.map((u) => u.id)
+                          )
+                        }
+                        className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-sky-200 border border-slate-700 font-bold cursor-pointer transition-colors"
+                      >
+                        {pendingUsers.every((u) => selectedPendingUserIds.includes(u.id))
+                          ? `Deselect User Accounts (${pendingUsers.length})`
+                          : `Select All User Accounts (${pendingUsers.length})`}
+                      </button>
+                    )}
+                    {totalSelectedPending > 0 && (
+                      <button
+                        type="button"
+                        onClick={handleClearPendingSelections}
+                        className="px-2.5 py-1 rounded-lg bg-slate-800/60 hover:bg-slate-700 text-slate-300 border border-slate-700 font-bold cursor-pointer"
+                      >
+                        Clear Selection
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    disabled={totalSelectedPending === 0 || isBatchProcessing}
+                    onClick={handleBatchApproveSelectedPending}
+                    className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 disabled:opacity-40 disabled:cursor-not-allowed text-slate-950 font-black text-xs flex items-center gap-1.5 shadow-md cursor-pointer transition-all"
+                  >
+                    <CheckCircle className="w-4 h-4" />
+                    <span>
+                      {isBatchProcessing
+                        ? 'Processing...'
+                        : `Approve Selected (${totalSelectedPending})`}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    disabled={totalSelectedPending === 0 || isBatchProcessing}
+                    onClick={handleBatchRejectSelectedPending}
+                    className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-black text-xs flex items-center gap-1.5 shadow-md cursor-pointer transition-all"
+                  >
+                    <XCircle className="w-4 h-4" />
+                    <span>Reject Selected ({totalSelectedPending})</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
           {/* Pending Users List */}
           {(pendingSubTab === 'all' || pendingSubTab === 'users') && pendingUsers.length > 0 && (
             <div className="space-y-3">
-              <h4 className="text-xs font-black text-slate-700 dark:text-slate-300 uppercase">
-                Pending User Accounts ({pendingUsers.length})
-              </h4>
+              <div className="flex items-center justify-between gap-2">
+                <h4 className="text-xs font-black text-slate-700 dark:text-slate-300 uppercase">
+                  Pending User Accounts ({pendingUsers.length})
+                </h4>
+                {isSuperAdmin && (
+                  <label className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 dark:text-slate-300 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={
+                        pendingUsers.length > 0 &&
+                        pendingUsers.every((u) => selectedPendingUserIds.includes(u.id))
+                      }
+                      onChange={() =>
+                        toggleAllInSelection(
+                          setSelectedPendingUserIds,
+                          pendingUsers.map((u) => u.id)
+                        )
+                      }
+                      className="w-4 h-4 rounded border-slate-300 accent-amber-500 cursor-pointer"
+                    />
+                    <span>Select All ({pendingUsers.length})</span>
+                  </label>
+                )}
+              </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {pendingUsers.map((u) => (
-                  <div key={u.id} className="p-4 rounded-xl border border-amber-200 dark:border-amber-900/60 bg-amber-50/30 dark:bg-slate-800/80 space-y-3">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2.5">
-                        <img src={u.profilePhoto} alt={u.fullName} className="w-10 h-10 rounded-full border object-cover" />
-                        <div>
-                          <p className="font-extrabold text-xs text-slate-900 dark:text-white">{u.fullName}</p>
-                          <p className="text-[10px] text-slate-500">{u.email} • {u.mobile}</p>
+                {pendingUsers.map((u) => {
+                  const isSelected = selectedPendingUserIds.includes(u.id);
+                  return (
+                    <div
+                      key={u.id}
+                      className={`p-4 rounded-xl border transition-all space-y-3 ${
+                        isSelected
+                          ? 'border-amber-500 ring-2 ring-amber-400/50 bg-amber-50/70 dark:bg-amber-950/30'
+                          : 'border-amber-200 dark:border-amber-900/60 bg-amber-50/30 dark:bg-slate-800/80'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2.5">
+                          {isSuperAdmin && (
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => toggleIdInSelection(setSelectedPendingUserIds, u.id)}
+                              aria-label={`Select user ${u.fullName}`}
+                              className="w-4 h-4 rounded border-slate-300 accent-amber-500 cursor-pointer shrink-0"
+                            />
+                          )}
+                          <img src={u.profilePhoto} alt={u.fullName} className="w-10 h-10 rounded-full border object-cover" />
+                          <div>
+                            <p className="font-extrabold text-xs text-slate-900 dark:text-white">{u.fullName}</p>
+                            <p className="text-[10px] text-slate-500">{u.email} • {u.mobile}</p>
+                          </div>
                         </div>
+                        <span className="text-[10px] font-bold px-2 py-0.5 bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 rounded">
+                          {u.registrationType}
+                        </span>
                       </div>
-                      <span className="text-[10px] font-bold px-2 py-0.5 bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 rounded">
-                        {u.registrationType}
-                      </span>
-                    </div>
 
-                    <div className="flex items-center gap-2 pt-1 border-t border-slate-200 dark:border-slate-700">
-                      <button
-                        type="button"
-                        onClick={() => setViewingProfile({ type: 'user', data: u })}
-                        className="py-1.5 px-3 bg-amber-100 dark:bg-amber-950/60 text-amber-900 dark:text-amber-300 rounded-lg text-xs font-bold hover:bg-amber-200 transition-all flex items-center justify-center gap-1 cursor-pointer"
-                      >
-                        <Eye className="w-3.5 h-3.5" /> View
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => approveUser(u.id)}
-                        className="flex-1 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-extrabold transition-all flex items-center justify-center gap-1 cursor-pointer"
-                      >
-                        <CheckCircle className="w-3.5 h-3.5" /> Approve
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => rejectUser(u.id)}
-                        className="py-1.5 px-3 bg-red-100 dark:bg-red-950/60 text-red-700 dark:text-red-300 rounded-lg text-xs font-bold hover:bg-red-200 transition-all flex items-center justify-center gap-1 cursor-pointer"
-                      >
-                        <XCircle className="w-3.5 h-3.5" /> Reject
-                      </button>
+                      <div className="flex items-center gap-2 pt-1 border-t border-slate-200 dark:border-slate-700">
+                        <button
+                          type="button"
+                          onClick={() => setViewingProfile({ type: 'user', data: u })}
+                          className="py-1.5 px-3 bg-amber-100 dark:bg-amber-950/60 text-amber-900 dark:text-amber-300 rounded-lg text-xs font-bold hover:bg-amber-200 transition-all flex items-center justify-center gap-1 cursor-pointer"
+                        >
+                          <Eye className="w-3.5 h-3.5" /> View
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => approveUser(u.id)}
+                          className="flex-1 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-extrabold transition-all flex items-center justify-center gap-1 cursor-pointer"
+                        >
+                          <CheckCircle className="w-3.5 h-3.5" /> Approve
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => rejectUser(u.id)}
+                          className="py-1.5 px-3 bg-red-100 dark:bg-red-950/60 text-red-700 dark:text-red-300 rounded-lg text-xs font-bold hover:bg-red-200 transition-all flex items-center justify-center gap-1 cursor-pointer"
+                        >
+                          <XCircle className="w-3.5 h-3.5" /> Reject
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
@@ -1796,37 +2140,210 @@ export const AdminPanel: React.FC = () => {
           {/* Pending Businesses */}
           {(pendingSubTab === 'all' || pendingSubTab === 'businesses') && pendingBusinesses.length > 0 && (
             <div className="space-y-3">
-              <h4 className="text-xs font-black text-slate-700 dark:text-slate-300 uppercase">
-                Pending Business Listings ({pendingBusinesses.length})
-              </h4>
+              <div className="flex items-center justify-between gap-2">
+                <h4 className="text-xs font-black text-slate-700 dark:text-slate-300 uppercase">
+                  Pending Business Listings ({pendingBusinesses.length})
+                </h4>
+                {isSuperAdmin && (
+                  <label className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 dark:text-slate-300 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={
+                        pendingBusinesses.length > 0 &&
+                        pendingBusinesses.every((b) => selectedPendingBizIds.includes(b.id))
+                      }
+                      onChange={() =>
+                        toggleAllInSelection(
+                          setSelectedPendingBizIds,
+                          pendingBusinesses.map((b) => b.id)
+                        )
+                      }
+                      className="w-4 h-4 rounded border-slate-300 accent-amber-500 cursor-pointer"
+                    />
+                    <span>Select All ({pendingBusinesses.length})</span>
+                  </label>
+                )}
+              </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {pendingBusinesses.map((b) => (
-                  <div key={b.id} className="p-4 rounded-xl border border-blue-200 dark:border-blue-900/60 bg-blue-50/20 dark:bg-slate-800/80 space-y-3">
-                    <div className="flex items-center justify-between gap-2">
-                      <div>
-                        <p className="font-extrabold text-xs text-slate-900 dark:text-white">{b.businessName}</p>
-                        <p className="text-[10px] text-slate-500">{b.category} • {b.city} • {b.mobile}</p>
+                {pendingBusinesses.map((b) => {
+                  const isSelected = selectedPendingBizIds.includes(b.id);
+                  return (
+                    <div
+                      key={b.id}
+                      className={`p-4 rounded-xl border transition-all space-y-3 ${
+                        isSelected
+                          ? 'border-amber-500 ring-2 ring-amber-400/50 bg-amber-50/60 dark:bg-amber-950/30'
+                          : 'border-blue-200 dark:border-blue-900/60 bg-blue-50/20 dark:bg-slate-800/80'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-start gap-2.5">
+                          {isSuperAdmin && (
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => toggleIdInSelection(setSelectedPendingBizIds, b.id)}
+                              aria-label={`Select business ${b.businessName}`}
+                              className="w-4 h-4 mt-0.5 rounded border-slate-300 accent-amber-500 cursor-pointer shrink-0"
+                            />
+                          )}
+                          <div>
+                            <p className="font-extrabold text-xs text-slate-900 dark:text-white">{b.businessName}</p>
+                            <p className="text-[10px] text-slate-500">{b.category} • {b.city} • {b.mobile}</p>
+                          </div>
+                        </div>
+                        {b.gstNumber && (
+                          <span className="text-[9px] font-mono font-bold px-2 py-0.5 bg-blue-100 dark:bg-blue-950 text-blue-800 dark:text-blue-300 rounded">
+                            GST: {b.gstNumber}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-2 pt-1 border-t border-slate-200 dark:border-slate-700">
+                        <button
+                          type="button"
+                          onClick={() => setViewingProfile({ type: 'business', data: b })}
+                          className="py-1.5 px-2.5 bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-200 rounded-lg text-xs font-bold hover:bg-slate-200 transition-all flex items-center justify-center gap-1 cursor-pointer"
+                        >
+                          <Eye className="w-3.5 h-3.5" /> View
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleApproveBusinessWithAudit(b)}
+                          className="flex-1 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-extrabold transition-all flex items-center justify-center gap-1 cursor-pointer"
+                        >
+                          <CheckCircle className="w-3.5 h-3.5" /> Verify Business
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => rejectBusiness(b.id)}
+                          className="py-1.5 px-2.5 bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 rounded-lg text-xs font-bold hover:bg-amber-200 transition-all flex items-center justify-center gap-1 cursor-pointer"
+                        >
+                          <XCircle className="w-3.5 h-3.5" /> Reject
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => deleteBusiness(b.id)}
+                          className="py-1.5 px-2.5 bg-red-100 dark:bg-red-950/60 text-red-700 dark:text-red-300 rounded-lg text-xs font-bold hover:bg-red-200 transition-all flex items-center justify-center gap-1 cursor-pointer"
+                          title="Delete Listing"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
                       </div>
                     </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
-                    <div className="flex items-center gap-2 pt-1 border-t border-slate-200 dark:border-slate-700">
-                      <button
-                        type="button"
-                        onClick={() => handleApproveBusinessWithAudit(b)}
-                        className="flex-1 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-extrabold transition-all flex items-center justify-center gap-1 cursor-pointer"
-                      >
-                        <CheckCircle className="w-3.5 h-3.5" /> Verify Business
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => deleteBusiness(b.id)}
-                        className="py-1.5 px-3 bg-red-100 dark:bg-red-950/60 text-red-700 dark:text-red-300 rounded-lg text-xs font-bold hover:bg-red-200 transition-all flex items-center justify-center gap-1 cursor-pointer"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" /> Delete
-                      </button>
+          {/* Pending Directory Members */}
+          {(pendingSubTab === 'all' || pendingSubTab === 'members') && pendingMembers.length > 0 && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <h4 className="text-xs font-black text-slate-700 dark:text-slate-300 uppercase">
+                  Pending Directory Member Listings ({pendingMembers.length})
+                </h4>
+                {isSuperAdmin && (
+                  <label className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 dark:text-slate-300 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={
+                        pendingMembers.length > 0 &&
+                        pendingMembers.every((m) => selectedPendingMemberIds.includes(m.id))
+                      }
+                      onChange={() =>
+                        toggleAllInSelection(
+                          setSelectedPendingMemberIds,
+                          pendingMembers.map((m) => m.id)
+                        )
+                      }
+                      className="w-4 h-4 rounded border-slate-300 accent-emerald-500 cursor-pointer"
+                    />
+                    <span>Select All ({pendingMembers.length})</span>
+                  </label>
+                )}
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {pendingMembers.map((mem) => {
+                  const isSelected = selectedPendingMemberIds.includes(mem.id);
+                  const displayName =
+                    (mem as any).fullName || `${mem.name || ''} ${mem.surname || ''}`.trim() || 'Jain Member';
+                  return (
+                    <div
+                      key={mem.id}
+                      className={`p-4 rounded-xl border transition-all space-y-3 ${
+                        isSelected
+                          ? 'border-emerald-500 ring-2 ring-emerald-400/50 bg-emerald-50/50 dark:bg-emerald-950/30'
+                          : 'border-emerald-200 dark:border-emerald-900/60 bg-emerald-50/20 dark:bg-slate-800/80'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2.5">
+                          {isSuperAdmin && (
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => toggleIdInSelection(setSelectedPendingMemberIds, mem.id)}
+                              aria-label={`Select member ${displayName}`}
+                              className="w-4 h-4 rounded border-slate-300 accent-emerald-500 cursor-pointer shrink-0"
+                            />
+                          )}
+                          <img
+                            src={mem.photoUrl}
+                            alt={displayName}
+                            className="w-10 h-10 rounded-full border object-cover"
+                          />
+                          <div>
+                            <p className="font-extrabold text-xs text-slate-900 dark:text-white">
+                              {displayName}
+                            </p>
+                            <p className="text-[10px] text-slate-500">
+                              {mem.profession || (mem as any).occupation || 'Community Member'} • {mem.city}, {mem.state} • {mem.mobile}
+                            </p>
+                          </div>
+                        </div>
+                        {mem.bloodGroup && (
+                          <span className="text-[10px] font-bold px-2 py-0.5 bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300 rounded">
+                            {mem.bloodGroup}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-2 pt-1 border-t border-slate-200 dark:border-slate-700">
+                        <button
+                          type="button"
+                          onClick={() => setViewingProfile({ type: 'member', data: mem })}
+                          className="py-1.5 px-2.5 bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-200 rounded-lg text-xs font-bold hover:bg-slate-200 transition-all flex items-center justify-center gap-1 cursor-pointer"
+                        >
+                          <Eye className="w-3.5 h-3.5" /> View
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => approveCommunityMember(mem.id)}
+                          className="flex-1 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-extrabold transition-all flex items-center justify-center gap-1 cursor-pointer"
+                        >
+                          <CheckCircle className="w-3.5 h-3.5" /> Verify Member
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => rejectCommunityMember(mem.id)}
+                          className="py-1.5 px-2.5 bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 rounded-lg text-xs font-bold hover:bg-amber-200 transition-all flex items-center justify-center gap-1 cursor-pointer"
+                        >
+                          <XCircle className="w-3.5 h-3.5" /> Reject
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => deleteCommunityMember(mem.id)}
+                          className="py-1.5 px-2.5 bg-red-100 dark:bg-red-950/60 text-red-700 dark:text-red-300 rounded-lg text-xs font-bold hover:bg-red-200 transition-all flex items-center justify-center gap-1 cursor-pointer"
+                          title="Delete Member"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
@@ -2216,6 +2733,56 @@ export const AdminPanel: React.FC = () => {
                 </div>
               </div>
 
+              {/* Superadmin Batch Approval Toolbar for Business Queue */}
+              {isSuperAdmin && pendingBusinesses.length > 0 && (
+                <div className="p-3.5 rounded-xl bg-slate-900 text-white border border-amber-500/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex flex-wrap items-center gap-2.5">
+                    <label className="inline-flex items-center gap-2 text-xs font-bold text-amber-200 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={
+                          pendingBusinesses.length > 0 &&
+                          pendingBusinesses.every((b) => selectedBizQueueIds.includes(b.id))
+                        }
+                        onChange={() =>
+                          toggleAllInSelection(
+                            setSelectedBizQueueIds,
+                            pendingBusinesses.map((b) => b.id)
+                          )
+                        }
+                        className="w-4 h-4 rounded accent-amber-500 cursor-pointer"
+                      />
+                      <span>Select All Pending ({pendingBusinesses.length})</span>
+                    </label>
+                    {selectedBizQueueIds.length > 0 && (
+                      <span className="px-2 py-0.5 rounded-full bg-amber-400 text-slate-950 text-[10px] font-black">
+                        {selectedBizQueueIds.length} Selected
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={selectedBizQueueIds.length === 0 || isBatchProcessing}
+                      onClick={() => handleBatchBizQueueAction('approve')}
+                      className="px-3.5 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 disabled:opacity-40 disabled:cursor-not-allowed text-slate-950 text-xs font-black flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <CheckCircle className="w-3.5 h-3.5" />
+                      <span>Batch Approve ({selectedBizQueueIds.length})</span>
+                    </button>
+                    <button
+                      type="button"
+                      disabled={selectedBizQueueIds.length === 0 || isBatchProcessing}
+                      onClick={() => handleBatchBizQueueAction('reject')}
+                      className="px-3.5 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-black flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <XCircle className="w-3.5 h-3.5" />
+                      <span>Batch Reject ({selectedBizQueueIds.length})</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* Business Queue Data Cards & Actions */}
               <div className="space-y-3">
                 {businesses
@@ -2267,12 +2834,18 @@ export const AdminPanel: React.FC = () => {
                       .map((b) => {
                         const isSyncingThis = syncingBizIds[b.id];
                         const isVerifyingGstThis = verifyingGstBizIds[b.id];
+                        const isPendingItem =
+                          b.status !== 'Rejected' &&
+                          (b.status === 'Pending Approval' || (b.status as string) === 'Pending' || !b.isVerified);
+                        const isQueueSelected = selectedBizQueueIds.includes(b.id);
 
                         return (
                           <div
                             key={b.id}
                             className={`p-4 rounded-xl border transition-all space-y-3 ${
-                              !b.isVerified || b.status === 'Pending'
+                              isQueueSelected
+                                ? 'border-amber-500 ring-2 ring-amber-400/50 bg-amber-50/40 dark:bg-amber-950/30'
+                                : !b.isVerified || b.status === 'Pending'
                                 ? 'border-amber-300 dark:border-amber-900/80 bg-amber-50/20 dark:bg-slate-800/80'
                                 : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800/50'
                             }`}
@@ -2280,6 +2853,15 @@ export const AdminPanel: React.FC = () => {
                             <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
                               {/* Left: Info */}
                               <div className="flex items-start gap-3">
+                                {isSuperAdmin && isPendingItem && (
+                                  <input
+                                    type="checkbox"
+                                    checked={isQueueSelected}
+                                    onChange={() => toggleIdInSelection(setSelectedBizQueueIds, b.id)}
+                                    aria-label={`Select business ${b.businessName}`}
+                                    className="w-4 h-4 mt-3.5 rounded accent-amber-500 cursor-pointer shrink-0"
+                                  />
+                                )}
                                 <div className="w-12 h-12 rounded-xl bg-slate-100 dark:bg-slate-700 flex items-center justify-center overflow-hidden shrink-0 border border-slate-200 dark:border-slate-600">
                                   {b.logoUrl ? (
                                     <img src={b.logoUrl} alt={b.businessName} className="w-full h-full object-cover" />
@@ -3208,10 +3790,60 @@ export const AdminPanel: React.FC = () => {
             </div>
           </div>
 
+          {isSuperAdmin && pendingMembers.length > 0 && (
+            <div className="p-3 rounded-xl bg-slate-900 text-white border border-emerald-500/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center gap-2.5">
+                <label className="inline-flex items-center gap-2 text-xs font-bold text-emerald-200 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={
+                      pendingMembers.length > 0 &&
+                      pendingMembers.every((m) => selectedDirMemberIds.includes(m.id))
+                    }
+                    onChange={() =>
+                      toggleAllInSelection(
+                        setSelectedDirMemberIds,
+                        pendingMembers.map((m) => m.id)
+                      )
+                    }
+                    className="w-4 h-4 rounded accent-emerald-500 cursor-pointer"
+                  />
+                  <span>Select All Pending Members ({pendingMembers.length})</span>
+                </label>
+                {selectedDirMemberIds.length > 0 && (
+                  <span className="px-2 py-0.5 rounded-full bg-emerald-400 text-slate-950 text-[10px] font-black">
+                    {selectedDirMemberIds.length} Selected
+                  </span>
+                )}
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  disabled={selectedDirMemberIds.length === 0 || isBatchProcessing}
+                  onClick={() => handleBatchDirMembersAction('approve')}
+                  className="px-3.5 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 disabled:opacity-40 disabled:cursor-not-allowed text-slate-950 text-xs font-black flex items-center gap-1.5 cursor-pointer"
+                >
+                  <CheckCircle className="w-3.5 h-3.5" />
+                  <span>Batch Approve ({selectedDirMemberIds.length})</span>
+                </button>
+                <button
+                  type="button"
+                  disabled={selectedDirMemberIds.length === 0 || isBatchProcessing}
+                  onClick={() => handleBatchDirMembersAction('reject')}
+                  className="px-3.5 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-black flex items-center gap-1.5 cursor-pointer"
+                >
+                  <XCircle className="w-3.5 h-3.5" />
+                  <span>Batch Reject ({selectedDirMemberIds.length})</span>
+                </button>
+              </div>
+            </div>
+          )}
+
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
                 <tr className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-extrabold uppercase text-[10px] tracking-wider border-b border-slate-200 dark:border-slate-700">
+                  {isSuperAdmin && <th className="p-3 w-8">Select</th>}
                   <th className="p-3">Member Name</th>
                   <th className="p-3">Sect / Gotra</th>
                   <th className="p-3">City / State</th>
@@ -3222,49 +3854,79 @@ export const AdminPanel: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-800 dark:text-slate-200">
-                {filteredMembers.map((mem) => (
-                  <tr key={mem.id} className="hover:bg-amber-50/40 dark:hover:bg-slate-800/50 transition-colors">
-                    <td className="p-3 font-extrabold text-slate-900 dark:text-white">{mem.fullName}</td>
-                    <td className="p-3 font-medium">{mem.sect} ({mem.nativePlace || 'Jain'})</td>
-                    <td className="p-3 font-medium">{mem.city}, {mem.state}</td>
-                    <td className="p-3 font-medium">{mem.occupation}</td>
-                    <td className="p-3 font-medium">{mem.mobile}</td>
-                    <td className="p-3">
-                      {mem.isVerified ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 text-[10px] font-black rounded-full">
-                          <CheckCircle className="w-3 h-3 text-emerald-500" /> Verified
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 text-[10px] font-bold rounded-full">
-                          Pending
-                        </span>
+                {filteredMembers.map((mem) => {
+                  const isMemPending = mem.status !== 'Rejected' && !mem.isVerified;
+                  const isMemSelected = selectedDirMemberIds.includes(mem.id);
+                  const displayName =
+                    (mem as any).fullName || `${mem.name || ''} ${mem.surname || ''}`.trim();
+                  return (
+                    <tr
+                      key={mem.id}
+                      className={`transition-colors ${
+                        isMemSelected
+                          ? 'bg-emerald-50/70 dark:bg-emerald-950/30'
+                          : 'hover:bg-amber-50/40 dark:hover:bg-slate-800/50'
+                      }`}
+                    >
+                      {isSuperAdmin && (
+                        <td className="p-3">
+                          {isMemPending ? (
+                            <input
+                              type="checkbox"
+                              checked={isMemSelected}
+                              onChange={() => toggleIdInSelection(setSelectedDirMemberIds, mem.id)}
+                              aria-label={`Select member ${displayName}`}
+                              className="w-4 h-4 rounded accent-emerald-500 cursor-pointer"
+                            />
+                          ) : null}
+                        </td>
                       )}
-                    </td>
-                    <td className="p-3 text-right space-x-1.5">
-                      <button
-                        type="button"
-                        onClick={() => setViewingProfile({ type: 'member', data: mem })}
-                        className="px-2 py-1 bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-300 rounded font-bold hover:bg-amber-200 cursor-pointer inline-flex items-center gap-1"
-                      >
-                        <Eye className="w-3 h-3" /> View
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => approveCommunityMember(mem.id)}
-                        className="px-2 py-1 bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 rounded font-bold hover:bg-emerald-200 cursor-pointer"
-                      >
-                        Verify
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => deleteCommunityMember(mem.id)}
-                        className="px-2 py-1 bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300 rounded font-bold hover:bg-red-200 cursor-pointer"
-                      >
-                        Delete
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                      <td className="p-3 font-extrabold text-slate-900 dark:text-white">{displayName}</td>
+                      <td className="p-3 font-medium">{(mem as any).sect || 'Jain'} ({(mem as any).nativePlace || mem.gotra || 'Jain'})</td>
+                      <td className="p-3 font-medium">{mem.city}, {mem.state}</td>
+                      <td className="p-3 font-medium">{(mem as any).occupation || mem.profession}</td>
+                      <td className="p-3 font-medium">{mem.mobile}</td>
+                      <td className="p-3">
+                        {mem.isVerified ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 text-[10px] font-black rounded-full">
+                            <CheckCircle className="w-3 h-3 text-emerald-500" /> Verified
+                          </span>
+                        ) : mem.status === 'Rejected' ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-red-100 dark:bg-red-950 text-red-700 dark:text-red-300 text-[10px] font-bold rounded-full">
+                            Rejected
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 text-[10px] font-bold rounded-full">
+                            Pending
+                          </span>
+                        )}
+                      </td>
+                      <td className="p-3 text-right space-x-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setViewingProfile({ type: 'member', data: mem })}
+                          className="px-2 py-1 bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-300 rounded font-bold hover:bg-amber-200 cursor-pointer inline-flex items-center gap-1"
+                        >
+                          <Eye className="w-3 h-3" /> View
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => approveCommunityMember(mem.id)}
+                          className="px-2 py-1 bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 rounded font-bold hover:bg-emerald-200 cursor-pointer"
+                        >
+                          Verify
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => deleteCommunityMember(mem.id)}
+                          className="px-2 py-1 bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300 rounded font-bold hover:bg-red-200 cursor-pointer"
+                        >
+                          Delete
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

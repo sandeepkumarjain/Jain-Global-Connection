@@ -4,7 +4,6 @@ import { NAV_TRANSLATIONS } from '../utils/translations';
 import { useTypingPlaceholder } from '../hooks/useTypingPlaceholder';
 import { LanguageSwitcher } from './LanguageSwitcher';
 import { ThemeSwitcher } from './ThemeSwitcher';
-import { SyncStatusIndicator } from './SyncStatusIndicator';
 import {
   Search,
   Sparkles,
@@ -374,9 +373,6 @@ export const Header: React.FC = () => {
 
             {/* Language Switcher Dropdown */}
             <LanguageSwitcher variant="topbar" />
-
-            {/* Persistent Supabase Sync Status Indicator (Top-Right Corner) */}
-            <SyncStatusIndicator variant="topbar" />
           </div>
         </div>
       </div>

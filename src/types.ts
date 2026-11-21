@@ -396,6 +396,7 @@ export interface CommunityMemberProfile {
   photoUrl: string;
   familyMembers: FamilyMember[];
   isVerified: boolean;
+  status?: 'Pending Approval' | 'Approved' | 'Rejected';
   address: string;
   badges?: string[];
   membershipTier?: 'Free' | 'Premium' | 'Elite' | 'Trustee';

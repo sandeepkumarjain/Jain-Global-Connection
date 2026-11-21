@@ -32,6 +32,7 @@ export const DataConflictModal: React.FC = () => {
     dismissSyncConflicts,
     resolveSyncConflicts,
     isResolvingConflicts,
+    isSuperAdmin,
   } = useApp();
 
   const [activeConflictId, setActiveConflictId] = useState<string | null>(null);
@@ -216,7 +217,7 @@ export const DataConflictModal: React.FC = () => {
     await resolveSyncConflicts(selections);
   };
 
-  if (!isConflictModalOpen || pendingSyncConflicts.length === 0 || !activeConflict) {
+  if (!isSuperAdmin || !isConflictModalOpen || pendingSyncConflicts.length === 0 || !activeConflict) {
     return null;
   }
 
